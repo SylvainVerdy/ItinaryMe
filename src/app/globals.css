@@ -9,64 +9,64 @@ body {
 
 @layer base {
   :root {
-    --background: 250 25% 96%; /* Beige */
-    --foreground: 70 20% 20%;  /* Dark Green */
-    --card: 250 25% 96%;       /* Beige */
-    --card-foreground: 70 20% 20%;
-    --popover: 250 25% 96%;     /* Beige */
-    --popover-foreground: 70 20% 20%;
-    --primary: 70 30% 40%;      /* Medium Green */
+    --background: 30 15% 90%;   /* Light Beige/Desert */
+    --foreground: 30 10% 20%;   /* Darker Beige/Desert */
+    --card: 40 10% 88%;        /* Slightly darker Beige/Desert */
+    --card-foreground: 30 10% 20%;
+    --popover: 40 10% 88%;      /* Slightly darker Beige/Desert */
+    --popover-foreground: 30 10% 20%;
+    --primary: 120 20% 40%;     /* Muted Green */
     --primary-foreground: 0 0% 98%;
-    --secondary: 70 15% 85%;    /* Light Green */
-    --secondary-foreground: 70 20% 20%;
-    --muted: 70 15% 85%;        /* Light Green */
-    --muted-foreground: 70 10% 50%;
-    --accent: 140 50% 50%;       /* Teal */
+    --secondary: 60 10% 75%;    /* Light Sand */
+    --secondary-foreground: 30 10% 20%;
+    --muted: 60 10% 75%;        /* Light Sand */
+    --muted-foreground: 30 8% 40%;
+    --accent: 35 50% 50%;      /* Desert Sunrise (Orange-ish) */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 60% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 70 10% 75%;
-    --input: 70 10% 75%;
-    --ring: 140 50% 50%;        /* Teal */
+    --border: 30 5% 60%;
+    --input: 30 5% 60%;
+    --ring: 35 50% 50%;       /* Desert Sunrise (Orange-ish) */
     --radius: 0.75rem;
-    --sidebar-background: 250 20% 92%; /* Lighter Beige */
-    --sidebar-foreground: 70 15% 30%;
-    --sidebar-primary: 70 30% 40%;      /* Medium Green */
+    --sidebar-background: 30 12% 85%; /* Lighter Beige/Desert */
+    --sidebar-foreground: 30 10% 30%;
+    --sidebar-primary: 120 20% 40%;    /* Muted Green */
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 70 15% 85%;    /* Light Green */
-    --sidebar-accent-foreground: 70 20% 20%;
-    --sidebar-border: 70 10% 75%;
-    --sidebar-ring: 140 50% 50%;        /* Teal */
+    --sidebar-accent: 60 10% 75%;   /* Light Sand */
+    --sidebar-accent-foreground: 30 10% 20%;
+    --sidebar-border: 30 5% 60%;
+    --sidebar-ring: 35 50% 50%;     /* Desert Sunrise (Orange-ish) */
   }
 
   .dark {
-    --background: 70 10% 10%;  /* Dark Green */
-    --foreground: 250 20% 92%; /* Lighter Beige */
-    --card: 70 10% 10%;
-    --card-foreground: 250 20% 92%;
-    --popover: 70 10% 10%;
-    --popover-foreground: 250 20% 92%;
-    --primary: 250 25% 96%;     /* Beige */
-    --primary-foreground: 70 20% 20%;
-    --secondary: 70 5% 25%;
-    --secondary-foreground: 250 20% 92%;
-    --muted: 70 5% 25%;
-    --muted-foreground: 70 10% 50%;
-    --accent: 140 40% 30%;       /* Dark Teal */
+    --background: 30 8% 20%;   /* Darker Beige/Desert */
+    --foreground: 30 15% 90%;   /* Light Beige/Desert */
+    --card: 30 8% 20%;
+    --card-foreground: 30 15% 90%;
+    --popover: 30 8% 20%;
+    --popover-foreground: 30 15% 90%;
+    --primary: 60 10% 75%;    /* Light Sand */
+    --primary-foreground: 30 10% 20%;
+    --secondary: 30 5% 35%;
+    --secondary-foreground: 30 15% 90%;
+    --muted: 30 5% 35%;
+    --muted-foreground: 30 8% 50%;
+    --accent: 35 40% 30%;     /* Darker Desert Sunrise */
     --accent-foreground: 0 0% 0%;
     --destructive: 0 50% 30%;
     --destructive-foreground: 0 0% 98%;
-    --border: 70 5% 25%;
-    --input: 70 5% 25%;
-    --ring: 140 40% 30%;        /* Dark Teal */
-    --sidebar-background: 70 8% 15%; /* Darker Green */
-    --sidebar-foreground: 250 15% 70%;
-    --sidebar-primary: 250 25% 96%;     /* Beige */
-    --sidebar-primary-foreground: 70 20% 20%;
-    --sidebar-accent: 70 5% 25%;
-    --sidebar-accent-foreground: 250 20% 92%;
-    --sidebar-border: 70 5% 25%;
-    --sidebar-ring: 140 40% 30%;        /* Dark Teal */
+    --border: 30 5% 35%;
+    --input: 30 5% 35%;
+    --ring: 35 40% 30%;      /* Darker Desert Sunrise */
+    --sidebar-background: 30 6% 25%; /* Darkest Beige/Desert */
+    --sidebar-foreground: 30 12% 70%;
+    --sidebar-primary: 60 10% 75%;    /* Light Sand */
+    --sidebar-primary-foreground: 30 10% 20%;
+    --sidebar-accent: 30 5% 35%;
+    --sidebar-accent-foreground: 30 15% 90%;
+    --sidebar-border: 30 5% 35%;
+    --sidebar-ring: 35 40% 30%;     /* Darker Desert Sunrise */
   }
 }
 

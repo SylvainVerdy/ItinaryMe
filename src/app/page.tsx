@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -27,6 +26,7 @@ import {
 } from 'firebase/auth';
 import {auth} from '@/lib/firebase'; // Assuming you have a firebase.ts file
 import {Label} from '@/components/ui/label';
+import {Icons} from '@/components/icons';
 
 type TaskType = 'document' | 'planning' | 'travel';
 
@@ -164,7 +164,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-4 w-full max-w-md"> {/* Limiting the width for a cleaner look */}
-            <Card>
+            <Card className="bg-secondary">
               <CardHeader>
                 <CardTitle>Sign Up</CardTitle>
                 <CardDescription>Create a new account</CardDescription>
@@ -200,7 +200,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-secondary">
               <CardHeader>
                 <CardTitle>Sign In</CardTitle>
                 <CardDescription>Login to your account</CardDescription>
@@ -234,6 +234,7 @@ export default function Home() {
                   <Button type="submit">Sign In</Button>
                 </form>
                 <Button variant="outline" onClick={handleGoogleSignIn}>
+                  <Icons.google className="mr-2 h-4 w-4" />
                   Sign In with Google
                 </Button>
               </CardContent>
