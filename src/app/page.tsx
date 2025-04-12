@@ -1,7 +1,6 @@
 'use client';
 
 import {ChatInterface} from '@/components/ChatInterface';
-import {RoamReadySidebar} from '@/components/Sidebar';
 import {useState, useEffect} from 'react';
 import {Button} from '@/components/ui/button';
 import {
@@ -27,6 +26,7 @@ import {
 import {auth} from '@/lib/firebase'; // Assuming you have a firebase.ts file
 import {Label} from '@/components/ui/label';
 import {Icons} from '@/components/icons';
+import {Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription} from "@/components/ui/dialog";
 
 type TaskType = 'document' | 'planning' | 'travel';
 
@@ -40,7 +40,9 @@ type FormData = z.infer<typeof formSchema>;
 export default function Home() {
   const [activeTask, setActiveTask] = useState<TaskType | null>(null);
   const [documentContent, setDocumentContent] = useState('');
-  const [user, setUser] = useState<any>(null); // Track the logged-in user
+  const [user, setUser] = useState<any>(null);
+  const [open, setOpen] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const {
     register,
@@ -54,13 +56,14 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, currentUser => {
       setUser(currentUser);
     });
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   const handleSignUp = async (data: FormData) => {
     try {
       await createUserWithEmailAndPassword(auth, data.email, data.password);
       alert('Signup successful!');
+      setOpen(false); // Close the dialog after successful signup
     } catch (error: any) {
       alert(`Signup failed: ${error.message}`);
     }
@@ -70,6 +73,7 @@ export default function Home() {
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
       alert('Login successful!');
+      setOpen(false); // Close the dialog after successful signin
     } catch (error: any) {
       alert(`Login failed: ${error.message}`);
     }
@@ -93,7 +97,6 @@ export default function Home() {
       alert(`Google Sign-in failed: ${error.message}`);
     }
   };
-
 
   const renderTaskContent = () => {
     if (!user) {
@@ -139,11 +142,68 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      <RoamReadySidebar />
-      <div className="flex flex-col flex-1 p-6 items-center"> {/* Centering the content */}
+    <div className="flex flex-col h-screen bg-background">
+      <header className="bg-secondary p-4 flex justify-end">
         {user ? (
-          <div className="w-full max-w-md"> {/* Limiting the width for a cleaner look */}
+          <div className="flex items-center space-x-4">
+            <Button onClick={handleSignOut} variant="secondary">Sign Out</Button>
+          </div>
+        ) : (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button variant="secondary">Account</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>{isSignUp ? "Create account" : "Sign In"}</DialogTitle>
+                <DialogDescription>
+                  {isSignUp ? "Create a new account" : "Login to your account"}
+                </DialogDescription>
+              </DialogHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleSignIn)} className="space-y-4">
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      type="email"
+                      id="email"
+                      placeholder="Email"
+                      {...register('email')}
+                    />
+                    {errors.email && (
+                      <p className="text-red-500">{errors.email.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      type="password"
+                      id="password"
+                      placeholder="Password"
+                      {...register('password')}
+                    />
+                    {errors.password && (
+                      <p className="text-red-500">{errors.password.message}</p>
+                    )}
+                  </div>
+                  <Button type="submit" variant="primary">{isSignUp ? "Sign Up" : "Sign In"}</Button>
+                </form>
+                <Button variant="outline" onClick={handleGoogleSignIn}>
+                  <Icons.google className="mr-2 h-4 w-4" />
+                  Sign In with Google
+                </Button>
+                <Button variant="link" onClick={() => setIsSignUp(!isSignUp)}>
+                  {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+                </Button>
+              </CardContent>
+            </DialogContent>
+          </Dialog>
+        )}
+      </header>
+
+      <div className="flex flex-col flex-1 p-6 items-center">
+        {user ? (
+          <div className="w-full max-w-md">
             <div className="flex space-x-4 mb-4">
               <Button onClick={() => setActiveTask('document')}>
                 New Document
@@ -154,89 +214,12 @@ export default function Home() {
               <Button onClick={() => setActiveTask('travel')}>Plan a Trip</Button>
             </div>
             <div className="flex-1">{renderTaskContent()}</div>
-            <Button onClick={handleSignOut}>Sign Out</Button>
+
           </div>
         ) : (
-          <div className="space-y-4 w-full max-w-md"> {/* Limiting the width for a cleaner look */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Sign Up</CardTitle>
-                <CardDescription>Create a new account</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit(handleSignUp)} className="space-y-4">
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      type="email"
-                      id="email"
-                      placeholder="Email"
-                      {...register('email')}
-                    />
-                    {errors.email && (
-                      <p className="text-red-500">{errors.email.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      type="password"
-                      id="password"
-                      placeholder="Password"
-                      {...register('password')}
-                    />
-                    {errors.password && (
-                      <p className="text-red-500">{errors.password.message}</p>
-                    )}
-                  </div>
-                  <Button type="submit" variant="secondary">Sign Up</Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Sign In</CardTitle>
-                <CardDescription>Login to your account</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit(handleSignIn)} className="space-y-4">
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      type="email"
-                      id="email"
-                      placeholder="Email"
-                      {...register('email')}
-                    />
-                    {errors.email && (
-                      <p className="text-red-500">{errors.email.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      type="password"
-                      id="password"
-                      placeholder="Password"
-                      {...register('password')}
-                    />
-                    {errors.password && (
-                      <p className="text-red-500">{errors.password.message}</p>
-                    )}
-                  </div>
-                  <Button type="submit" variant="secondary">Sign In</Button>
-                </form>
-                <Button variant="outline" onClick={handleGoogleSignIn}>
-                  <Icons.google className="mr-2 h-4 w-4" />
-                  Sign In with Google
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <p>Please log in to view tasks.</p>
         )}
       </div>
     </div>
   );
 }
-
