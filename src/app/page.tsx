@@ -147,6 +147,7 @@ export default function Home() {
   const translations = {
     en: {
       welcome: "Welcome to ItinaryMe",
+      catchPhrase: "Your personalized travel starts here.",
       description1: "ItinaryMe is a travel application designed to centralize your travel planning and booking experience. We aim to provide personalized travel recommendations and planning, giving you the flexibility to customize your flights, hotels, and activities, all while streamlining the payment process.",
       description2: "ItinaryMe est une application de voyage conçue pour centraliser la planification et la réservation de vos voyages. Notre objectif est de fournir des recommandations de voyage personnalisées et une planification sur mesure, vous offrant la possibilité de personnaliser vos vols, hôtels et activités, tout en simplifiant le processus de paiement.",
       newDocument: "New Document",
@@ -163,6 +164,7 @@ export default function Home() {
     },
     fr: {
       welcome: "Bienvenue sur ItinaryMe",
+      catchPhrase: "Votre voyage personnalisé commence ici.",
       description1: "ItinaryMe est une application de voyage conçue pour centraliser la planification et la réservation de vos voyages. Notre objectif est de fournir des recommandations de voyage personnalisées et une planification sur mesure, vous offrant la possibilité de personnaliser vos vols, hôtels et activités, tout en simplifiant le processus de paiement.",
       description2: "ItinaryMe est une application de voyage conçue pour centraliser la planification et la réservation de vos voyages. Notre objectif est de fournir des recommandations de voyage personnalisées et une planification sur mesure, vous offrant la possibilité de personnaliser vos vols, hôtels et activités, tout en simplifiant le processus de paiement.",
       newDocument: "Nouveau Document",
@@ -256,11 +258,9 @@ export default function Home() {
           {!user ? (
             <div className="text-center">
               <h1 className="text-3xl font-bold mb-4">{t.welcome}</h1>
-              <p className="text-lg mb-2">
-                <strong>English:</strong> {t.description1}
-              </p>
+              <p className="text-xl italic text-muted-foreground mb-4">{t.catchPhrase}</p>
               <p className="text-lg mb-4">
-                <strong>Français:</strong> {t.description2}
+                 {t.description1}
               </p>
             </div>
           ) : (
