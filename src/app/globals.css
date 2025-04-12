@@ -11,13 +11,13 @@ body {
   :root {
     --background: 36 54% 95%;   /* Very Light Beige (#fff0db) */
     --foreground: 30 10% 20%;   /* Darker Beige/Desert */
-    --card: 40 10% 88%;        /* Slightly darker Beige/Desert */
+    --card: 36 54% 95%;        /* Slightly darker Beige/Desert */
     --card-foreground: 30 10% 20%;
-    --popover: 40 10% 88%;      /* Slightly darker Beige/Desert */
+    --popover: 36 54% 95%;      /* Slightly darker Beige/Desert */
     --popover-foreground: 30 10% 20%;
     --primary: 120 20% 40%;     /* Muted Green */
     --primary-foreground: 0 0% 98%;
-    --secondary: 60 10% 75%;    /* Light Sand */
+    --secondary: 36 54% 95%;    /* Light Sand */
     --secondary-foreground: 30 10% 20%;
     --muted: 60 10% 75%;        /* Light Sand */
     --muted-foreground: 30 8% 40%;
@@ -29,7 +29,7 @@ body {
     --input: 30 5% 60%;
     --ring: 35 50% 50%;       /* Desert Sunrise (Orange-ish) */
     --radius: 0.75rem;
-    --sidebar-background: 30 12% 85%; /* Lighter Beige/Desert */
+    --sidebar-background: 36 54% 95%; /* Lighter Beige/Desert */
     --sidebar-foreground: 30 10% 30%;
     --sidebar-primary: 120 20% 40%;    /* Muted Green */
     --sidebar-primary-foreground: 0 0% 98%;

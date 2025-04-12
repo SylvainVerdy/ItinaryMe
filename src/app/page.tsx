@@ -1,3 +1,4 @@
+
 'use client';
 
 import {ChatInterface} from '@/components/ChatInterface';
@@ -158,7 +159,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-4 w-full max-w-md"> {/* Limiting the width for a cleaner look */}
-            <Card className="bg-secondary">
+            <Card>
               <CardHeader>
                 <CardTitle>Sign Up</CardTitle>
                 <CardDescription>Create a new account</CardDescription>
@@ -194,7 +195,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="bg-secondary">
+            <Card>
               <CardHeader>
                 <CardTitle>Sign In</CardTitle>
                 <CardDescription>Login to your account</CardDescription>
@@ -239,4 +240,3 @@ export default function Home() {
     </div>
   );
 }
-
