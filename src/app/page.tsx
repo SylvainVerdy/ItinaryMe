@@ -192,10 +192,10 @@ export default function Home() {
              <SelectValue placeholder="Select a language" />
            
            
-             
+             <SelectContent>
                <SelectItem value="en">English</SelectItem>
                <SelectItem value="fr">Français</SelectItem>
-             
+             </SelectContent>
            
          
          {user ? (
