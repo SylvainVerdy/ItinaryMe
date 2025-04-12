@@ -22,6 +22,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
 import {auth} from '@/lib/firebase'; // Assuming you have a firebase.ts file
 import {Label} from '@/components/ui/label';
@@ -82,6 +84,17 @@ export default function Home() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      alert('Google Sign-in successful!');
+    } catch (error: any) {
+      alert(`Google Sign-in failed: ${error.message}`);
+    }
+  };
+
+
   const renderTaskContent = () => {
     if (!user) {
       return <p>Please log in to view tasks.</p>;
@@ -134,9 +147,9 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-background">
       <RoamReadySidebar />
-      <div className="flex flex-col flex-1 p-6">
+      <div className="flex flex-col flex-1 p-6 items-center"> {/* Centering the content */}
         {user ? (
-          <>
+          <div className="w-full max-w-md"> {/* Limiting the width for a cleaner look */}
             <div className="flex space-x-4 mb-4">
               <Button onClick={() => setActiveTask('document')}>
                 New Document
@@ -148,9 +161,9 @@ export default function Home() {
             </div>
             <div className="flex-1">{renderTaskContent()}</div>
             <Button onClick={handleSignOut}>Sign Out</Button>
-          </>
+          </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 w-full max-w-md"> {/* Limiting the width for a cleaner look */}
             <Card>
               <CardHeader>
                 <CardTitle>Sign Up</CardTitle>
@@ -220,6 +233,9 @@ export default function Home() {
                   </div>
                   <Button type="submit">Sign In</Button>
                 </form>
+                <Button variant="outline" onClick={handleGoogleSignIn}>
+                  Sign In with Google
+                </Button>
               </CardContent>
             </Card>
           </div>
