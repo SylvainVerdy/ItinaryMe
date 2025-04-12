@@ -185,162 +185,196 @@ export default function Home() {
  
 
    return (
-     <div className="flex flex-col h-screen bg-background">
-       <header className="bg-secondary p-4 flex justify-between items-center">
-         <Select value={language} onValueChange={setLanguage}>
-           <SelectTrigger className="w-[120px]">
+     
+       
+         
+           
              <SelectValue placeholder="Select a language" />
-           </SelectTrigger>
-           <SelectContent>
-             <SelectItem value="en">English</SelectItem>
-             <SelectItem value="fr">Français</SelectItem>
-           </SelectContent>
-         </Select>
+           
+           
+             
+               <SelectItem value="en">English</SelectItem>
+               <SelectItem value="fr">Français</SelectItem>
+             
+           
+         
          {user ? (
-           <div className="flex items-center space-x-4">
-             <Button onClick={handleSignOut} variant="secondary">Sign Out</Button>
-           </div>
+           
+             
+           
          ) : (
            <Dialog open={open} onOpenChange={setOpen}>
-             <DialogTrigger asChild>
-               <Button variant="secondary">{t.account}</Button>
-             </DialogTrigger>
-             <DialogContent className="sm:max-w-[425px]">
-               <DialogHeader>
-                 <DialogTitle>{isSignUp ? t.createAccount : t.signIn}</DialogTitle>
-                 <DialogDescription>
+             
+               
+                 {t.account}
+               
+             
+             
+               
+                 
                    {isSignUp ? t.createAccount : t.loginToAccount}
-                 </DialogDescription>
-               </DialogHeader>
-               <CardContent>
-                 <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleSignIn)} className="space-y-4">
-                   <div>
-                     <Label htmlFor="email">Email</Label>
-                     <Input
-                       type="email"
-                       id="email"
-                       placeholder="Email"
-                       {...register('email')}
-                     />
-                     {errors.email && (
-                       <p className="text-red-500">{errors.email.message}</p>
-                     )}
-                   </div>
-                   <div>
-                     <Label htmlFor="password">Password</Label>
-                     <Input
-                       type="password"
-                       id="password"
-                       placeholder="Password"
-                       {...register('password')}
-                     />
-                     {errors.password && (
-                       <p className="text-red-500">{errors.password.message}</p>
-                     )}
-                   </div>
-                   <Button type="submit" variant="primary">{isSignUp ? t.signUp : t.signIn}</Button>
-                 </form>
-                 <Button variant="outline" onClick={handleGoogleSignIn}>
-                   <Icons.google className="mr-2 h-4 w-4" />
-                   Sign In with Google
-                 </Button>
-                 <Button variant="link" onClick={() => setIsSignUp(!isSignUp)}>
-                   {isSignUp ? t.alreadyAccount : t.noAccount}
-                 </Button>
-               </CardContent>
-             </DialogContent>
-           </Dialog>
+                 
+               
+               
+                 
+                   <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleSignIn)} className="space-y-4">
+                     
+                       
+                         Email
+                         
+                           
+                             Email
+                           
+                           {errors.email && (
+                             
+                               {errors.email.message}
+                             
+                           )}
+                         
+                       
+                       
+                         Password
+                         
+                           
+                             Password
+                           
+                           {errors.password && (
+                             
+                               {errors.password.message}
+                             
+                           )}
+                         
+                       
+                       
+                         {isSignUp ? t.signUp : t.signIn}
+                       
+                     
+                   
+                   
+                     
+                       
+                         Sign In with Google
+                       
+                     
+                   
+                   
+                     {isSignUp ? t.alreadyAccount : t.noAccount}
+                   
+                 
+               
+             
+           
          )}
-       </header>
+       
  
-       <div className="flex flex-col flex-1 p-6 items-center">
-         <div className="w-full max-w-2xl">
+       
+         
            {!user ? (
-             <div className="text-center">
-               <h1 className="text-3xl font-bold mb-4">{t.welcome}</h1>
-               <p className="text-xl italic text-muted-foreground mb-4">{t.catchPhrase}</p>
-               <p className="text-lg mb-4">
-                  {t.description1}
-               </p>
-             </div>
+             
+               
+                 
+                   {t.welcome}
+                 
+                 
+                   {t.catchPhrase}
+                 
+                 
+                    {t.description1}
+                 
+               
+             
            ) : (
-             <div className="w-full max-w-md">
-               <div className="flex space-x-4 mb-4">
-                 <Button onClick={() => setActiveTask('document')}>
+             
+               
+                 
                    {t.newDocument}
-                 </Button>
-                 <Button onClick={() => setActiveTask('planning')}>
+                 
+                 
                    {t.newPlanning}
-                 </Button>
-                 <Button onClick={() => setActiveTask('travel')}>{t.planTrip}</Button>
-               </div>
-               <div className="flex-1">{renderTaskContent()}</div>
-             </div>
+                 
+                 {t.planTrip}
+               
+               
+                 {renderTaskContent()}
+               
+             
            )}
 +        {/* Pricing Section */}
-+        <div className="w-full max-w-2xl mt-8">
-+          <h2 className="text-2xl font-semibold mb-4 text-center">
++        
++          
 +            {t.welcome}
-+          </h2>
-+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
++          
++          
 +            {/* Custom Trip Planning */}
-+            <Card>
-+              <CardHeader>
-+                <CardTitle>Personalized Trip</CardTitle>
-+                <CardDescription>
++            
++              
++                Personalized Trip
++                
 +                  Crafted just for you by our AI
-+                </CardDescription>
-+              </CardHeader>
-+              <CardContent>
-+                <p className="text-lg font-semibold">One-time Fee</p>
-+                <p className="text-3xl font-bold">$49</p>
-+                <p className="text-sm mt-2">
++                
++              
++              
++                
++                  One-time Fee
++                
++                
++                  $49
++                
++                
 +                  Get a fully customized itinerary with flights, hotels, and
 +                  activities tailored to your preferences.
-+                </p>
-+              </CardContent>
-+            </Card>
++                
++              
++            
 +
 +            {/* Affordable Recommendations */}
-+            <Card>
-+              <CardHeader>
-+                <CardTitle>Affordable Options</CardTitle>
-+                <CardDescription>
++            
++              
++                Affordable Options
++                
 +                  Hand-picked deals to fit your budget
-+                </CardDescription>
-+              </CardHeader>
-+              <CardContent>
-+                <p className="text-lg font-semibold">Always Fair Pricing</p>
-+                <p className="text-3xl font-bold">Guaranteed</p>
-+                <p className="text-sm mt-2">
++                
++              
++              
++                
++                  Always Fair Pricing
++                
++                
++                  Guaranteed
++                
++                
 +                  We ensure the best prices by comparing thousands of options,
 +                  saving you time and money on your dream vacation.
-+                </p>
-+              </CardContent>
-+            </Card>
++                
++              
++            
 +
 +            {/* Centralized Payment */}
-+            <Card>
-+              <CardHeader>
-+                <CardTitle>One-Click Payment</CardTitle>
-+                <CardDescription>
++            
++              
++                One-Click Payment
++                
 +                  Secure and simple booking process
-+                </CardDescription>
-+              </CardHeader>
-+              <CardContent>
-+                <p className="text-lg font-semibold">All-Inclusive</p>
-+                <p className="text-3xl font-bold">Easy Checkout</p>
-+                <p className="text-sm mt-2">
++                
++              
++              
++                
++                  All-Inclusive
++                
++                
++                  Easy Checkout
++                
++                
 +                  Enjoy a seamless booking experience with a single, secure
 +                  payment for your entire trip itinerary.
-+                </p>
-+              </CardContent>
-+            </Card>
-+          </div>
-+        </div>
-         </div>
-       </div>
-     </div>
-+  );
-+}
-+
++                
++              
++            
++          
++        
+         
+       
+     
+   );
+}
+
