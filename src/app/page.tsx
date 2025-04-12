@@ -277,9 +277,71 @@ export default function Home() {
                <div className="flex-1">{renderTaskContent()}</div>
              </div>
            )}
++        {/* Pricing Section */}
++        <div className="w-full max-w-2xl mt-8">
++          <h2 className="text-2xl font-semibold mb-4 text-center">
++            {t.welcome}
++          </h2>
++          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
++            {/* Custom Trip Planning */}
++            <Card>
++              <CardHeader>
++                <CardTitle>Personalized Trip</CardTitle>
++                <CardDescription>
++                  Crafted just for you by our AI
++                </CardDescription>
++              </CardHeader>
++              <CardContent>
++                <p className="text-lg font-semibold">One-time Fee</p>
++                <p className="text-3xl font-bold">$49</p>
++                <p className="text-sm mt-2">
++                  Get a fully customized itinerary with flights, hotels, and
++                  activities tailored to your preferences.
++                </p>
++              </CardContent>
++            </Card>
++
++            {/* Affordable Recommendations */}
++            <Card>
++              <CardHeader>
++                <CardTitle>Affordable Options</CardTitle>
++                <CardDescription>
++                  Hand-picked deals to fit your budget
++                </CardDescription>
++              </CardHeader>
++              <CardContent>
++                <p className="text-lg font-semibold">Always Fair Pricing</p>
++                <p className="text-3xl font-bold">Guaranteed</p>
++                <p className="text-sm mt-2">
++                  We ensure the best prices by comparing thousands of options,
++                  saving you time and money on your dream vacation.
++                </p>
++              </CardContent>
++            </Card>
++
++            {/* Centralized Payment */}
++            <Card>
++              <CardHeader>
++                <CardTitle>One-Click Payment</CardTitle>
++                <CardDescription>
++                  Secure and simple booking process
++                </CardDescription>
++              </CardHeader>
++              <CardContent>
++                <p className="text-lg font-semibold">All-Inclusive</p>
++                <p className="text-3xl font-bold">Easy Checkout</p>
++                <p className="text-sm mt-2">
++                  Enjoy a seamless booking experience with a single, secure
++                  payment for your entire trip itinerary.
++                </p>
++              </CardContent>
++            </Card>
++          </div>
++        </div>
          </div>
        </div>
      </div>
-   );
++  );
  }
  
+
