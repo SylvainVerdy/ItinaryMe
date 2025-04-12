@@ -15,14 +15,7 @@ import {Input} from '@/components/ui/input';
 import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {zodResolver} from '@hookform/resolvers/zod';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-} from 'firebase/auth';
+import {onAuthStateChanged, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import {auth} from '@/lib/firebase'; // Assuming you have a firebase.ts file
 import {Label} from '@/components/ui/label';
 import {Icons} from '@/components/icons';
@@ -70,7 +63,7 @@ export default function Home() {
       alert(`Signup failed: ${error.message}`);
     }
   };
-
+  
   const handleSignIn = async (data: FormData) => {
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
@@ -92,14 +85,16 @@ export default function Home() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      alert('Google Sign-in successful!');
+     const provider = new GoogleAuthProvider();
+     await signInWithPopup(auth, provider);
+     setOpen(false); // Close the dialog after successful signin
     } catch (error: any) {
       alert(`Google Sign-in failed: ${error.message}`);
      }
    };
- 
+
+
+
    const renderTaskContent = () => {
      if (!user) {
        return <p>Please log in to view tasks.</p>;
@@ -286,66 +281,72 @@ export default function Home() {
          )}
  
          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-           <Card className="bg-green-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
-             <CardHeader className="bg-green-100 p-4">
-               <CardTitle className="text-lg font-semibold">Personalized Trip</CardTitle>
-               <CardDescription>
-                 Crafted just for you by our AI
-               </CardDescription>
-             </CardHeader>
-             <CardContent className="p-4 flex-grow">
-               <div className="flex items-center justify-between mb-2">
-                 <span>One-time Fee</span>
-                 <span className="text-xl font-bold">$49</span>
-               </div>
-               <p className="text-sm text-gray-600">
-                 Get a fully customized itinerary with flights, hotels, and
-                 activities tailored to your preferences.
-               </p>
-             </CardContent>
-           </Card>
+          <Card className="bg-green-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
+            <CardHeader className="bg-green-100 p-4">
+              <CardTitle className="text-lg font-semibold">{t.welcome === "Bienvenue sur ItinaryMe" ? 'Voyage personnalisé' : 'Personalized Trip'}</CardTitle>
+              <CardDescription>
+                {t.welcome === "Bienvenue sur ItinaryMe" ? 'Conçu juste pour vous par notre IA' : 'Crafted just for you by our AI'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 flex-grow">
+              <div className="flex items-center justify-between mb-2">
+                <span>{t.welcome === "Bienvenue sur ItinaryMe" ? 'Frais unique' : 'One-time Fee'}</span>
+                <span className="text-xl font-bold">{t.welcome === "Bienvenue sur ItinaryMe" ? '49€' : '$49'}</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                {t.welcome === "Bienvenue sur ItinaryMe"
+                  ? 'Obtenez un itinéraire entièrement personnalisé avec les vols, hôtels et activités adaptés à vos préférences.'
+                  : 'Get a fully customized itinerary with flights, hotels, and activities tailored to your preferences.'}
+              </p>
+            </CardContent>
+          </Card>
  
-           <Card className="bg-yellow-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
-             <CardHeader className="bg-yellow-100 p-4">
-               <CardTitle className="text-lg font-semibold">Affordable Options</CardTitle>
-               <CardDescription>
-                 Hand-picked deals to fit your budget
-               </CardDescription>
-             </CardHeader>
-             <CardContent className="p-4 flex-grow">
-               <div className="flex items-center justify-between mb-2">
-                 <span>Always Fair Pricing</span>
-                 <span className="text-green-500 font-bold">Guaranteed</span>
-               </div>
-               <p className="text-sm text-gray-600">
-                 We ensure the best prices by comparing thousands of options,
-                 saving you time and money on your dream vacation.
-               </p>
-             </CardContent>
-           </Card>
+          <Card className="bg-yellow-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
+            <CardHeader className="bg-yellow-100 p-4">
+              <CardTitle className="text-lg font-semibold">
+                {t.welcome === "Bienvenue sur ItinaryMe" ? 'Options abordables' : 'Affordable Options'}
+              </CardTitle>
+              <CardDescription>
+                {t.welcome === "Bienvenue sur ItinaryMe" ? 'Offres triées sur le volet pour s\'adapter à votre budget' : 'Hand-picked deals to fit your budget'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 flex-grow">
+              <div className="flex items-center justify-between mb-2">
+                <span>{t.welcome === "Bienvenue sur ItinaryMe" ? 'Toujours un prix juste' : 'Always Fair Pricing'}</span>
+                <span className="text-green-500 font-bold">{t.welcome === "Bienvenue sur ItinaryMe" ? 'Garanti' : 'Guaranteed'}</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                {t.welcome === "Bienvenue sur ItinaryMe"
+                  ? 'Nous vous assurons les meilleurs prix en comparant des milliers d\'options, vous faisant gagner du temps et de l\'argent sur le voyage de vos rêves.'
+                  : 'We ensure the best prices by comparing thousands of options, saving you time and money on your dream vacation.'}
+              </p>
+            </CardContent>
+          </Card>
  
-           <Card className="bg-blue-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
-             <CardHeader className="bg-blue-100 p-4">
-               <CardTitle className="text-lg font-semibold">One-Click Payment</CardTitle>
-               <CardDescription>
-                 Secure and simple booking process
-               </CardDescription>
-             </CardHeader>
-             <CardContent className="p-4 flex-grow">
-               <div className="flex items-center justify-between mb-2">
-                 <span>All-Inclusive</span>
-                 <span className="text-purple-500 font-bold">Easy Checkout</span>
-               </div>
-               <p className="text-sm text-gray-600">
-                 Enjoy a seamless booking experience with a single, secure
-                 payment for your entire trip itinerary.
-               </p>
-             </CardContent>
-           </Card>
-         </div>
-       </div>
-     </div>
-   );
- }
- 
+          <Card className="bg-blue-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
+            <CardHeader className="bg-blue-100 p-4">
+              <CardTitle className="text-lg font-semibold">
+                {t.welcome === "Bienvenue sur ItinaryMe" ? 'Paiement en un clic' : 'One-Click Payment'}
+              </CardTitle>
+              <CardDescription>
+                {t.welcome === "Bienvenue sur ItinaryMe" ? 'Processus de réservation sécurisé et simple' : 'Secure and simple booking process'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 flex-grow">
+              <div className="flex items-center justify-between mb-2">
+                <span>{t.welcome === "Bienvenue sur ItinaryMe" ? 'Tout inclus' : 'All-Inclusive'}</span>
+                <span className="text-purple-500 font-bold">{t.welcome === "Bienvenue sur ItinaryMe" ? 'Paiement facile' : 'Easy Checkout'}</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                {t.welcome === "Bienvenue sur ItinaryMe"
+                  ? 'Profitez d\'une expérience de réservation fluide avec un paiement unique et sécurisé pour l\'ensemble de votre itinéraire de voyage.'
+                  : 'Enjoy a seamless booking experience with a single, secure payment for your entire trip itinerary.'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
 
