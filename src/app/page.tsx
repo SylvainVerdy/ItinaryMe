@@ -185,193 +185,167 @@ export default function Home() {
  
 
    return (
-     
-       
-         
-           
-          
-            
-              
-                
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="fr">Français</SelectItem>
-                
-              
-            
-          
-+
-+        
-+          {user ? (
-+            
-+              
-+            
-+          ) : (
-+            
-+              
-+                {t.account}
-+              
-+            
-+            
-+              
-+                
-+                  {isSignUp ? t.createAccount : t.loginToAccount}
-+                
-+              
-+              
-+                
-+                  <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleSignIn)} className="space-y-4">
-+                    
-+                      
-+                        Email
-+                        
-+                          
-+                            Email
-+                          
-+                          {errors.email && (
-+                            
-+                              {errors.email.message}
-+                            
-+                          )}
-+                        
-+                      
-+                      
-+                        Password
-+                        
-+                          
-+                            Password
-+                          
-+                          {errors.password && (
-+                            
-+                              {errors.password.message}
-+                            
-+                          )}
-+                        
-+                      
-+                      
-+                        {isSignUp ? t.signUp : t.signIn}
-+                      
-+                    
-+                  
-+                  
-+                    
-+                      
-+                        Sign In with Google
-+                      
-+                    
-+                  
-+                  
-+                    {isSignUp ? t.alreadyAccount : t.noAccount}
-+                  
-+                
-+              
-+            
-+          
-+        )}
-+       
+     <div className="flex flex-col h-screen bg-background">
+       <header className="bg-secondary p-4 flex justify-between items-center">
+         <Select value={language} onValueChange={setLanguage}>
+           <SelectTrigger className="w-[120px]">
+             <SelectValue placeholder={language === 'en' ? 'English' : 'Français'} />
+           </SelectTrigger>
+           <SelectContent>
+             <SelectItem value="en">English</SelectItem>
+             <SelectItem value="fr">Français</SelectItem>
+           </SelectContent>
+         </Select>
+         {user ? (
+           <div>
+             <Button variant="secondary" onClick={handleSignOut}>Sign Out</Button>
+           </div>
+         ) : (
+           <Dialog>
+             <DialogTrigger asChild>
+               <Button variant="outline">{t.account}</Button>
+             </DialogTrigger>
+             <DialogContent className="sm:max-w-[425px]">
+               <DialogHeader>
+                 <DialogTitle>{isSignUp ? t.createAccount : t.loginToAccount}</DialogTitle>
+                 <DialogDescription>
+                   {isSignUp ? t.noAccount : t.alreadyAccount}
+                   <Button variant="link" onClick={() => setIsSignUp(!isSignUp)}>
+                     {isSignUp ? t.signIn : t.signUp}
+                   </Button>
+                 </DialogDescription>
+               </DialogHeader>
+               <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleSignIn)} className="space-y-4">
+                 <div className="grid gap-2">
+                   <Label htmlFor="email">Email</Label>
+                   <Input
+                     id="email"
+                     placeholder="Email"
+                     type="email"
+                     {...register('email')}
+                   />
+                   {errors.email && (
+                     <p className="text-sm text-red-500">{errors.email.message}</p>
+                   )}
+                 </div>
+                 <div className="grid gap-2">
+                   <Label htmlFor="password">Password</Label>
+                   <Input
+                     id="password"
+                     placeholder="Password"
+                     type="password"
+                     {...register('password')}
+                   />
+                   {errors.password && (
+                     <p className="text-sm text-red-500">{errors.password.message}</p>
+                   )}
+                 </div>
+                 <Button type="submit">{isSignUp ? t.signUp : t.signIn}</Button>
+               </form>
+               <div className="relative">
+                 <div className="absolute inset-0 flex items-center">
+                   <span className="w-full border-t" />
+                 </div>
+                 <div className="relative flex justify-center text-xs uppercase">
+                   <span className="bg-background px-2 text-muted-foreground">
+                     Or continue with
+                   </span>
+                 </div>
+               </div>
+               <Button variant="outline" type="button" onClick={handleGoogleSignIn}>
+                 <Icons.google className="mr-2 h-4 w-4" />
+                 Sign In with Google
+               </Button>
+             </DialogContent>
+           </Dialog>
+         )}
+       </header>
  
-       
-         
-           {!user ? (
-             
-               
-                 
-                   {t.welcome}
-                 
-+                
-+                  {t.catchPhrase}
-+                
-+                
-+                   {t.description1}
-+                
-+              
-+            
-+          ) : (
-+            
-+              
-+                
-+                  {t.newDocument}
-+                
-+                
-+                  {t.newPlanning}
-+                
-+                {t.planTrip}
-+              
-+              
-+                {renderTaskContent()}
-+              
-+            
-+          )}
-+
-+        
-+          
-+            {t.welcome}
-+          
-+          
-+            
-+              
-+                Personalized Trip
-+                
-+                  Crafted just for you by our AI
-+                
-+              
-+              
-+                
-+                  One-time Fee
-+                
-+                
-+                  $49
-+                
-+                
-+                  Get a fully customized itinerary with flights, hotels, and
-+                  activities tailored to your preferences.
-+                
-+              
-+            
-+
-+            
-+              
-+                Affordable Options
-+                
-+                  Hand-picked deals to fit your budget
-+                
-+              
-+              
-+                
-+                  Always Fair Pricing
-+                
-+                
-+                  Guaranteed
-+                
-+                
-+                  We ensure the best prices by comparing thousands of options,
-+                  saving you time and money on your dream vacation.
-+                
-+              
-+            
-+
-+            
-+              
-+                One-Click Payment
-+                
-+                  Secure and simple booking process
-+                
-+              
-+              
-+                
-+                  All-Inclusive
-+                
-+                
-+                  Easy Checkout
-+                
-+                
-+                  Enjoy a seamless booking experience with a single, secure
-+                  payment for your entire trip itinerary.
-+                
-+              
-+            
-+          
-+        
-         
-       
-     
+       <div className="flex flex-col items-center justify-center px-6 py-8 mx-auto lg:py-0">
+         {!user ? (
+           <div className="w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-gray-700">
+             <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
+               <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
+                 {t.welcome}
+               </h1>
+               <p className="text-lg text-gray-700 dark:text-gray-400">
+                 {t.catchPhrase}
+               </p>
+               <p className="text-base text-gray-700 dark:text-gray-400">
+                  {t.description1}
+               </p>
+             </div>
+           </div>
+         ) : (
+           <div className="flex flex-col items-center justify-center">
+             <Button onClick={() => setActiveTask('document')}>{t.newDocument}</Button>
+             <Button onClick={() => setActiveTask('planning')}>{t.newPlanning}</Button>
+             <Button onClick={() => setActiveTask('travel')}>{t.planTrip}</Button>
+             {renderTaskContent()}
+           </div>
+         )}
+ 
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+           <Card className="bg-green-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
+             <CardHeader className="bg-green-100 p-4">
+               <CardTitle className="text-lg font-semibold">Personalized Trip</CardTitle>
+               <CardDescription>
+                 Crafted just for you by our AI
+               </CardDescription>
+             </CardHeader>
+             <CardContent className="p-4 flex-grow">
+               <div className="flex items-center justify-between mb-2">
+                 <span>One-time Fee</span>
+                 <span className="text-xl font-bold">$49</span>
+               </div>
+               <p className="text-sm text-gray-600">
+                 Get a fully customized itinerary with flights, hotels, and
+                 activities tailored to your preferences.
+               </p>
+             </CardContent>
+           </Card>
+ 
+           <Card className="bg-yellow-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
+             <CardHeader className="bg-yellow-100 p-4">
+               <CardTitle className="text-lg font-semibold">Affordable Options</CardTitle>
+               <CardDescription>
+                 Hand-picked deals to fit your budget
+               </CardDescription>
+             </CardHeader>
+             <CardContent className="p-4 flex-grow">
+               <div className="flex items-center justify-between mb-2">
+                 <span>Always Fair Pricing</span>
+                 <span className="text-green-500 font-bold">Guaranteed</span>
+               </div>
+               <p className="text-sm text-gray-600">
+                 We ensure the best prices by comparing thousands of options,
+                 saving you time and money on your dream vacation.
+               </p>
+             </CardContent>
+           </Card>
+ 
+           <Card className="bg-blue-50 text-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col">
+             <CardHeader className="bg-blue-100 p-4">
+               <CardTitle className="text-lg font-semibold">One-Click Payment</CardTitle>
+               <CardDescription>
+                 Secure and simple booking process
+               </CardDescription>
+             </CardHeader>
+             <CardContent className="p-4 flex-grow">
+               <div className="flex items-center justify-between mb-2">
+                 <span>All-Inclusive</span>
+                 <span className="text-purple-500 font-bold">Easy Checkout</span>
+               </div>
+               <p className="text-sm text-gray-600">
+                 Enjoy a seamless booking experience with a single, secure
+                 payment for your entire trip itinerary.
+               </p>
+             </CardContent>
+           </Card>
+         </div>
+       </div>
+     </div>
+   );
+ }
+ 
 
