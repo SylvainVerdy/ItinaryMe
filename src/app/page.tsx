@@ -116,9 +116,6 @@ export default function Home() {
                 className="min-h-[300px]"
               />
             </CardContent>
-            <CardFooter>
-              <Button>Save Document</Button>
-            </CardFooter>
           </Card>
         );
       case 'planning':
@@ -132,9 +129,6 @@ export default function Home() {
               {/* Implement planning interface here */}
               <p>Planning interface coming soon...</p>
             </CardContent>
-            <CardFooter>
-              <Button>Save Plan</Button>
-            </CardFooter>
           </Card>
         );
       case 'travel':

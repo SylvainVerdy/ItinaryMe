@@ -47,7 +47,7 @@ export const AppSidebar = () => {
         </SidebarContent>
         <SidebarFooter>
           <p className="text-xs text-muted-foreground">
-            RoamReady AI &copy; {new Date().getFullYear()}
+            ItinaryMe AI &copy; {new Date().getFullYear()}
           </p>
         </SidebarFooter>
       </Sidebar>
@@ -88,7 +88,7 @@ export const SidebarWrapper = () => {
         </SidebarContent>
         <SidebarFooter>
           <p className="text-xs text-muted-foreground">
-            RoamReady AI &copy; {new Date().getFullYear()}
+            ItinaryMe AI &copy; {new Date().getFullYear()}
           </p>
         </SidebarFooter>
       </Sidebar>
@@ -103,7 +103,7 @@ export const RoamReadySidebar = () => {
         <SidebarHeader>
           <div className="flex items-center space-x-2">
             <SidebarTrigger className="ml-2" />
-            <h4 className="font-semibold text-sm">RoamReady AI</h4>
+            <h4 className="font-semibold text-sm">ItinaryMe AI</h4>
           </div>
           <SidebarInput placeholder="Search..." />
         </SidebarHeader>
@@ -133,10 +133,11 @@ export const RoamReadySidebar = () => {
         </SidebarContent>
         <SidebarFooter>
           <p className="text-xs text-muted-foreground">
-            RoamReady AI &copy; {new Date().getFullYear()}
+            ItinaryMe AI &copy; {new Date().getFullYear()}
           </p>
         </SidebarFooter>
       </Sidebar>
     </SidebarProvider>
   );
 };
+
