@@ -189,83 +189,85 @@ export default function Home() {
        
          
            
-             <SelectValue placeholder="Select a language" />
-           
-           
-             <SelectContent>
-               <SelectItem value="en">English</SelectItem>
-               <SelectItem value="fr">Français</SelectItem>
-             </SelectContent>
-           
-         
-         {user ? (
-           
-             
-           
-         ) : (
-           <Dialog open={open} onOpenChange={setOpen}>
-             
-               
-                 {t.account}
-               
-             
-             
-               
-                 
-                   {isSignUp ? t.createAccount : t.loginToAccount}
-                 
-               
-               
-                 
-                   <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleSignIn)} className="space-y-4">
-                     
-                       
-                         Email
-                         
-                           
-                             Email
-                           
-                           {errors.email && (
-                             
-                               {errors.email.message}
-                             
-                           )}
-                         
-                       
-                       
-                         Password
-                         
-                           
-                             Password
-                           
-                           {errors.password && (
-                             
-                               {errors.password.message}
-                             
-                           )}
-                         
-                       
-                       
-                         {isSignUp ? t.signUp : t.signIn}
-                       
-                     
-                   
-                   
-                     
-                       
-                         Sign In with Google
-                       
-                     
-                   
-                   
-                     {isSignUp ? t.alreadyAccount : t.noAccount}
-                   
-                 
-               
-             
-           
-         )}
-       
+          
+            
+              
+                
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="fr">Français</SelectItem>
+                
+              
+            
+          
++
++        
++          {user ? (
++            
++              
++            
++          ) : (
++            
++              
++                {t.account}
++              
++            
++            
++              
++                
++                  {isSignUp ? t.createAccount : t.loginToAccount}
++                
++              
++              
++                
++                  <form onSubmit={handleSubmit(isSignUp ? handleSignUp : handleSignIn)} className="space-y-4">
++                    
++                      
++                        Email
++                        
++                          
++                            Email
++                          
++                          {errors.email && (
++                            
++                              {errors.email.message}
++                            
++                          )}
++                        
++                      
++                      
++                        Password
++                        
++                          
++                            Password
++                          
++                          {errors.password && (
++                            
++                              {errors.password.message}
++                            
++                          )}
++                        
++                      
++                      
++                        {isSignUp ? t.signUp : t.signIn}
++                      
++                    
++                  
++                  
++                    
++                      
++                        Sign In with Google
++                      
++                    
++                  
++                  
++                    {isSignUp ? t.alreadyAccount : t.noAccount}
++                  
++                
++              
++            
++          
++        )}
++       
  
        
          
@@ -275,37 +277,36 @@ export default function Home() {
                  
                    {t.welcome}
                  
-                 
-                   {t.catchPhrase}
-                 
-                 
-                    {t.description1}
-                 
-               
-             
-           ) : (
-             
-               
-                 
-                   {t.newDocument}
-                 
-                 
-                   {t.newPlanning}
-                 
-                 {t.planTrip}
-               
-               
-                 {renderTaskContent()}
-               
-             
-           )}
-+        {/* Pricing Section */}
++                
++                  {t.catchPhrase}
++                
++                
++                   {t.description1}
++                
++              
++            
++          ) : (
++            
++              
++                
++                  {t.newDocument}
++                
++                
++                  {t.newPlanning}
++                
++                {t.planTrip}
++              
++              
++                {renderTaskContent()}
++              
++            
++          )}
++
 +        
 +          
 +            {t.welcome}
 +          
 +          
-+            {/* Custom Trip Planning */}
 +            
 +              
 +                Personalized Trip
@@ -327,7 +328,6 @@ export default function Home() {
 +              
 +            
 +
-+            {/* Affordable Recommendations */}
 +            
 +              
 +                Affordable Options
@@ -349,7 +349,6 @@ export default function Home() {
 +              
 +            
 +
-+            {/* Centralized Payment */}
 +            
 +              
 +                One-Click Payment
@@ -375,6 +374,4 @@ export default function Home() {
          
        
      
-   );
-}
 
