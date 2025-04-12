@@ -202,7 +202,17 @@ export default function Home() {
       </header>
 
       <div className="flex flex-col flex-1 p-6 items-center">
-        {user ? (
+        {!user ? (
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-4">Welcome to ItinaryMe</h1>
+            <p className="text-lg mb-2">
+              <strong>English:</strong> ItinaryMe is a travel application designed to centralize your travel planning and booking experience. We aim to provide personalized travel recommendations and planning, giving you the flexibility to customize your flights, hotels, and activities, all while streamlining the payment process.
+            </p>
+            <p className="text-lg mb-4">
+              <strong>Français:</strong> ItinaryMe est une application de voyage conçue pour centraliser la planification et la réservation de vos voyages. Notre objectif est de fournir des recommandations de voyage personnalisées et une planification sur mesure, vous offrant la possibilité de personnaliser vos vols, hôtels et activités, tout en simplifiant le processus de paiement.
+            </p>
+          </div>
+        ) : (
           <div className="w-full max-w-md">
             <div className="flex space-x-4 mb-4">
               <Button onClick={() => setActiveTask('document')}>
@@ -216,10 +226,9 @@ export default function Home() {
             <div className="flex-1">{renderTaskContent()}</div>
 
           </div>
-        ) : (
-          <p>Please log in to view tasks.</p>
         )}
       </div>
     </div>
   );
 }
+
