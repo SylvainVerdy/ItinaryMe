@@ -1,4 +1,3 @@
-
 'use client';
 
 import {ChatInterface} from '@/components/ChatInterface';
@@ -190,7 +189,7 @@ export default function Home() {
                       <p className="text-red-500">{errors.password.message}</p>
                     )}
                   </div>
-                  <Button type="submit">Sign Up</Button>
+                  <Button type="submit" variant="secondary">Sign Up</Button>
                 </form>
               </CardContent>
             </Card>
@@ -226,7 +225,7 @@ export default function Home() {
                       <p className="text-red-500">{errors.password.message}</p>
                     )}
                   </div>
-                  <Button type="submit">Sign In</Button>
+                  <Button type="submit" variant="secondary">Sign In</Button>
                 </form>
                 <Button variant="outline" onClick={handleGoogleSignIn}>
                   <Icons.google className="mr-2 h-4 w-4" />
@@ -240,3 +239,4 @@ export default function Home() {
     </div>
   );
 }
+
