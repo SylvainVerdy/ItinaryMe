@@ -24,8 +24,12 @@ import {
   Clock,
   Users,
   User,
-  Sparkles
+  Sparkles,
+  FileText,
+  Bookmark
 } from 'lucide-react';
+import { TravelDocumentList } from './TravelDocumentList';
+import { ChatHistoryList } from './ChatHistoryList';
 
 interface TravelPlan {
   id: string;
@@ -48,7 +52,7 @@ export function Dashboard() {
   const [travelPlans, setTravelPlans] = useState<TravelPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebar, setSidebar] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'travel' | 'chat'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'travel' | 'chat' | 'documents' | 'chat-history'>('dashboard');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'system',
@@ -260,6 +264,30 @@ export function Dashboard() {
               <Sparkles size={16} />
               <span>Assistant IA</span>
             </button>
+
+            <button 
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
+                currentView === 'documents' 
+                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
+                  : 'text-gray-600 hover:bg-[#f8f5ec]'
+              }`}
+              onClick={() => setCurrentView('documents')}
+            >
+              <FileText size={16} />
+              <span>Documents</span>
+            </button>
+
+            <button 
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
+                currentView === 'chat-history' 
+                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
+                  : 'text-gray-600 hover:bg-[#f8f5ec]'
+              }`}
+              onClick={() => setCurrentView('chat-history')}
+            >
+              <MessageSquare size={16} />
+              <span>Historique des conversations</span>
+            </button>
           </div>
           
           <div className="px-3 mt-2">
@@ -301,6 +329,10 @@ export function Dashboard() {
                 <Globe size={14} className="text-gray-500" />
                 <span>Destinations</span>
               </button>
+              <button className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors">
+                <Bookmark size={14} className="text-gray-500" />
+                <span>Favoris</span>
+              </button>
             </div>
           </div>
           
@@ -336,7 +368,11 @@ export function Dashboard() {
                 ? 'Tableau de bord' 
                 : currentView === 'chat' 
                   ? 'Assistant IA Voyageur' 
-                  : 'Voyages'}
+                  : currentView === 'documents'
+                    ? 'Mes documents de voyage'
+                    : currentView === 'chat-history'
+                      ? 'Historique des conversations'
+                      : 'Voyages'}
             </h2>
           </div>
           <div className="flex items-center gap-3">
@@ -391,6 +427,46 @@ export function Dashboard() {
                   >
                     <MessageSquare size={16} />
                     <span>Démarrer une conversation</span>
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 hover:shadow-md transition-shadow duration-300">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+                      <FileText className="text-blue-600" size={20} />
+                    </div>
+                    <h3 className="font-medium text-lg text-gray-800">Documents de voyage</h3>
+                  </div>
+                  <p className="text-gray-600 mb-4 leading-relaxed">
+                    Créez et gérez vos documents de voyage dans un format interactif inspiré de Notion.
+                  </p>
+                  <button 
+                    onClick={() => setCurrentView('documents')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-colors text-sm font-medium"
+                  >
+                    <PlusCircle size={16} />
+                    <span>Voir mes documents</span>
+                  </button>
+                </div>
+                
+                <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 hover:shadow-md transition-shadow duration-300">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center">
+                      <MessageSquare className="text-purple-600" size={20} />
+                    </div>
+                    <h3 className="font-medium text-lg text-gray-800">Historique des conversations</h3>
+                  </div>
+                  <p className="text-gray-600 mb-4 leading-relaxed">
+                    Retrouvez l'historique de vos conversations avec l'assistant IA pour suivre vos conseils et suggestions.
+                  </p>
+                  <button 
+                    onClick={() => setCurrentView('chat-history')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-colors text-sm font-medium"
+                  >
+                    <FolderOpen size={16} />
+                    <span>Voir l'historique</span>
                   </button>
                 </div>
               </div>
@@ -483,6 +559,24 @@ export function Dashboard() {
           </div>
         )}
         
+        {/* Documents View */}
+        {currentView === 'documents' && (
+          <div className="flex-1 overflow-auto p-6">
+            <div className="max-w-5xl mx-auto">
+              <TravelDocumentList />
+            </div>
+          </div>
+        )}
+        
+        {/* Chat History View */}
+        {currentView === 'chat-history' && (
+          <div className="flex-1 overflow-auto p-6">
+            <div className="max-w-5xl mx-auto">
+              <ChatHistoryList />
+            </div>
+          </div>
+        )}
+        
         {/* Chat View */}
         {currentView === 'chat' && (
           <div className="flex-1 flex flex-col overflow-hidden">
@@ -558,9 +652,17 @@ export function Dashboard() {
                     )}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2 text-center">
-                  Powered by Ollama · Les réponses sont générées par intelligence artificielle et peuvent ne pas être précises.
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-gray-500 text-center">
+                    Powered by Ollama · Les réponses sont générées par intelligence artificielle et peuvent ne pas être précises.
+                  </p>
+                  <button 
+                    className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                    onClick={() => setCurrentView('chat-history')}
+                  >
+                    Voir l'historique des conversations
+                  </button>
+                </div>
               </div>
             </div>
           </div>
