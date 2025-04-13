@@ -36,37 +36,47 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
       
       try {
         setLoading(true);
-        let historiesQuery = query(
-          collection(db, 'chatHistories'),
-          where('userId', '==', user.uid),
-          orderBy('updatedAt', 'desc')
-        );
         
-        // Si un tripId est fourni, filtrer par voyage
-        if (tripId) {
-          historiesQuery = query(
+        // Vérifier d'abord si la collection existe
+        try {
+          let historiesQuery = query(
             collection(db, 'chatHistories'),
             where('userId', '==', user.uid),
-            where('tripId', '==', tripId),
             orderBy('updatedAt', 'desc')
           );
-        }
-        
-        const querySnapshot = await getDocs(historiesQuery);
-        const histories: ChatHistory[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          const data = doc.data() as ChatHistory;
-          histories.push({
-            ...data,
-            id: doc.id
+          
+          // Si un tripId est fourni, filtrer par voyage
+          if (tripId) {
+            historiesQuery = query(
+              collection(db, 'chatHistories'),
+              where('userId', '==', user.uid),
+              where('tripId', '==', tripId),
+              orderBy('updatedAt', 'desc')
+            );
+          }
+          
+          const querySnapshot = await getDocs(historiesQuery);
+          const histories: ChatHistory[] = [];
+          
+          querySnapshot.forEach((doc) => {
+            const data = doc.data() as ChatHistory;
+            histories.push({
+              ...data,
+              id: doc.id
+            });
           });
-        });
-        
-        setChatHistories(histories);
+          
+          setChatHistories(histories);
+        } catch (firestoreError) {
+          console.error("Erreur Firestore:", firestoreError);
+          // En cas d'erreur, initialiser avec un tableau vide
+          setChatHistories([]);
+        }
       } catch (err) {
         console.error("Erreur lors de la récupération de l'historique des conversations:", err);
         setError("Impossible de charger l'historique des conversations");
+        // En cas d'erreur, initialiser avec un tableau vide
+        setChatHistories([]);
       } finally {
         setLoading(false);
       }
