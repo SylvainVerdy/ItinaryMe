@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import {Geist, Geist_Mono} from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/hooks/useAuth';
+import { LanguageProvider } from '@/hooks/useLanguage';
 import { Navbar } from '@/components/Navbar';
 
 const geistSans = Geist({
@@ -31,10 +32,12 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
-          {/* Le Navbar n'est pas ajouté ici car la homepage et certaines pages 
-              ont leur propre design de navigation. Les pages personnalisées 
-              incluront le composant Navbar manuellement. */}
-          {children}
+          <LanguageProvider>
+            {/* Le Navbar n'est pas ajouté ici car la homepage et certaines pages 
+                ont leur propre design de navigation. Les pages personnalisées 
+                incluront le composant Navbar manuellement. */}
+            {children}
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>
