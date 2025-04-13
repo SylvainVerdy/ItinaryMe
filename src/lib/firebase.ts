@@ -1,7 +1,8 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth } from 'firebase/auth';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -18,6 +19,47 @@ const firebaseConfig = {
   measurementId: "G-M44NVFGTE0"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase only if not already initialized
+const apps = getApps();
+const app = apps.length > 0 ? apps[0] : initializeApp(firebaseConfig);
+
+// Initialize services
 export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+// Connect to Firebase emulators if in development
+if (process.env.NODE_ENV === 'development') {
+  try {
+    if (typeof window !== 'undefined') {
+      // Utilisez l'IP locale pour l'émulateur
+      connectFirestoreEmulator(db, 'localhost', 8080);
+      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+      console.log('Connecté aux émulateurs Firebase locaux');
+    }
+  } catch (error) {
+    console.error('Erreur lors de la connexion aux émulateurs Firebase:', error);
+  }
+}
+
+// Initialize analytics only in browser environment
+let analytics: any = null;
+if (typeof window !== 'undefined') {
+  try {
+    analytics = getAnalytics(app);
+    console.log("Firebase Analytics initialized successfully");
+  } catch (error) {
+    console.error("Error initializing Firebase Analytics:", error);
+  }
+}
+
+// Log initialization status
+console.log("Firebase initialized with config:", {
+  projectId: firebaseConfig.projectId,
+  authDomain: firebaseConfig.authDomain,
+  appInitialized: !!app,
+  authInitialized: !!auth,
+  dbInitialized: !!db,
+  environment: process.env.NODE_ENV
+});
+
+export { analytics };

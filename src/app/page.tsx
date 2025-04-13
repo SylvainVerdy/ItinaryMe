@@ -10,6 +10,8 @@ import { zodResolver } from "@/lib/resolvers/zod";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import Cookies from "js-cookie";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // Icons (adjust if needed)
 import {
@@ -39,6 +41,8 @@ export default function Home() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(formSchema),
   });
+
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -151,24 +155,25 @@ export default function Home() {
           {/* Navigation Links */}
           <ul className="flex space-x-6 items-center">
             <li>
-              <a href="#" className="text-white hover:text-gray-200">
+              <Link href="/destinations" className="text-white hover:text-gray-200">
                 {t.destinations}
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="#" className="text-white hover:text-gray-200">
-                {t.howItWorks}
-              </a>
-            </li>
-            <li>
-              <a href="#" className="text-white hover:text-gray-200">
+              <Link href="/about" className="text-white hover:text-gray-200">
                 {t.about}
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="#" className="text-white hover:text-gray-200">
-                {t.signIn}
-              </a>
+              {user ? (
+                <Link href="/dashboard" className="text-white hover:text-gray-200">
+                  Dashboard
+                </Link>
+              ) : (
+                <Link href="/auth" className="text-white hover:text-gray-200">
+                  {t.signIn}
+                </Link>
+              )}
             </li>
           </ul>
         </nav>
@@ -186,41 +191,51 @@ export default function Home() {
             </p>
             {/* Unified container for fields */}
             <div className="flex w-full max-w-4xl mx-auto rounded-xl overflow-hidden bg-white shadow-md">
-            {/* Destination */}
-            <Input
-              type="text"
-              placeholder={t.whereDoYouWantToGo}
-              className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
-            />
+              {/* Destination */}
+              <Input
+                type="text"
+                placeholder={t.whereDoYouWantToGo}
+                className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
+              />
 
-            {/* Start date */}
-            <Input
-              type="date"
-              placeholder="Start"
-              className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
-            />
+              {/* Start date */}
+              <Input
+                type="date"
+                placeholder="Start"
+                className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
+              />
 
-            {/* End date */}
-            <Input
-              type="date"
-              placeholder="End"
-              className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
-            />
+              {/* End date */}
+              <Input
+                type="date"
+                placeholder="End"
+                className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
+              />
 
-            {/* Number of guests */}
-            <Input
-              type="number"
-              min={1}
-              placeholder="Guests"
-              className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
-            />
+              {/* Number of guests */}
+              <Input
+                type="number"
+                min={1}
+                placeholder="Guests"
+                className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
+              />
 
-            {/* CTA */}
-            <Button className="h-12 px-6 bg-teal-500 text-white hover:bg-teal-600 rounded-none border-0">
-              {t.getStarted}
-              <ArrowRightIcon className="ml-2 h-5 w-5" />
-            </Button>
-          </div>
+              {/* CTA */}
+              <Button 
+                className="h-12 px-6 bg-teal-500 text-white hover:bg-teal-600 rounded-none border-0"
+                onClick={() => {
+                  // Redirect to dashboard if user is logged in, or auth page if not
+                  if (user) {
+                    router.push('/dashboard');
+                  } else {
+                    router.push('/auth');
+                  }
+                }}
+              >
+                {t.getStarted}
+                <ArrowRightIcon className="ml-2 h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </section>
 
@@ -261,8 +276,19 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-20 w-full bg-black/60 py-3 px-4 text-center">
-        <p className="text-white text-sm tracking-wide">{t.footerText}</p>
+      <footer className="relative z-20 text-center py-6 bg-black/40">
+        <div className="flex justify-center space-x-6 mb-4">
+          <Link href="/about" className="text-white hover:text-gray-200">
+            {t.about}
+          </Link>
+          <Link href="/destinations" className="text-white hover:text-gray-200">
+            {t.destinations}
+          </Link>
+          <Link href="/contact" className="text-white hover:text-gray-200">
+            Contact
+          </Link>
+        </div>
+        <p className="text-gray-300">{t.footerText}</p>
       </footer>
     </div>
   );
