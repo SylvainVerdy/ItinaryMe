@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -78,4 +77,46 @@ body {
   body {
     @apply text-foreground;
   }
+}
+
+/* Styles pour améliorer l'interactivité des éléments */
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  position: relative;
+}
+
+a, button, [role="button"] {
+  cursor: pointer !important;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+
+/* Élément prioritaire qui garantit que le composant Navbar est bien cliquable */
+div[class*="fixed top-0"] a,
+div[class*="fixed top-0"] button,
+div[class*="fixed top-0"] [role="button"] {
+  pointer-events: auto !important;
+  z-index: 1000 !important;
+  cursor: pointer !important;
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+nav, 
+div[class*="fixed top-0"] {
+  position: relative;
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+}
+
+.fixed-content {
+  pointer-events: none;
+}
+
+.fixed-content > * {
+  pointer-events: auto;
 }

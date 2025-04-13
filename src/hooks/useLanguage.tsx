@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useCallback } from 'react';
 
 // Définir les langues prises en charge
 export type Language = 'fr' | 'en' | 'es' | 'de' | 'it';
@@ -40,11 +40,122 @@ const translations: Record<Language, Record<string, string>> = {
     'expertPlanningDescription': "Nos spécialistes utilisent leurs connaissances pour concevoir votre voyage parfait.",
     'seamlessExperience': 'Expérience fluide',
     'seamlessExperienceDescription': "Profitez d'un voyage sans tracas avec des réservations et des détails gérés pour vous.",
-    'footerText': '© 2023 ItinaryMe. Tous droits réservés.',
+    'footerText': '© 2025 ItinaryMe. Tous droits réservés.',
     'dashboard': 'Tableau de bord',
     'guests': 'Voyageurs',
     'myTrips': 'Mes voyages',
-    // Ajouter d'autres traductions selon les besoins
+    'howItWorks': 'Comment ça marche',
+    'aboutUs': 'À propos de nous',
+    'popularDestinations': 'Destinations populaires',
+    // Contact page translations
+    'contactUs': 'Contactez-nous',
+    'contactDescription': 'Vous avez des questions ou des suggestions ? N\'hésitez pas à nous contacter.',
+    'fullName': 'Nom complet',
+    'email': 'Email',
+    'message': 'Message',
+    'sendMessage': 'Envoyer le message',
+    'sending': 'Envoi en cours...',
+    'messageSent': 'Message envoyé !',
+    'thankYouMessage': 'Merci de nous avoir contactés. Nous vous répondrons dans les plus brefs délais.',
+    'sendAnotherMessage': 'Envoyer un autre message',
+    'fillAllFields': 'Veuillez remplir tous les champs.',
+    'errorOccurred': 'Une erreur est survenue. Veuillez réessayer plus tard.',
+    'contactInfo': 'Informations de contact',
+    'phone': 'Téléphone',
+    'address': 'Adresse',
+    'openingHours': 'Heures d\'ouverture',
+    'mondayFriday': 'Lundi - Vendredi',
+    'saturday': 'Samedi',
+    'sunday': 'Dimanche',
+    'closed': 'Fermé',
+    // How it works page translations
+    'howItWorksDescription': 'Découvrez comment ItinaryMe révolutionne la façon dont vous planifiez vos voyages, en seulement quelques étapes simples.',
+    'sharePreferences': 'Partagez vos envies',
+    'sharePreferencesDescription': 'Dites-nous où vous souhaitez aller, quand et ce que vous aimez. Plus vous nous donnez d\'informations, plus nous pouvons personnaliser votre expérience.',
+    'aiCreatesItinerary': 'Notre IA crée votre itinéraire',
+    'aiCreatesItineraryDescription': 'Notre intelligence artificielle avancée crée un itinéraire jour par jour, adapté à vos préférences, à votre budget et au temps dont vous disposez.',
+    'customizeAndTravel': 'Personnalisez et voyagez',
+    'customizeAndTravelDescription': 'Affinez votre itinéraire jusqu\'à ce qu\'il soit parfait, puis emportez-le avec vous. Accédez à vos plans à tout moment, même hors ligne pendant votre voyage.',
+    'features': 'Nos fonctionnalités',
+    'customizedItinerariesFeature': 'Itinéraires personnalisés',
+    'customizedItinerariesFeatureDescription': 'Des plans de voyage adaptés à vos intérêts, pas des itinéraires génériques. Découvrez les sites incontournables et les joyaux cachés.',
+    'quickPlanning': 'Planification rapide',
+    'quickPlanningDescription': 'Obtenez un itinéraire complet en quelques minutes, pas en heures. Notre IA fait le travail difficile pour vous.',
+    'budgetOptions': 'Options adaptées au budget',
+    'budgetOptionsDescription': 'Des suggestions qui respectent votre budget, qu\'il soit serré ou généreux. Profitez au maximum de chaque euro dépensé.',
+    'mapsDirections': 'Cartes et directions',
+    'mapsDirectionsDescription': 'Des cartes interactives et des instructions de navigation intégrées pour vous aider à vous déplacer sans stress dans des lieux inconnus.',
+    'readyToPlan': 'Prêt à planifier votre aventure ?',
+    'startTodayDescription': 'Commencez dès aujourd\'hui et découvrez à quel point la planification de voyage peut être simple et agréable.',
+    'planMyTrip': 'Planifier mon voyage',
+    // About page translations
+    'aboutDescription': 'Découvrez comment nous transformons la façon dont vous planifiez vos voyages',
+    'ourMission': 'Notre mission',
+    'ourMissionDescription1': 'Chez ItinaryMe, notre mission est de simplifier la planification de voyage en offrant une plateforme intuitive qui combine technologie et expertise humaine.',
+    'ourMissionDescription2': 'Nous croyons que chaque voyage devrait être une expérience unique, adaptée à vos préférences personnelles et dépourvue des tracas habituels liés à la planification.',
+    'ourHistory': 'Notre histoire',
+    'ourHistoryDescription1': 'ItinaryMe est né en 2025 de la frustration de ses fondateurs face à la complexité de planifier des voyages mémorables sans y passer des heures.',
+    'ourHistoryDescription2': 'Depuis, nous avons aidé des milliers de voyageurs à créer des itinéraires personnalisés qui correspondent parfaitement à leurs envies et à leur budget.',
+    'howItFunctions': 'Comment ça fonctionne',
+    'shareYourPreferences': 'Partagez vos préférences',
+    'shareYourPreferencesDescription': 'Indiquez-nous votre destination, dates de voyage et vos centres d\'intérêt.',
+    'personalizedAIAssistant': 'Assistant IA personnalisé',
+    'personalizedAIAssistantDescription': 'Notre assistant intelligent créera un itinéraire adapté à vos préférences.',
+    'enjoyYourTrip': 'Profitez de votre voyage',
+    'enjoyYourTripDescription': 'Accédez à votre itinéraire détaillé et modifiez-le à tout moment.',
+    'readyToPlanYourNextTrip': 'Prêt à planifier votre prochain voyage ?',
+    'joinThousandsOfTravelers': 'Rejoignez des milliers de voyageurs qui ont déjà simplifié leur planification avec ItinaryMe.',
+    'startYourItinerary': 'Commencer votre itinéraire',
+    // Destinations page translations
+    'destinationsDescription': 'Découvrez des destinations de rêve du monde entier et commencez à planifier votre prochain voyage',
+    'searchDestination': 'Rechercher une destination...',
+    'filterBySeason': 'Filtrer par saison :',
+    'allSeasons': 'Toutes les saisons',
+    'spring': 'Printemps',
+    'summer': 'Été',
+    'autumn': 'Automne',
+    'winter': 'Hiver',
+    'noDestinationsFound': 'Aucune destination ne correspond à vos critères. Veuillez essayer une autre recherche.',
+    'cantFindDreamDestination': 'Vous ne trouvez pas la destination de vos rêves ? Contactez-nous et nous vous aiderons à la planifier.',
+    // Destinations translations
+    'destination_paris': 'Paris, France',
+    'destination_paris_desc': "La ville de l'amour, Paris regorge de monuments emblématiques comme la Tour Eiffel, le Louvre et Notre-Dame. Découvrez l'art, la gastronomie et l'architecture unique de cette capitale européenne.",
+    'destination_tokyo': 'Tokyo, Japon',
+    'destination_tokyo_desc': "Mélange fascinant de traditions anciennes et de technologies futuristes, Tokyo est une métropole vibrante offrant une expérience culturelle unique, une cuisine raffinée et des quartiers aux atmosphères contrastées.",
+    'destination_new_york': 'New York, États-Unis',
+    'destination_new_york_desc': 'La ville qui ne dort jamais offre une énergie incomparable, des gratte-ciels emblématiques, des musées de classe mondiale, une scène culturelle dynamique et des quartiers diversifiés à explorer.',
+    'destination_rome': 'Rome, Italie',
+    'destination_rome_desc': "La Ville Éternelle est un musée à ciel ouvert où l'histoire antique côtoie la vie moderne. Découvrez les vestiges de l'Empire romain, la cuisine italienne authentique et l'ambiance unique des places et fontaines.",
+    'destination_bali': 'Bali, Indonésie',
+    'destination_bali_desc': "L'île des dieux offre des plages paradisiaques, des rizières en terrasses, des temples spirituels et une culture riche. Bali est idéale pour se détendre, pratiquer le yoga ou partir à l'aventure.",
+    'destination_barcelona': 'Barcelone, Espagne',
+    'destination_barcelona_desc': 'Avec son architecture unique de Gaudí, ses plages urbaines, sa cuisine catalane et son ambiance festive, Barcelone est une destination méditerranéenne parfaite pour un city-break culturel.',
+    'destination_marrakech': 'Marrakech, Maroc',
+    'destination_marrakech_desc': "La ville rouge vous plonge dans les couleurs et parfums de l'Afrique du Nord. Entre souks animés, palais majestueux et jardins luxuriants, Marrakech offre une immersion culturelle intense.",
+    'destination_kyoto': 'Kyoto, Japon',
+    'destination_kyoto_desc': "Als ehemalige kaiserliche Hauptstadt verkörpert Kyoto die traditionelle Seele Japans mit seinen Zen-Tempeln, japanischen Gärten, Shinto-Schreinen und Geisha-Häusern. Ein Eintauchen in japanische Gelassenheit und Ästhetik.",
+    'destination_santorini': 'Santorin, Grèce',
+    'destination_santorini_desc': 'Cette île cyclique offre un paysage à couper le souffle avec ses maisons blanches à dômes bleus surplombant la mer Égée. Profitez des couchers de soleil spectaculaires, des plages volcaniques et de la gastronomie grecque.',
+    'best_time_to_visit': 'Meilleure période pour visiter',
+    'highlights': 'Points forts',
+    // Footer translations
+    'footer_about': 'À propos',
+    'footer_ourStory': 'Notre histoire',
+    'footer_howItWorks': 'Comment ça marche',
+    'footer_testimonials': 'Témoignages',
+    'footer_destinations': 'Destinations',
+    'footer_popular': 'Populaires',
+    'footer_bySeason': 'Par saison',
+    'footer_allDestinations': 'Toutes les destinations',
+    'footer_contact': 'Contact',
+    'footer_contactUs': 'Nous contacter',
+    'footer_support': 'Support',
+    'footer_faq': 'FAQ',
+    'footer_copyright': '© 2025 ItinaryMe. Tous droits réservés.',
+    'footer_privacy': 'Confidentialité',
+    'footer_terms': 'Conditions',
+    'footer_cookies': 'Cookies',
+    'footer_tagline': 'Votre partenaire de confiance pour planifier des voyages inoubliables et personnalisés.',
   },
   en: {
     'home': 'Home',
@@ -66,10 +177,122 @@ const translations: Record<Language, Record<string, string>> = {
     'expertPlanningDescription': 'Our travel specialists use their knowledge to create your perfect trip.',
     'seamlessExperience': 'Seamless Experience',
     'seamlessExperienceDescription': 'Enjoy a hassle-free journey with bookings and details arranged for you.',
-    'footerText': '© 2023 ItinaryMe. All rights reserved.',
+    'footerText': '© 2025 ItinaryMe. All rights reserved.',
     'dashboard': 'Dashboard',
     'guests': 'Guests',
     'myTrips': 'My trips',
+    'howItWorks': 'How it works',
+    'aboutUs': 'About Us',
+    'popularDestinations': 'Popular Destinations',
+    // Contact page translations
+    'contactUs': 'Contact Us',
+    'contactDescription': 'Have questions or suggestions? Feel free to contact us.',
+    'fullName': 'Full Name',
+    'email': 'Email',
+    'message': 'Message',
+    'sendMessage': 'Send Message',
+    'sending': 'Sending...',
+    'messageSent': 'Message Sent!',
+    'thankYouMessage': 'Thank you for contacting us. We will get back to you shortly.',
+    'sendAnotherMessage': 'Send Another Message',
+    'fillAllFields': 'Please fill in all fields.',
+    'errorOccurred': 'An error occurred. Please try again later.',
+    'contactInfo': 'Contact Information',
+    'phone': 'Phone',
+    'address': 'Address',
+    'openingHours': 'Opening Hours',
+    'mondayFriday': 'Monday - Friday',
+    'saturday': 'Saturday',
+    'sunday': 'Sunday',
+    'closed': 'Closed',
+    // How it works page translations
+    'howItWorksDescription': 'Discover how ItinaryMe revolutionizes the way you plan your travels, in just a few simple steps.',
+    'sharePreferences': 'Share Your Preferences',
+    'sharePreferencesDescription': 'Tell us where you want to go, when, and what you like. The more information you give us, the more we can personalize your experience.',
+    'aiCreatesItinerary': 'Our AI Creates Your Itinerary',
+    'aiCreatesItineraryDescription': 'Our advanced artificial intelligence creates a day-by-day itinerary, tailored to your preferences, budget, and available time.',
+    'customizeAndTravel': 'Customize and Travel',
+    'customizeAndTravelDescription': 'Refine your itinerary until it\'s perfect, then take it with you. Access your plans anytime, even offline during your trip.',
+    'features': 'Our Features',
+    'customizedItinerariesFeature': 'Customized Itineraries',
+    'customizedItinerariesFeatureDescription': 'Travel plans tailored to your interests, not generic itineraries. Discover must-see sites and hidden gems.',
+    'quickPlanning': 'Quick Planning',
+    'quickPlanningDescription': 'Get a complete itinerary in minutes, not hours. Our AI does the hard work for you.',
+    'budgetOptions': 'Budget-Friendly Options',
+    'budgetOptionsDescription': 'Suggestions that respect your budget, whether tight or generous. Make the most of every dollar spent.',
+    'mapsDirections': 'Maps and Directions',
+    'mapsDirectionsDescription': 'Built-in interactive maps and navigation instructions to help you move stress-free in unfamiliar places.',
+    'readyToPlan': 'Ready to Plan Your Adventure?',
+    'startTodayDescription': 'Start today and discover how easy and enjoyable travel planning can be.',
+    'planMyTrip': 'Plan My Trip',
+    // About page translations
+    'aboutDescription': 'Discover how we transform the way you plan your travels',
+    'ourMission': 'Our Mission',
+    'ourMissionDescription1': 'At ItinaryMe, our mission is to simplify travel planning by offering an intuitive platform that combines technology and human expertise.',
+    'ourMissionDescription2': 'We believe that every trip should be a unique experience, tailored to your personal preferences and free from the usual planning hassles.',
+    'ourHistory': 'Our History',
+    'ourHistoryDescription1': 'ItinaryMe was born in 2025 from its founders\' frustration with the complexity of planning memorable trips without spending hours on it.',
+    'ourHistoryDescription2': 'Since then, we have helped thousands of travelers create personalized itineraries that perfectly match their desires and budget.',
+    'howItFunctions': 'How It Works',
+    'shareYourPreferences': 'Share Your Preferences',
+    'shareYourPreferencesDescription': 'Tell us your destination, travel dates, and interests.',
+    'personalizedAIAssistant': 'Personalized AI Assistant',
+    'personalizedAIAssistantDescription': 'Our intelligent assistant will create an itinerary tailored to your preferences.',
+    'enjoyYourTrip': 'Enjoy Your Trip',
+    'enjoyYourTripDescription': 'Access your detailed itinerary and modify it at any time.',
+    'readyToPlanYourNextTrip': 'Ready to plan your next trip?',
+    'joinThousandsOfTravelers': 'Join thousands of travelers who have already simplified their planning with ItinaryMe.',
+    'startYourItinerary': 'Start Your Itinerary',
+    // Destinations page translations
+    'destinationsDescription': 'Discover dream destinations from around the world and start planning your next trip',
+    'searchDestination': 'Search for a destination...',
+    'filterBySeason': 'Filter by season:',
+    'allSeasons': 'All seasons',
+    'spring': 'Spring',
+    'summer': 'Summer',
+    'autumn': 'Autumn',
+    'winter': 'Winter',
+    'noDestinationsFound': 'No destinations match your criteria. Please try another search.',
+    'cantFindDreamDestination': 'Can\'t find your dream destination? Contact us and we\'ll help you plan it.',
+    // Destinations translations
+    'destination_paris': 'Paris, France',
+    'destination_paris_desc': "The city of love, Paris is filled with iconic landmarks like the Eiffel Tower, the Louvre, and Notre Dame. Discover the art, cuisine, and unique architecture of this European capital.",
+    'destination_tokyo': 'Tokyo, Japan',
+    'destination_tokyo_desc': "A fascinating blend of ancient traditions and futuristic technology, Tokyo is a vibrant metropolis offering a unique cultural experience, refined cuisine, and neighborhoods with contrasting atmospheres.",
+    'destination_new_york': 'New York, United States',
+    'destination_new_york_desc': 'The city that never sleeps offers unparalleled energy, iconic skyscrapers, world-class museums, a dynamic cultural scene, and diverse neighborhoods to explore.',
+    'destination_rome': 'Rome, Italy',
+    'destination_rome_desc': "The Eternal City is an open-air museum where ancient history meets modern life. Discover the remnants of the Roman Empire, authentic Italian cuisine, and the unique ambiance of squares and fountains.",
+    'destination_bali': 'Bali, Indonesia',
+    'destination_bali_desc': "The island of gods offers paradise beaches, terraced rice fields, spiritual temples, and a rich culture. Bali is ideal for relaxation, yoga, or adventure.",
+    'destination_barcelona': 'Barcelona, Spain',
+    'destination_barcelona_desc': 'With its unique Gaudí architecture, urban beaches, Catalan cuisine, and festive atmosphere, Barcelona is a perfect Mediterranean destination for a cultural city break.',
+    'destination_marrakech': 'Marrakech, Morocco',
+    'destination_marrakech_desc': "La ville rouge vous plonge dans les couleurs et parfums de l'Afrique du Nord. Entre souks animés, palais majestueux et jardins luxuriants, Marrakech offre une immersion culturelle intense.",
+    'destination_kyoto': 'Kyoto, Japan',
+    'destination_kyoto_desc': "Als ehemalige kaiserliche Hauptstadt verkörpert Kyoto die traditionelle Seele Japans mit seinen Zen-Tempeln, japanischen Gärten, Shinto-Schreinen und Geisha-Häusern. Ein Eintauchen in japanische Gelassenheit und Ästhetik.",
+    'destination_santorini': 'Santorini, Greece',
+    'destination_santorini_desc': 'This Cycladic island offers breathtaking landscapes with its white houses with blue domes overlooking the Aegean Sea. Enjoy spectacular sunsets, volcanic beaches, and Greek gastronomy.',
+    'best_time_to_visit': 'Best time to visit',
+    'highlights': 'Highlights',
+    // Footer translations
+    'footer_about': 'About',
+    'footer_ourStory': 'Our Story',
+    'footer_howItWorks': 'How It Works',
+    'footer_testimonials': 'Testimonials',
+    'footer_destinations': 'Destinations',
+    'footer_popular': 'Popular',
+    'footer_bySeason': 'By Season',
+    'footer_allDestinations': 'All Destinations',
+    'footer_contact': 'Contact',
+    'footer_contactUs': 'Contact Us',
+    'footer_support': 'Support',
+    'footer_faq': 'FAQ',
+    'footer_copyright': '© 2025 ItinaryMe. All rights reserved.',
+    'footer_privacy': 'Privacy Policy',
+    'footer_terms': 'Terms of Service',
+    'footer_cookies': 'Cookies',
+    'footer_tagline': 'Your trusted partner for planning unforgettable, personalized trips.',
   },
   es: {
     'home': 'Inicio',
@@ -91,10 +314,122 @@ const translations: Record<Language, Record<string, string>> = {
     'expertPlanningDescription': 'Nuestros especialistas utilizan sus conocimientos para crear su viaje perfecto.',
     'seamlessExperience': 'Experiencia sin problemas',
     'seamlessExperienceDescription': 'Disfrute de un viaje sin complicaciones con reservas y detalles organizados para usted.',
-    'footerText': '© 2023 ItinaryMe. Todos los derechos reservados.',
+    'footerText': '© 2025 ItinaryMe. Todos los derechos reservados.',
     'dashboard': 'Panel de control',
     'guests': 'Huéspedes',
     'myTrips': 'Mis viajes',
+    'howItWorks': 'Cómo funciona',
+    'aboutUs': 'Sobre Nosotros',
+    'popularDestinations': 'Destinos Populares',
+    // Contact page translations
+    'contactUs': 'Contáctenos',
+    'contactDescription': '¿Tiene preguntas o sugerencias? No dude en contactarnos.',
+    'fullName': 'Nombre completo',
+    'email': 'Correo electrónico',
+    'message': 'Mensaje',
+    'sendMessage': 'Enviar mensaje',
+    'sending': 'Enviando...',
+    'messageSent': '¡Mensaje enviado!',
+    'thankYouMessage': 'Gracias por contactarnos. Nos pondremos en contacto con usted a la brevedad.',
+    'sendAnotherMessage': 'Enviar otro mensaje',
+    'fillAllFields': 'Por favor complete todos los campos.',
+    'errorOccurred': 'Ha ocurrido un error. Por favor, inténtelo de nuevo más tarde.',
+    'contactInfo': 'Información de contacto',
+    'phone': 'Teléfono',
+    'address': 'Dirección',
+    'openingHours': 'Horario de atención',
+    'mondayFriday': 'Lunes - Viernes',
+    'saturday': 'Sábado',
+    'sunday': 'Domingo',
+    'closed': 'Cerrado',
+    // How it works page translations
+    'howItWorksDescription': 'Descubra cómo ItinaryMe revoluciona la forma en que planifica sus viajes, en solo unos sencillos pasos.',
+    'sharePreferences': 'Comparta sus preferencias',
+    'sharePreferencesDescription': 'Díganos dónde quiere ir, cuándo y qué le gusta. Cuanta más información nos proporcione, más podremos personalizar su experiencia.',
+    'aiCreatesItinerary': 'Nuestra IA crea su itinerario',
+    'aiCreatesItineraryDescription': 'Nuestra avanzada inteligencia artificial crea un itinerario día a día, adaptado a sus preferencias, presupuesto y tiempo disponible.',
+    'customizeAndTravel': 'Personalice y viaje',
+    'customizeAndTravelDescription': 'Refine su itinerario hasta que sea perfecto, y luego llévelo con usted. Acceda a sus planes en cualquier momento, incluso sin conexión durante su viaje.',
+    'features': 'Nuestras características',
+    'customizedItinerariesFeature': 'Itinerarios personalizados',
+    'customizedItinerariesFeatureDescription': 'Planes de viaje adaptados a sus intereses, no itinerarios genéricos. Descubra lugares de visita obligada y joyas ocultas.',
+    'quickPlanning': 'Planificación rápida',
+    'quickPlanningDescription': 'Obtenga un itinerario completo en minutos, no en horas. Nuestra IA hace el trabajo duro por usted.',
+    'budgetOptions': 'Opciones según presupuesto',
+    'budgetOptionsDescription': 'Sugerencias que respetan su presupuesto, ya sea ajustado o generoso. Aproveche al máximo cada euro gastado.',
+    'mapsDirections': 'Mapas e indicaciones',
+    'mapsDirectionsDescription': 'Mapas interactivos integrados e instrucciones de navegación para ayudarle a moverse sin estrés en lugares desconocidos.',
+    'readyToPlan': '¿Listo para planificar su aventura?',
+    'startTodayDescription': 'Comience hoy y descubra lo fácil y agradable que puede ser la planificación de viajes.',
+    'planMyTrip': 'Planificar mi viaje',
+    // About page translations
+    'aboutDescription': 'Descubra cómo transformamos la forma en que planifica sus viajes',
+    'ourMission': 'Nuestra Misión',
+    'ourMissionDescription1': 'En ItinaryMe, nuestra misión es simplificar la planificación de viajes ofreciendo una plataforma intuitiva que combina tecnología y experiencia humana.',
+    'ourMissionDescription2': 'Creemos que cada viaje debe ser una experiencia única, adaptada a sus preferencias personales y libre de las molestias habituales de planificación.',
+    'ourHistory': 'Nuestra Historia',
+    'ourHistoryDescription1': 'ItinaryMe nació en 2025 de la frustración de sus fundadores ante la complejidad de planificar viajes memorables sin pasar horas en ello.',
+    'ourHistoryDescription2': 'Desde entonces, hemos ayudado a miles de viajeros a crear itinerarios personalizados que se ajustan perfectamente a sus deseos y presupuesto.',
+    'howItFunctions': 'Cómo Funciona',
+    'shareYourPreferences': 'Comparta Sus Preferencias',
+    'shareYourPreferencesDescription': 'Indíquenos su destino, fechas de viaje y sus intereses.',
+    'personalizedAIAssistant': 'Asistente IA Personalizado',
+    'personalizedAIAssistantDescription': 'Nuestro asistente inteligente creará un itinerario adaptado a sus preferencias.',
+    'enjoyYourTrip': 'Disfrute Su Viaje',
+    'enjoyYourTripDescription': 'Acceda a su itinerario detallado y modifíquelo en cualquier momento.',
+    'readyToPlanYourNextTrip': '¿Listo para planificar su próximo viaje?',
+    'joinThousandsOfTravelers': 'Únase a miles de viajeros que ya han simplificado su planificación con ItinaryMe.',
+    'startYourItinerary': 'Comenzar Su Itinerario',
+    // Destinations page translations
+    'destinationsDescription': 'Descubra destinos de ensueño de todo el mundo y comience a planificar su próximo viaje',
+    'searchDestination': 'Buscar un destino...',
+    'filterBySeason': 'Filtrar por temporada:',
+    'allSeasons': 'Todas las temporadas',
+    'spring': 'Primavera',
+    'summer': 'Verano',
+    'autumn': 'Otoño',
+    'winter': 'Invierno',
+    'noDestinationsFound': 'Ningún destino coincide con sus criterios. Por favor, intente otra búsqueda.',
+    'cantFindDreamDestination': '¿No encuentra su destino soñado? Contáctenos y le ayudaremos a planificarlo.',
+    // Destinations translations
+    'destination_paris': 'París, Francia',
+    'destination_paris_desc': "La ciudad del amor, París está llena de monumentos emblemáticos como la Torre Eiffel, el Louvre y Notre Dame. Descubra el arte, la gastronomía y la arquitectura única de esta capital europea.",
+    'destination_tokyo': 'Tokio, Japón',
+    'destination_tokyo_desc': "Un affascinante mix di antiche tradizioni e tecnologia futuristica, Tokyo è una metropoli vibrante che offre un'esperienza culturale unica, una cucina raffinata e quartieri con atmosfere contrastanti.",
+    'destination_new_york': 'Nueva York, Estados Unidos',
+    'destination_new_york_desc': 'La ciudad que nunca duerme offre une énergie senza pari, grattacieli iconiques, musei di livello mondiale, une scène culturelle dynamique et quartiers diversifiés à explorer.',
+    'destination_rome': 'Roma, Italia',
+    'destination_rome_desc': "La Città Eterna è un museo a cielo aperto dove la storia antica incontra la vita moderna. Scopri i resti dell'Impero Romano, l'autentica cucina italiana e l'atmosfera unica di piazze e fontane.",
+    'destination_bali': 'Bali, Indonesia',
+    'destination_bali_desc': "La isla degli dei offre spiagge paradisiache, risaie a terrazza, templi spirituali e una ricca cultura. Bali è ideale per rilassarsi, praticare yoga o avventurarsi.",
+    'destination_barcelona': 'Barcelona, España',
+    'destination_barcelona_desc': 'Con su arquitectura única de Gaudí, playas urbanas, cocina catalana y ambiente festoso, Barcellona è una destinazione mediterránea perfetta per una fuga culturale.',
+    'destination_marrakech': 'Marrakesch, Marocco',
+    'destination_marrakech_desc': "La ciudad roja te sumerge en los colores y aromas del norte de África. Entre zocos animados, palacios majestuosos y jardines exuberantes, Marrakech ofrece una inmersión cultural intensa.",
+    'destination_kyoto': 'Kioto, Japón',
+    'destination_kyoto_desc': "Ex capitale imperiale, Kyoto incarna l'anima tradizionale del Giappone con i suoi templi zen, giardini giapponesi, santuari shintoisti e case di geishas. Un'immersione nella serenità ed estetica giapponese.",
+    'destination_santorini': 'Santorini, Grecia',
+    'destination_santorini_desc': 'Questa isola delle Cicladi offre paesaggi mozzafiato con le sue case bianche con cupole blu che si affacciano sul mar Egeo. Goditi tramonti spettacolari, spiagge vulcaniche e gastronomia greca.',
+    'best_time_to_visit': 'Periodo migliore per visitare',
+    'highlights': 'Destacados',
+    // Footer translations
+    'footer_about': 'Acerca de',
+    'footer_ourStory': 'Nuestra Historia',
+    'footer_howItWorks': 'Cómo Funciona',
+    'footer_testimonials': 'Testimonios',
+    'footer_destinations': 'Destinos',
+    'footer_popular': 'Populares',
+    'footer_bySeason': 'Por Temporada',
+    'footer_allDestinations': 'Todos los Destinos',
+    'footer_contact': 'Contacto',
+    'footer_contactUs': 'Contáctenos',
+    'footer_support': 'Soporte',
+    'footer_faq': 'Preguntas Frecuentes',
+    'footer_copyright': '© 2025 ItinaryMe. Todos los derechos reservados.',
+    'footer_privacy': 'Política de Privacidad',
+    'footer_terms': 'Términos de Servicio',
+    'footer_cookies': 'Cookies',
+    'footer_tagline': 'Su socio de confianza para planificar viajes inolvidables y personalizados.',
   },
   de: {
     'home': 'Startseite',
@@ -116,10 +451,122 @@ const translations: Record<Language, Record<string, string>> = {
     'expertPlanningDescription': 'Unsere Reisespezialisten nutzen ihr Wissen, um Ihre perfekte Reise zu gestalten.',
     'seamlessExperience': 'Nahtloses Erlebnis',
     'seamlessExperienceDescription': 'Genießen Sie eine sorgenfreie Reise mit Buchungen und Details, die für Sie arrangiert werden.',
-    'footerText': '© 2023 ItinaryMe. Alle Rechte vorbehalten.',
+    'footerText': '© 2025 ItinaryMe. Alle Rechte vorbehalten.',
     'dashboard': 'Dashboard',
     'guests': 'Gäste',
     'myTrips': 'Meine Reisen',
+    'howItWorks': 'Wie es funktioniert',
+    'aboutUs': 'Über Uns',
+    'popularDestinations': 'Beliebte Reiseziele',
+    // Contact page translations
+    'contactUs': 'Kontaktieren Sie uns',
+    'contactDescription': 'Haben Sie Fragen oder Anregungen? Zögern Sie nicht, uns zu kontaktieren.',
+    'fullName': 'Vollständiger Name',
+    'email': 'E-Mail',
+    'message': 'Nachricht',
+    'sendMessage': 'Nachricht senden',
+    'sending': 'Wird gesendet...',
+    'messageSent': 'Nachricht gesendet!',
+    'thankYouMessage': 'Vielen Dank für Ihre Nachricht. Wir werden uns in Kürze bei Ihnen melden.',
+    'sendAnotherMessage': 'Eine weitere Nachricht senden',
+    'fillAllFields': 'Bitte füllen Sie alle Felder aus.',
+    'errorOccurred': 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.',
+    'contactInfo': 'Kontaktinformationen',
+    'phone': 'Telefon',
+    'address': 'Adresse',
+    'openingHours': 'Öffnungszeiten',
+    'mondayFriday': 'Montag - Freitag',
+    'saturday': 'Samstag',
+    'sunday': 'Sonntag',
+    'closed': 'Geschlossen',
+    // How it works page translations
+    'howItWorksDescription': 'Entdecken Sie, wie ItinaryMe die Art und Weise revolutioniert, wie Sie Ihre Reisen planen, in nur wenigen einfachen Schritten.',
+    'sharePreferences': 'Teilen Sie Ihre Vorlieben',
+    'sharePreferencesDescription': 'Sagen Sie uns, wohin Sie reisen möchten, wann und was Sie mögen. Je mehr Informationen Sie uns geben, desto besser können wir Ihr Erlebnis personalisieren.',
+    'aiCreatesItinerary': 'Unsere KI erstellt Ihre Reiseroute',
+    'aiCreatesItineraryDescription': 'Unsere fortschrittliche künstliche Intelligenz erstellt eine tägliche Reiseroute, die auf Ihre Vorlieben, Ihr Budget und Ihre verfügbare Zeit zugeschnitten ist.',
+    'customizeAndTravel': 'Anpassen und Reisen',
+    'customizeAndTravelDescription': 'Verfeinern Sie Ihre Reiseroute, bis sie perfekt ist, und nehmen Sie sie mit. Greifen Sie jederzeit auf Ihre Pläne zu, auch offline während Ihrer Reise.',
+    'features': 'Unsere Funktionen',
+    'customizedItinerariesFeature': 'Maßgeschneiderte Reiserouten',
+    'customizedItinerariesFeatureDescription': 'Reisepläne, die auf Ihre Interessen zugeschnitten sind, keine generischen Reiserouten. Entdecken Sie Sehenswürdigkeiten und versteckte Juwelen.',
+    'quickPlanning': 'Schnelle Planung',
+    'quickPlanningDescription': 'Erhalten Sie eine vollständige Reiseroute in Minuten, nicht in Stunden. Unsere KI erledigt die schwere Arbeit für Sie.',
+    'budgetOptions': 'Budgetfreundliche Optionen',
+    'budgetOptionsDescription': 'Vorschläge, die Ihr Budget respektieren, sei es knapp oder großzügig. Machen Sie das Beste aus jedem ausgegebenen Euro.',
+    'mapsDirections': 'Karten und Wegbeschreibungen',
+    'mapsDirectionsDescription': 'Integrierte interaktive Karten und Navigationsanweisungen, die Ihnen helfen, sich an unbekannten Orten stressfrei zu bewegen.',
+    'readyToPlan': 'Bereit, Ihr Abenteuer zu planen?',
+    'startTodayDescription': 'Beginnen Sie noch heute und entdecken Sie, wie einfach und angenehm Reiseplanung sein kann.',
+    'planMyTrip': 'Meine Reise planen',
+    // About page translations
+    'aboutDescription': 'Entdecken Sie, wie wir die Art und Weise verändern, wie Sie Ihre Reisen planen',
+    'ourMission': 'Unsere Mission',
+    'ourMissionDescription1': 'Bei ItinaryMe ist es unsere Mission, die Reiseplanung zu vereinfachen, indem wir eine intuitive Plattform anbieten, die Technologie und menschliches Fachwissen kombiniert.',
+    'ourMissionDescription2': 'Wir glauben, dass jede Reise ein einzigartiges Erlebnis sein sollte, das auf Ihre persönlichen Vorlieben zugeschnitten ist und frei von den üblichen Planungsschwierigkeiten.',
+    'ourHistory': 'Unsere Geschichte',
+    'ourHistoryDescription1': 'ItinaryMe entstand 2025 aus der Frustrazione seiner Gründer über die Komplexität, unvergessliche Reisen zu planen, ohne stundenlang daran zu arbeiten.',
+    'ourHistoryDescription2': 'Seitdem haben wir Tausenden von Reisenden geholfen, personalisierte Reiserouten zu erstellen, die perfekt zu ihren Wünschen und ihrem Budget passen.',
+    'howItFunctions': 'Wie es funktioniert',
+    'shareYourPreferences': 'Teilen Sie Ihre Vorlieben',
+    'shareYourPreferencesDescription': 'Teilen Sie uns Ihr Reiseziel, Reisedaten und Ihre Interessen mit.',
+    'personalizedAIAssistant': 'Personalisierter KI-Assistent',
+    'personalizedAIAssistantDescription': 'Il nostro assistente intelligente creerà un itinerario adatto alle tue preferenze.',
+    'enjoyYourTrip': 'Genießen Sie Ihre Reise',
+    'enjoyYourTripDescription': 'Greifen Sie jederzeit auf Ihre detaillierte Reiseroute zu und ändern Sie sie.',
+    'readyToPlanYourNextTrip': 'Bereit, Ihre nächste Reise zu planen?',
+    'joinThousandsOfTravelers': 'Schließen Sie sich Tausenden von Reisenden an, die ihre Planung mit ItinaryMe bereits vereinfacht haben.',
+    'startYourItinerary': 'Starten Sie Ihre Reiseroute',
+    // Destinations page translations
+    'destinationsDescription': 'Entdecken Sie Traumziele aus der ganzen Welt und beginnen Sie mit der Planung Ihrer nächsten Reise',
+    'searchDestination': 'Nach einem Reiseziel suchen...',
+    'filterBySeason': 'Nach Jahreszeit filtern:',
+    'allSeasons': 'Alle Jahreszeiten',
+    'spring': 'Frühling',
+    'summer': 'Sommer',
+    'autumn': 'Herbst',
+    'winter': 'Winter',
+    'noDestinationsFound': 'Keine Reiseziele entsprechen Ihren Kriterien. Bitte versuchen Sie eine andere Suche.',
+    'cantFindDreamDestination': 'Können Sie Ihr Traumziel nicht finden? Kontaktieren Sie uns und wir helfen Ihnen bei der Planung.',
+    // Destinations translations
+    'destination_paris': 'Paris, Frankreich',
+    'destination_paris_desc': "Die Stadt der Liebe, Paris ist gefüllt mit ikonischen Wahrzeichen wie dem Eiffelturm, dem Louvre und Notre Dame. Entdecken Sie die Kunst, Küche und einzigartige Architektur dieser europäischen Hauptstadt.",
+    'destination_tokyo': 'Tokio, Japan',
+    'destination_tokyo_desc': "Eine faszinierende Mischung aus alten Traditionen und futuristischer Technologie, Tokio ist eine pulsierende Metropole, die ein einzigartiges kulturelles Erlebnis, raffinierte Küche und Viertel mit kontrastierenden Atmosphären bietet.",
+    'destination_new_york': 'New York, Vereinigte Staaten',
+    'destination_new_york_desc': 'Die Stadt, die niemals schläft, bietet unvergleichliche Energie, ikonische Wolkenkratzer, Weltklasse-Museen, eine dynamische Kulturszene und vielfältige Viertel zum Erkunden.',
+    'destination_rome': 'Rom, Italien',
+    'destination_rome_desc': "Die Ewige Stadt ist ein Freilichtmuseum, in dem die antike Geschichte auf das moderne Leben trifft. Entdecken Sie die Überreste des Römischen Reiches, authentische italienische Küche und die einzigartige Atmosphäre von Plätzen und Brunnen.",
+    'destination_bali': 'Bali, Indonesien',
+    'destination_bali_desc': "Die Insel der Götter bietet paradiesische Strände, terrassierte Reisfelder, spirituelle Tempel und eine reiche Kultur. Bali ist ideal zum Entspannen, Yoga oder Abenteuer.",
+    'destination_barcelona': 'Barcelona, Spanien',
+    'destination_barcelona_desc': 'Mit seiner einzigartigen Gaudí-Architektur, städtischen Stränden, katalanischen Küche und festlichen Atmosphäre ist Barcelona ein perfektes mediterranes Ziel für einen kulturellen Städtetrip.',
+    'destination_marrakech': 'Marrakesch, Marokko',
+    'destination_marrakech_desc': "Die rote Stadt taucht Sie in die Farben und Düfte Nordafrikas ein. Zwischen lebhaften Souks, majestätischen Palästen und üppigen Gärten bietet Marrakesch ein intensives kulturelles Erlebnis.",
+    'destination_kyoto': 'Kyoto, Japan',
+    'destination_kyoto_desc': "Als ehemalige kaiserliche Hauptstadt verkörpert Kyoto die traditionelle Seele Japans mit seinen Zen-Tempeln, japanischen Gärten, Shinto-Schreinen und Geisha-Häusern. Ein Eintauchen in japanische Gelassenheit und Ästhetik.",
+    'destination_santorini': 'Santorini, Griechenland',
+    'destination_santorini_desc': 'Diese Kykladeninsel bietet atemberaubende Landschaften mit ihren weißen Häusern mit blauen Kuppeln mit Blick auf die Ägäis. Genießen Sie spektakuläre Sonnenuntergänge, vulkanische Strände und griechische Gastronomie.',
+    'best_time_to_visit': 'Beste Reisezeit',
+    'highlights': 'Highlights',
+    // Footer translations
+    'footer_about': 'Über uns',
+    'footer_ourStory': 'Unsere Geschichte',
+    'footer_howItWorks': 'Wie es funktioniert',
+    'footer_testimonials': 'Erfahrungsberichte',
+    'footer_destinations': 'Reiseziele',
+    'footer_popular': 'Beliebt',
+    'footer_bySeason': 'Nach Jahreszeit',
+    'footer_allDestinations': 'Alle Reiseziele',
+    'footer_contact': 'Kontakt',
+    'footer_contactUs': 'Kontaktieren Sie uns',
+    'footer_support': 'Support',
+    'footer_faq': 'Häufige Fragen',
+    'footer_copyright': '© 2025 ItinaryMe. Alle Rechte vorbehalten.',
+    'footer_privacy': 'Datenschutz',
+    'footer_terms': 'Nutzungsbedingungen',
+    'footer_cookies': 'Cookies',
+    'footer_tagline': 'Ihr vertrauenswürdiger Partner für die Planung unvergesslicher, personalisierter Reisen.',
   },
   it: {
     'home': 'Home',
@@ -141,76 +588,226 @@ const translations: Record<Language, Record<string, string>> = {
     'expertPlanningDescription': 'I nostri specialisti di viaggio utilizzano le loro conoscenze per creare il tuo viaggio perfetto.',
     'seamlessExperience': 'Esperienza senza intoppi',
     'seamlessExperienceDescription': 'Goditi un viaggio senza stress con prenotazioni e dettagli organizzati per te.',
-    'footerText': '© 2023 ItinaryMe. Tutti i diritti riservati.',
+    'footerText': '© 2025 ItinaryMe. Tutti i diritti riservati.',
     'dashboard': 'Dashboard',
     'guests': 'Ospiti',
     'myTrips': 'I miei viaggi',
+    'howItWorks': 'Come funziona',
+    'aboutUs': 'Chi Siamo',
+    'popularDestinations': 'Destinazioni Popolari',
+    // Contact page translations
+    'contactUs': 'Contattaci',
+    'contactDescription': 'Hai domande o suggerimenti? Non esitare a contattarci.',
+    'fullName': 'Nome completo',
+    'email': 'Email',
+    'message': 'Messaggio',
+    'sendMessage': 'Invia messaggio',
+    'sending': 'Invio in corso...',
+    'messageSent': 'Messaggio inviato!',
+    'thankYouMessage': 'Grazie per averci contattato. Ti risponderemo al più presto.',
+    'sendAnotherMessage': 'Invia un altro messaggio',
+    'fillAllFields': 'Si prega di compilare tutti i campi.',
+    'errorOccurred': 'Si è verificato un errore. Per favore riprova più tardi.',
+    'contactInfo': 'Informazioni di contatto',
+    'phone': 'Telefono',
+    'address': 'Indirizzo',
+    'openingHours': 'Orari di apertura',
+    'mondayFriday': 'Lunedì - Venerdì',
+    'saturday': 'Sabato',
+    'sunday': 'Domenica',
+    'closed': 'Chiuso',
+    // How it works page translations
+    'howItWorksDescription': 'Scopri come ItinaryMe rivoluziona il modo in cui pianifichi i tuoi viaggi, in pochi semplici passaggi.',
+    'sharePreferences': 'Condividi le tue preferenze',
+    'sharePreferencesDescription': 'Dicci dove vuoi andare, quando e cosa ti piace. Più informazioni ci fornisci, più possiamo personalizzare la tua esperienza.',
+    'aiCreatesItinerary': 'La nostra IA crea il tuo itinerario',
+    'aiCreatesItineraryDescription': 'La nostra intelligenza artificiale avanzata crea un itinerario giorno per giorno, su misura per le tue preferenze, il tuo budget e il tempo a disposizione.',
+    'customizeAndTravel': 'Personalizza e viaggia',
+    'customizeAndTravelDescription': 'Perfeziona il tuo itinerario fino a quando non è perfetto, poi portalo con te. Accedi ai tuoi piani in qualsiasi momento, anche offline durante il viaggio.',
+    'features': 'Le nostre caratteristiche',
+    'customizedItinerariesFeature': 'Itinerari personalizzati',
+    'customizedItinerariesFeatureDescription': 'Piani di viaggio adattati ai tuoi interessi, non itinerari generici. Scopri luoghi imperdibili e gemme nascoste.',
+    'quickPlanning': 'Pianificazione rapida',
+    'quickPlanningDescription': 'Ottieni un itinerario completo in minuti, non in ore. La nostra IA fa il lavoro duro per te.',
+    'budgetOptions': 'Opzioni adatte al budget',
+    'budgetOptionsDescription': 'Suggerimenti che rispettano il tuo budget, che sia limitato o generoso. Sfrutta al massimo ogni euro speso.',
+    'mapsDirections': 'Mappe e indicazioni',
+    'mapsDirectionsDescription': 'Mappe interattive integrate e istruzioni di navigazione per aiutarti a muoverti senza stress in luoghi sconosciuti.',
+    'readyToPlan': 'Pronto a pianificare la tua avventura?',
+    'startTodayDescription': 'Inizia oggi e scopri quanto può essere facile e piacevole la pianificazione del viaggio.',
+    'planMyTrip': 'Pianifica il mio viaggio',
+    // About page translations
+    'aboutDescription': 'Scopri come trasformiamo il modo in cui pianifichi i tuoi viaggi',
+    'ourMission': 'La Nostra Missione',
+    'ourMissionDescription1': 'In ItinaryMe, la nostra missione è semplificare la pianificazione dei viaggi offrendo una piattaforma intuitiva che combina tecnologia ed esperienza umana.',
+    'ourMissionDescription2': 'Crediamo che ogni viaggio dovrebbe essere un\'esperienza unica, adattata alle tue preferenze personali e priva dei soliti problemi di pianificazione.',
+    'ourHistory': 'La Nostra Storia',
+    'ourHistoryDescription1': 'ItinaryMe è nato nel 2025 dalla frustrazione dei suoi fondatori per la complessità di pianificare viaggi memorabili senza passarci ore.',
+    'ourHistoryDescription2': 'Da allora, abbiamo aiutato migliaia di viaggiatori a creare itinerari personalizzati che corrispondono perfettamente ai loro desideri e al loro budget.',
+    'howItFunctions': 'Come Funziona',
+    'shareYourPreferences': 'Condividi le Tue Preferenze',
+    'shareYourPreferencesDescription': 'Indicaci la tua destinazione, le date di viaggio e i tuoi interessi.',
+    'personalizedAIAssistant': 'Assistente IA Personalizzato',
+    'personalizedAIAssistantDescription': 'Nuestro assistente intelligente creerà un itinerario adatto alle tue preferenze.',
+    'enjoyYourTrip': 'Goditi il Tuo Viaggio',
+    'enjoyYourTripDescription': 'Accedi al tuo itinerario dettagliato e modificalo in qualsiasi momento.',
+    'readyToPlanYourNextTrip': 'Pronto a pianificare il tuo prossimo viaggio?',
+    'joinThousandsOfTravelers': 'Unisciti a migliaia di viaggiatori che hanno già semplificato la loro pianificazione con ItinaryMe.',
+    'startYourItinerary': 'Inizia il Tuo Itinerario',
+    // Destinations page translations
+    'destinationsDescription': 'Scopri destinazioni da sogno da tutto il mondo e inizia a pianificare il tuo prossimo viaggio',
+    'searchDestination': 'Cerca una destinazione...',
+    'filterBySeason': 'Filtra per stagione:',
+    'allSeasons': 'Tutte le stagioni',
+    'spring': 'Primavera',
+    'summer': 'Estate',
+    'autumn': 'Autunno',
+    'winter': 'Inverno',
+    'noDestinationsFound': 'Nessuna destinazione corrisponde ai tuoi criteri. Prova un\'altra ricerca.',
+    'cantFindDreamDestination': 'Non riesci a trovare la tua destinazione da sogno? Contattaci e ti aiuteremo a pianificarla.',
+    // Destinations translations
+    'destination_paris': 'Parigi, Francia',
+    'destination_paris_desc': "La città dell'amore, Parigi è piena di luoghi iconici come la Torre Eiffel, il Louvre e Notre Dame. Scopri l'arte, la cucina e l'architettura unica di questa capitale europea.",
+    'destination_tokyo': 'Tokyo, Giappone',
+    'destination_tokyo_desc': "Un affascinante mix di antiche tradizioni e tecnologia futuristica, Tokyo è una metropoli vibrante che offre un'esperienza culturale unica, una cucina raffinata e quartieri con atmosfere contrastanti.",
+    'destination_new_york': 'New York, Stati Uniti',
+    'destination_new_york_desc': "La città che non dorme mai offre un'energia senza pari, grattacieli iconici, musei di livello mondiale, una scena culturale dinamica e quartieri diversificati da esplorare.",
+    'destination_rome': 'Roma, Italia',
+    'destination_rome_desc': "La Città Eterna è un museo a cielo aperto dove la storia antica incontra la vita moderna. Scopri i resti dell'Impero Romano, l'autentica cucina italiana e l'atmosfera unica di piazze e fontane.",
+    'destination_bali': 'Bali, Indonesia',
+    'destination_bali_desc': "L'isola degli dei offre spiagge paradisiache, risaie a terrazza, templi spirituali e una ricca cultura. Bali è ideale per rilassarsi, praticare yoga o avventurarsi.",
+    'destination_barcelona': 'Barcellona, Spagna',
+    'destination_barcelona_desc': "Con la sua architettura unica di Gaudí, le spiagge urbane, la cucina catalana e l'atmosfera festosa, Barcellona è una destinazione mediterranea perfetta per una fuga culturale.",
+    'destination_marrakech': 'Marrakech, Marocco',
+    'destination_marrakech_desc': "La città rossa ti immerge nei colori e nei profumi del Nord Africa. Tra vivaci souk, maestosi palazzi e rigogliosi giardini, Marrakech offre un'intensa immersione culturale.",
+    'destination_kyoto': 'Kyoto, Giappone',
+    'destination_kyoto_desc': "Ex capitale imperiale, Kyoto incarna l'anima tradizionale del Giappone con i suoi templi zen, giardini giapponesi, santuari shintoisti e case di geishas. Un'immersione nella serenità ed estetica giapponese.",
+    'destination_santorini': 'Santorini, Grecia',
+    'destination_santorini_desc': 'Questa isola delle Cicladi offre paesaggi mozzafiato con le sue case bianche con cupole blu che si affacciano sul mar Egeo. Goditi tramonti spettacolari, spiagge vulcaniche e gastronomia greca.',
+    'best_time_to_visit': 'Periodo migliore per visitare',
+    'highlights': 'Punti salienti',
+    // Footer translations
+    'footer_about': 'Chi siamo',
+    'footer_ourStory': 'La nostra storia',
+    'footer_howItWorks': 'Come funziona',
+    'footer_testimonials': 'Testimonianze',
+    'footer_destinations': 'Destinazioni',
+    'footer_popular': 'Popolari',
+    'footer_bySeason': 'Per stagione',
+    'footer_allDestinations': 'Tutte le destinazioni',
+    'footer_contact': 'Contatti',
+    'footer_contactUs': 'Contattaci',
+    'footer_support': 'Supporto',
+    'footer_faq': 'FAQ',
+    'footer_copyright': '© 2025 ItinaryMe. Tutti i diritti riservati.',
+    'footer_privacy': 'Privacy',
+    'footer_terms': 'Termini',
+    'footer_cookies': 'Cookie',
+    'footer_tagline': 'Il tuo partner di fiducia per pianificare viaggi indimenticabili e personalizzati.',
   },
 };
 
 // Provider qui exposera la langue et les fonctions de traduction
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>('fr');
+  const [language, setLanguageState] = useState<Language>('fr');
   
-  // Détecter la langue du navigateur ou à partir de l'API de géolocalisation
-  useEffect(() => {
-    async function detectLanguage() {
-      try {
-        // Appel à une API de géolocalisation (ici on utilise ipapi.co comme exemple)
-        const response = await fetch('https://ipapi.co/json/');
-        const data = await response.json();
-        
-        // Mapper le code pays vers une langue prise en charge
-        const countryToLang: Record<string, Language> = {
-          'FR': 'fr',
-          'CA': 'fr', // Canada peut être français ou anglais, on suppose français ici
-          'BE': 'fr', // Belgique peut avoir plusieurs langues, on suppose français
-          'CH': 'fr', // Suisse peut avoir plusieurs langues, on suppose français
-          'US': 'en',
-          'GB': 'en',
-          'AU': 'en',
-          'ES': 'es',
-          'MX': 'es',
-          'AR': 'es',
-          'DE': 'de',
-          'AT': 'de',
-          'IT': 'it',
-          // Ajouter d'autres mappages pays-langue selon les besoins
-        };
-        
-        // Si le pays est reconnu, utiliser la langue correspondante, sinon le français par défaut
-        if (data.country_code && countryToLang[data.country_code]) {
-          setLanguage(countryToLang[data.country_code]);
-        } else {
-          // Utiliser la langue du navigateur comme fallback
-          const browserLang = navigator.language.split('-')[0];
-          if (browserLang === 'fr' || browserLang === 'en' || browserLang === 'es' || browserLang === 'de' || browserLang === 'it') {
-            setLanguage(browserLang as Language);
-          }
-          // Si aucune correspondance, garder le français par défaut
-        }
-      } catch (error) {
-        console.error('Erreur lors de la détection de la langue:', error);
-        // Utiliser le français par défaut en cas d'erreur
-      }
-    }
-    
-    detectLanguage();
+  // Fonction pour changer la langue et la sauvegarder dans localStorage
+  const setLanguage = useCallback((newLanguage: Language) => {
+    setLanguageState(newLanguage);
+    localStorage.setItem('itinaryme-language', newLanguage);
+    // Force un rafraîchissement subtil du DOM
+    document.documentElement.lang = newLanguage;
+    document.documentElement.setAttribute('data-language', newLanguage);
+    console.log(`Langue changée pour: ${newLanguage}`);
   }, []);
   
-  // Fonction simple de traduction
-  const t = (key: string): string => {
-    return translations[language][key] || key;
+  // Charger la langue depuis localStorage au premier rendu
+  useEffect(() => {
+    try {
+      const savedLanguage = localStorage.getItem('itinaryme-language') as Language;
+      if (savedLanguage && Object.keys(translations).includes(savedLanguage)) {
+        setLanguageState(savedLanguage);
+        document.documentElement.lang = savedLanguage;
+        document.documentElement.setAttribute('data-language', savedLanguage);
+        console.log(`Langue chargée depuis localStorage: ${savedLanguage}`);
+      } else {
+        console.log('Aucune langue sauvegardée, détection automatique');
+        detectLanguage();
+      }
+    } catch (e) {
+      console.error('Erreur lors du chargement de la langue:', e);
+      detectLanguage();
+    }
+  }, []);
+
+  // Détecter la langue du navigateur ou à partir de l'API de géolocalisation
+  const detectLanguage = async () => {
+    try {
+      // D'abord essayer la langue du navigateur
+      const browserLang = navigator.language.split('-')[0];
+      if (browserLang === 'fr' || browserLang === 'en' || browserLang === 'es' || browserLang === 'de' || browserLang === 'it') {
+        setLanguage(browserLang as Language);
+        console.log(`Langue du navigateur détectée: ${browserLang}`);
+        return;
+      }
+      
+      // Sinon essayer l'API de géolocalisation
+      const response = await fetch('https://ipapi.co/json/');
+      const data = await response.json();
+      
+      // Mapper le code pays vers une langue prise en charge
+      const countryToLang: Record<string, Language> = {
+        'FR': 'fr',
+        'CA': 'fr',
+        'BE': 'fr',
+        'CH': 'fr',
+        'US': 'en',
+        'GB': 'en',
+        'AU': 'en',
+        'ES': 'es',
+        'MX': 'es',
+        'AR': 'es',
+        'DE': 'de',
+        'AT': 'de',
+        'IT': 'it',
+      };
+      
+      // Si le pays est reconnu, utiliser la langue correspondante
+      if (data.country_code && countryToLang[data.country_code]) {
+        setLanguage(countryToLang[data.country_code]);
+        console.log(`Langue détectée par pays: ${countryToLang[data.country_code]}`);
+      } else {
+        // Par défaut, utiliser le français
+        setLanguage('fr');
+        console.log('Langue par défaut: français');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la détection de la langue:', error);
+      // Utiliser le français par défaut en cas d'erreur
+      setLanguage('fr');
+    }
   };
   
-  const value = {
-    language,
-    setLanguage,
-    t
-  };
+  // Fonction améliorée de traduction
+  const t = useCallback((key: string): string => {
+    // Vérifier si la clé existe dans les traductions
+    if (translations[language] && key in translations[language]) {
+      return translations[language][key];
+    }
+    
+    // Si non trouvée dans la langue actuelle, essayer en français
+    if (language !== 'fr' && translations['fr'] && key in translations['fr']) {
+      console.warn(`Traduction manquante pour "${key}" en ${language}, utilisation du français.`);
+      return translations['fr'][key];
+    }
+    
+    // Retourner la clé comme fallback si aucune traduction n'est trouvée
+    console.warn(`Clé de traduction non trouvée: ${key}`);
+    return key;
+  }, [language]);
   
   return (
-    <LanguageContext.Provider value={value}>
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

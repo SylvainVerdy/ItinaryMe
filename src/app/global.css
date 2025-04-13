@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  position: relative;
+}
+
+a, button, [role="button"] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+nav {
+  position: relative;
+}
+
+nav a, nav button {
+  position: relative;
+  z-index: 999;
+} 

@@ -33,7 +33,8 @@ if (process.env.NODE_ENV === 'development') {
     if (typeof window !== 'undefined') {
       // Utilisez l'IP locale pour l'émulateur
       connectFirestoreEmulator(db, 'localhost', 8080);
-      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+      // Correction de l'URL de l'émulateur Auth pour éviter les problèmes CORS
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099');
       console.log('Connecté aux émulateurs Firebase locaux');
     }
   } catch (error) {

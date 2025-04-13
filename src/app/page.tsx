@@ -55,7 +55,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Background Image */}
-      <div className="fixed inset-0 -z-10">
+      <div className="fixed inset-0 -z-10 pointer-events-none">
         <Image
           src="/images/background.jpg"
           alt="Background"
@@ -67,54 +67,54 @@ export default function Home() {
       </div>
 
       {/* Header with new Navbar */}
-      <header className="relative z-20 w-full">
+      <header className="w-full">
         <Navbar transparent={true} />
       </header>
 
       {/* Main Content */}
-      <main className="relative z-20 flex-grow bg-black/40 py-12">
+      <main className="flex-grow bg-black/40 pt-20 mt-4">
         <section className="max-w-screen-xl mx-auto px-4">
           <div className="text-center py-16">
-            <h1 className="text-5xl font-bold text-white mb-6">
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
               {t('personalizedTrip')}
             </h1>
             <p className="text-lg text-gray-200 mb-8 max-w-xl mx-auto">
               {t('personalizedTripDescription')}
             </p>
             {/* Unified container for fields */}
-            <div className="flex w-full max-w-4xl mx-auto rounded-xl overflow-hidden bg-white shadow-md">
+            <div className="flex flex-col md:flex-row w-full max-w-4xl mx-auto rounded-xl overflow-hidden bg-white shadow-md">
               {/* Destination */}
               <Input
                 type="text"
                 placeholder={t('whereDoYouWantToGo')}
-                className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
+                className="flex-1 h-12 border-0 md:rounded-none focus:ring-0 px-4"
               />
 
               {/* Start date */}
               <Input
                 type="date"
                 placeholder={t('date')}
-                className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
+                className="flex-1 h-12 border-0 md:rounded-none focus:ring-0 px-4"
               />
 
               {/* End date */}
               <Input
                 type="date"
                 placeholder={t('date')}
-                className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
+                className="flex-1 h-12 border-0 md:rounded-none focus:ring-0 px-4"
               />
 
               {/* Number of guests */}
               <Input
                 type="number"
                 min={1}
-                placeholder="Guests"
-                className="flex-1 h-12 border-0 rounded-none focus:ring-0 px-4"
+                placeholder={t('guests')}
+                className="flex-1 h-12 border-0 md:rounded-none focus:ring-0 px-4"
               />
 
               {/* CTA */}
               <Button 
-                className="h-12 px-6 bg-teal-500 text-white hover:bg-teal-600 rounded-none border-0"
+                className="h-12 px-6 bg-teal-500 text-white hover:bg-teal-600 md:rounded-none rounded-b-xl border-0"
                 onClick={() => {
                   // Redirect to dashboard if user is logged in, or auth page if not
                   if (user) {

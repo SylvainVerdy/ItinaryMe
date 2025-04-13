@@ -30,7 +30,7 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased relative z-0`}>
         <AuthProvider>
           <LanguageProvider>
             {/* Le Navbar n'est pas ajouté ici car la homepage et certaines pages 

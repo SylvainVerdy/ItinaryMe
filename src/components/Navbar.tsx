@@ -1,6 +1,5 @@
 "use client";
 
-import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +15,7 @@ export function Navbar({ transparent = false }) {
   const languageButtonRef = useRef<HTMLButtonElement>(null);
   const buttonPositionRef = useRef<DOMRect | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Liste des langues disponibles
   const availableLanguages = [
@@ -85,95 +85,254 @@ export function Navbar({ transparent = false }) {
   } : {};
 
   return (
-    <nav className={`w-full p-4 ${navBgClass}`}>
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/images/logo/logo.png"
-            alt="Logo ItinaryMe"
-            width={120}
-            height={40}
-            className="object-contain"
-          />
-        </Link>
+    <div className={`w-full px-4 md:px-8 py-3 ${navBgClass} fixed top-0 left-0 right-0 z-[999]`} style={{pointerEvents: 'auto'}}>
+      <div className="flex justify-between items-center">
+        {/* Logo à gauche */}
+        <div className="flex-shrink-0">
+          <a 
+            href="/" 
+            className="block"
+            style={{pointerEvents: 'auto'}}
+            onClick={() => window.location.href = '/'}
+          >
+            <Image
+              src="/images/logo/logo.png"
+              alt="Logo ItinaryMe"
+              width={120}
+              height={40}
+              className="object-contain"
+            />
+          </a>
+        </div>
         
-        <div className="hidden md:flex items-center space-x-8">
-          <Link href="/destinations" className={`${textColorClass} ${hoverTextColorClass}`}>
+        {/* Bouton menu mobile */}
+        <button 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-2 rounded-md focus:outline-none"
+          style={{pointerEvents: 'auto'}}
+        >
+          <svg className={`h-6 w-6 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {mobileMenuOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+        
+        {/* Navigation centrale - Desktop */}
+        <div className="hidden md:flex items-center justify-center space-x-10">
+          <a
+            href="/destinations"
+            className={`${textColorClass} ${hoverTextColorClass} font-medium text-base py-2 px-3 rounded-md hover:bg-gray-100 hover:bg-opacity-20`}
+            style={{pointerEvents: 'auto'}}
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = '/destinations';
+            }}
+          >
             {t('destinations')}
-          </Link>
-          <Link href="/about" className={`${textColorClass} ${hoverTextColorClass}`}>
+          </a>
+          <a
+            href="/about"
+            className={`${textColorClass} ${hoverTextColorClass} font-medium text-base py-2 px-3 rounded-md hover:bg-gray-100 hover:bg-opacity-20`}
+            style={{pointerEvents: 'auto'}}
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = '/about';
+            }}
+          >
             {t('about')}
-          </Link>
+          </a>
+          <a
+            href="/how-it-works"
+            className={`${textColorClass} ${hoverTextColorClass} font-medium text-base py-2 px-3 rounded-md hover:bg-gray-100 hover:bg-opacity-20`}
+            style={{pointerEvents: 'auto'}}
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = '/how-it-works';
+            }}
+          >
+            {t('howItWorks')}
+          </a>
           {user && (
-            <Link href="/dashboard" className={`${textColorClass} ${hoverTextColorClass}`}>
+            <a
+              href="/dashboard"
+              className={`${textColorClass} ${hoverTextColorClass} font-medium text-base py-2 px-3 rounded-md hover:bg-gray-100 hover:bg-opacity-20`}
+              style={{pointerEvents: 'auto'}}
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = '/dashboard';
+              }}
+            >
               {t('myTrips')}
-            </Link>
+            </a>
           )}
         </div>
         
-        <div className="flex items-center space-x-4">
+        {/* Contrôles à droite */}
+        <div className="flex items-center space-x-2 md:space-x-5">
           {/* Sélecteur de langue */}
-          <div className="relative">
-            <button 
-              ref={languageButtonRef}
-              onClick={toggleLanguageMenu}
-              className={`flex items-center text-sm ${textColorClass} ${hoverTextColorClass} p-2 rounded-md ${buttonHoverBgClass}`}
-            >
-              <span className="mr-1">{availableLanguages.find(lang => lang.code === language)?.name}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            
-            {/* Utiliser un portail pour rendre le menu à la racine du document */}
-            {mounted && isLanguageMenuOpen && createPortal(
-              <div 
-                ref={languageMenuRef}
-                className="fixed shadow-lg py-1 bg-white rounded-md w-40"
-                style={{
-                  ...menuPosition,
-                  zIndex: 9999,
-                }}
-              >
-                {availableLanguages.map(lang => (
-                  <button
-                    key={lang.code}
-                    className={`block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left ${
-                      language === lang.code ? 'bg-gray-100' : ''
-                    }`}
-                    onClick={() => handleLanguageSelect(lang.code)}
-                  >
-                    {lang.name}
-                  </button>
-                ))}
-              </div>,
-              document.body
-            )}
-          </div>
+          <button 
+            ref={languageButtonRef}
+            onClick={toggleLanguageMenu}
+            className={`flex items-center justify-center p-2 rounded-full w-8 h-8 ${buttonHoverBgClass}`}
+            aria-label="Sélectionner la langue"
+            style={{pointerEvents: 'auto'}}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+            </svg>
+          </button>
           
+          {/* Bouton d'aide / Comment ça marche - visible uniquement sur desktop */}
+          <a 
+            href="/how-it-works" 
+            className={`hidden md:flex items-center justify-center p-2 rounded-full w-8 h-8 ${buttonHoverBgClass}`}
+            aria-label="Comment ça marche"
+            style={{pointerEvents: 'auto'}}
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = '/how-it-works';
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </a>
+          
+          {/* Profil / Connexion */}
           {user ? (
-            <>
-              <span className={`text-sm ${textColorClass} hidden md:inline`}>
-                {user.email}
-              </span>
-              <Link 
-                href="/dashboard" 
-                className={`text-sm ${transparent ? 'text-white' : 'text-blue-600'} ${transparent ? 'hover:text-gray-200' : 'hover:text-blue-800'}`}
+            <div className="relative group" style={{pointerEvents: 'auto'}}>
+              <button
+                className={`flex items-center justify-center p-2 rounded-full w-8 h-8 ${buttonHoverBgClass}`}
+                aria-label="Menu de profil"
               >
-                Dashboard
-              </Link>
-              <LogoutButton className="text-sm px-3 py-1" />
-            </>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </button>
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block">
+                <span className="block px-4 py-2 text-sm text-gray-700 border-b border-gray-200">
+                  {user.email}
+                </span>
+                <a 
+                  href="/dashboard" 
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.href = '/dashboard';
+                  }}
+                >
+                  Dashboard
+                </a>
+                <div className="px-4 py-1">
+                  <LogoutButton className="w-full text-left text-sm px-0 py-1 bg-transparent text-red-600 hover:text-red-800" />
+                </div>
+              </div>
+            </div>
           ) : (
-            <Link 
+            <a 
               href="/auth" 
-              className={`px-4 py-2 ${transparent ? 'bg-white text-blue-600 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700'} rounded-md transition-colors`}
+              className={`flex items-center justify-center p-2 rounded-full w-8 h-8 ${buttonHoverBgClass}`}
+              aria-label="Se connecter"
+              style={{pointerEvents: 'auto'}}
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = '/auth';
+              }}
             >
-              {t('login')}
-            </Link>
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </a>
           )}
         </div>
       </div>
-    </nav>
+      
+      {/* Menu mobile */}
+      {mobileMenuOpen && (
+        <div className="md:hidden mt-3 pt-3 border-t border-gray-200">
+          <div className="flex flex-col space-y-2 pb-3">
+            <a 
+              href="/destinations" 
+              className={`${textColorClass} ${hoverTextColorClass} py-2 px-4 rounded-md hover:bg-gray-100`}
+              style={{pointerEvents: 'auto'}}
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = '/destinations';
+                setMobileMenuOpen(false);
+              }}
+            >
+              {t('destinations')}
+            </a>
+            <a 
+              href="/about" 
+              className={`${textColorClass} ${hoverTextColorClass} py-2 px-4 rounded-md hover:bg-gray-100`}
+              style={{pointerEvents: 'auto'}}
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = '/about';
+                setMobileMenuOpen(false);
+              }}
+            >
+              {t('about')}
+            </a>
+            <a 
+              href="/how-it-works" 
+              className={`${textColorClass} ${hoverTextColorClass} py-2 px-4 rounded-md hover:bg-gray-100`}
+              style={{pointerEvents: 'auto'}}
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = '/how-it-works';
+                setMobileMenuOpen(false);
+              }}
+            >
+              {t('howItWorks')}
+            </a>
+            {user && (
+              <a 
+                href="/dashboard" 
+                className={`${textColorClass} ${hoverTextColorClass} py-2 px-4 rounded-md hover:bg-gray-100`}
+                style={{pointerEvents: 'auto'}}
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = '/dashboard';
+                  setMobileMenuOpen(false);
+                }}
+              >
+                {t('myTrips')}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Portail pour le menu de langues */}
+      {mounted && isLanguageMenuOpen && createPortal(
+        <div 
+          ref={languageMenuRef}
+          className="fixed shadow-lg py-1 bg-white rounded-md w-40"
+          style={{
+            ...menuPosition,
+            zIndex: 9999,
+            pointerEvents: 'auto'
+          }}
+        >
+          {availableLanguages.map(lang => (
+            <button
+              key={lang.code}
+              className={`block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left ${
+                language === lang.code ? 'bg-gray-100' : ''
+              }`}
+              onClick={() => handleLanguageSelect(lang.code)}
+            >
+              {lang.name}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
   );
 } 
