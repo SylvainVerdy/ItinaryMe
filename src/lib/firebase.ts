@@ -1,8 +1,8 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -26,21 +26,6 @@ const app = apps.length > 0 ? apps[0] : initializeApp(firebaseConfig);
 // Initialize services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-
-// Connect to Firebase emulators if in development
-if (process.env.NODE_ENV === 'development') {
-  try {
-    if (typeof window !== 'undefined') {
-      // Utilisez l'IP locale pour l'émulateur
-      connectFirestoreEmulator(db, 'localhost', 8080);
-      // Correction de l'URL de l'émulateur Auth pour éviter les problèmes CORS
-      connectAuthEmulator(auth, 'http://127.0.0.1:9099');
-      console.log('Connecté aux émulateurs Firebase locaux');
-    }
-  } catch (error) {
-    console.error('Erreur lors de la connexion aux émulateurs Firebase:', error);
-  }
-}
 
 // Initialize analytics only in browser environment
 let analytics: any = null;
