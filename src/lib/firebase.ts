@@ -52,5 +52,5 @@ console.log("Firebase initialized with config:", {
   storageInitialized: !!storage,
   environment: process.env.NODE_ENV
 });
-
 export { analytics };
+

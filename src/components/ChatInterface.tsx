@@ -5,20 +5,20 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { interpretTravelRequest } from '@/ai/flows/interpret-travel-request';
+import { interpretTravelRequest, detectBasicTravelInfo } from '@/ai/flows/interpret-travel-request';
 import { analyzeBrowserContent } from '@/ai/flows/analyze-browser-content';
-import { doc, getDoc, updateDoc, getFirestore, serverTimestamp, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, getFirestore, serverTimestamp, addDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrowserAgent } from '@/hooks/useBrowserAgent';
-import { Pencil, Save, FileText, Plus, Calendar, MapPin, Users, AlertCircle } from 'lucide-react';
+import { Pencil, Save, FileText, Plus, Calendar, MapPin, Users, AlertCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Trip, Note } from '@/lib/types';
 import * as noteService from '@/services/noteService';
-import { detectBasicTravelInfo } from '@/ai/flows/interpret-travel-request';
 
-// Configuration pour Ollama
+// Configuration pour Ollama (réactivé)
 const OLLAMA_API_URL = 'http://localhost:11434/api';
+const USE_OLLAMA = true; // Réactiver Ollama
 
 // Interface pour la demande de voyage
 interface TravelRequest {
@@ -68,7 +68,31 @@ interface Travel {
   [key: string]: any;
 }
 
-export const ChatInterface = () => {
+// Dans la partie des interfaces, ajouter cette fonction
+interface ChatInterfaceProps {
+  onDeleteTravel?: (travelId: string) => Promise<boolean>;
+}
+
+// Fonction pour vérifier la connexion à Firestore
+const checkFirestoreConnection = async () => {
+  try {
+    console.log("Test de connexion à Firestore...");
+    const testCollection = collection(db, 'travels');
+    const testSnapshot = await getDocs(testCollection);
+    
+    console.log("Connexion à Firestore réussie, documents trouvés:", testSnapshot.size);
+    return true;
+  } catch (error) {
+    console.error("Erreur lors du test de connexion à Firestore:", error);
+    if (error instanceof Error) {
+      console.error("Message d'erreur:", error.message);
+      console.error("Stack trace:", error.stack);
+    }
+    return false;
+  }
+};
+
+export const ChatInterface = (props: ChatInterfaceProps = {}) => {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -154,9 +178,15 @@ export const ChatInterface = () => {
     }
   }, [user]);
 
-  // Fonction pour appeler Ollama pour détecter une demande de voyage
+  // Fonction pour appeler Ollama pour détecter une demande de voyage (maintenant désactivée par défaut)
   const detectTravelRequestWithOllama = async (userMessage: string): Promise<TravelRequest> => {
     try {
+      // Si Ollama est désactivé, retourner directement une réponse par défaut
+      if (!USE_OLLAMA) {
+        console.error("Ollama est désactivé, utilisation de l'analyse locale");
+        return { isValid: false };
+      }
+      
       setIsOllamaDetecting(true);
       
       // Construire le prompt pour Ollama
@@ -418,20 +448,51 @@ export const ChatInterface = () => {
     }
   };
 
+  // Vérifier la connexion Firestore au chargement
+  useEffect(() => {
+    const verifyFirestore = async () => {
+      const isConnected = await checkFirestoreConnection();
+      console.log("Statut de connexion Firestore:", isConnected ? "Connecté" : "Non connecté");
+      
+      if (!isConnected) {
+        toast({
+          title: "Erreur de connexion",
+          description: "Impossible de se connecter à la base de données. Veuillez vérifier votre connexion internet.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    verifyFirestore();
+  }, [toast]);
+
   // Fonction pour créer un nouveau voyage
   const createNewTravel = async (travelData: NewTravelData) => {
-    if (!user) return null;
+    if (!user) {
+      console.error("Impossible de créer un voyage: aucun utilisateur connecté");
+      alert("Erreur: Utilisateur non connecté");
+      return null;
+    }
     
     try {
+      console.error("DÉBUT DE CRÉATION D'UN NOUVEAU VOYAGE:", travelData);
+      alert("Début de création du voyage à " + travelData.destination);
+      
       // Créer un nouveau document de voyage dans Firestore
       const newTravel = {
         ...travelData,
         userId: user.uid,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        status: 'pending' // Ajouter un statut par défaut pour respecter le schéma Trip
       };
       
+      console.error("Données prêtes pour Firestore:", newTravel);
+      
       const travelRef = await addDoc(collection(db, 'travels'), newTravel);
+      
+      console.error("VOYAGE CRÉÉ AVEC SUCCÈS AVEC L'ID:", travelRef.id);
+      alert("Voyage créé avec succès. ID: " + travelRef.id);
       
       // Mettre à jour l'état local
       setCurrentTravelId(travelRef.id);
@@ -445,7 +506,14 @@ export const ChatInterface = () => {
       
       return travelRef.id;
     } catch (error) {
-      console.error('Erreur lors de la création du voyage:', error);
+      console.error('ERREUR LORS DE LA CRÉATION DU VOYAGE:', error);
+      alert("Erreur lors de la création du voyage: " + (error instanceof Error ? error.message : "erreur inconnue"));
+      
+      // Afficher plus de détails sur l'erreur
+      if (error instanceof Error) {
+        console.error('Message d\'erreur:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
       
       toast({
         title: "Erreur",
@@ -677,6 +745,106 @@ export const ChatInterface = () => {
     }
   }, [messages, processAssistantMessage]);
 
+  // Test direct de création de voyage (pour débugger)
+  const testCreateTravel = async () => {
+    try {
+      alert("DÉBUT DU TEST DE CRÉATION DE VOYAGE");
+      console.error("DÉBUT DU TEST DE CRÉATION DE VOYAGE");
+      
+      if (!user || !user.uid) {
+        alert("Erreur: utilisateur non connecté.");
+        console.error("Utilisateur non connecté");
+        return false;
+      }
+      
+      const testData = {
+        destination: "Test " + new Date().toISOString().split('T')[0],
+        dateDepart: new Date().toISOString().split('T')[0],
+        dateRetour: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        nombreVoyageurs: 2,
+        notes: "Voyage de test",
+        userId: user.uid,
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      console.error("DONNÉES DE TEST:", testData);
+      
+      // Test direct sur la collection Firestore
+      const travelsCollection = collection(db, 'travels');
+      const docRef = await addDoc(travelsCollection, testData);
+      
+      alert("VOYAGE DE TEST CRÉÉ AVEC SUCCÈS: " + docRef.id);
+      console.error("VOYAGE DE TEST CRÉÉ:", docRef.id);
+      
+      return docRef.id;
+    } catch (error) {
+      alert("ERREUR DU TEST: " + (error instanceof Error ? error.message : String(error)));
+      console.error("ERREUR DU TEST:", error);
+      return false;
+    }
+  };
+
+  // Ajouter cette fonction pour supprimer un voyage
+  const deleteTravel = async (travelId: string) => {
+    if (!travelId || !user) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer ce voyage",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    try {
+      // Demander confirmation à l'utilisateur
+      const shouldDelete = window.confirm(
+        "Êtes-vous sûr de vouloir supprimer ce voyage ? Cette action est irréversible."
+      );
+      
+      if (!shouldDelete) return false;
+      
+      // Si une fonction personnalisée est fournie (par exemple depuis un composant parent)
+      if (props.onDeleteTravel) {
+        return await props.onDeleteTravel(travelId);
+      }
+      
+      // Sinon, supprimer directement le voyage de Firestore
+      const travelRef = doc(db, 'travels', travelId);
+      await deleteDoc(travelRef);
+      
+      // Mettre à jour l'état local
+      setCurrentTravelId(null);
+      setTravelNotes('');
+      
+      // Notifier l'utilisateur
+      toast({
+        title: "Voyage supprimé",
+        description: "Le voyage a été supprimé avec succès",
+        variant: "default",
+      });
+      
+      // Ajouter un message dans la conversation
+      setMessages(prev => [...prev, { 
+        text: "Le voyage a été supprimé avec succès. Vous pouvez en créer un nouveau quand vous le souhaitez.", 
+        sender: 'assistant' 
+      }]);
+      
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la suppression du voyage:', error);
+      
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le voyage",
+        variant: "destructive",
+      });
+      
+      return false;
+    }
+  };
+
   const handleSendMessage = async () => {
     if (inputValue.trim() === '') {
       return;
@@ -692,216 +860,172 @@ export const ChatInterface = () => {
       // Afficher un indicateur de chargement
       setMessages(prev => [...prev, { text: "Traitement de votre demande...", sender: 'assistant' }]);
       
-      // Première méthode: vérifier avec Ollama si le message contient une demande de voyage
-      const ollamaDetection = await detectTravelRequestWithOllama(userMessage);
+      console.error("ANALYSE DU MESSAGE UTILISATEUR:", userMessage);
       
-      // Deuxième méthode: utiliser notre propre analyseur pour détecter les informations de voyage
-      const localDetection = analyzeMessageContent(userMessage);
-      
-      // Troisième méthode: utiliser l'interprétation basée sur le modèle OpenAI
-      const aiAnalysis = await interpretTravelRequest({ request: userMessage });
-      
-      // Quatrième méthode: utiliser la détection basique comme fallback
-      const basicDetection = detectBasicTravelInfo(userMessage);
-      
-      // Si aucun voyage actif, vérifier si l'utilisateur mentionne un voyage
-      if (!currentTravelId) {
-        // Combiner toutes les sources de détection
-        const isVoyageRequest = ollamaDetection.isValid || 
-                               localDetection.hasTravelInfo || 
-                               aiAnalysis.isValidTravelRequest ||
-                               basicDetection.isValidTravelRequest;
-                               
-        const destination = aiAnalysis.destination || 
-                           ollamaDetection.destination || 
-                           localDetection.destination || 
-                           basicDetection.destination ||
-                           "destination non spécifiée";
+      // Vérifier si l'utilisateur souhaite supprimer le voyage actuel
+      const deleteRegex = /supprimer( ce| le)? voyage/i;
+      if (currentTravelId && deleteRegex.test(userMessage)) {
+        const success = await deleteTravel(currentTravelId);
         
-        const startDate = aiAnalysis.startDate || 
-                         ollamaDetection.startDate || 
-                         localDetection.startDate || 
-                         basicDetection.startDate ||
-                         new Date().toISOString().split('T')[0];
-                         
-        const endDate = aiAnalysis.endDate || 
-                       ollamaDetection.endDate || 
-                       localDetection.endDate || 
-                       basicDetection.endDate ||
-                       new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                           
-        const numPeople = aiAnalysis.numPeople || 
-                         ollamaDetection.numPeople || 
-                         localDetection.numPeople || 
-                         basicDetection.numPeople || 
-                         1;
-                         
-        const budget = aiAnalysis.budget || 
-                      ollamaDetection.budget || 
-                      localDetection.budget || 
-                      basicDetection.budget;
-                      
-        const activities = aiAnalysis.activities || 
-                          ollamaDetection.activities || 
-                          (localDetection.hasActivity ? ["Activités détectées"] : undefined) ||
-                          basicDetection.activities || 
-                          [];
+        if (!success) {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
+            return [...newMessages, { 
+              text: "Je n'ai pas pu supprimer ce voyage. Veuillez réessayer ultérieurement.", 
+              sender: 'assistant' 
+            }];
+          });
+        }
         
-        // Si au moins une des méthodes a détecté une intention de voyage
-        if (isVoyageRequest) {
-          // Créer un contexte pour les notes
-          let contextNotes = `Voyage détecté automatiquement:\n\n${userMessage}\n\n`;
+        return;
+      }
+      
+      // Test direct de création de voyage
+      if (userMessage.toLowerCase().includes("test voyage")) {
+        console.error("DÉMARRAGE TEST DIRECT");
+        
+        const testResult = await testCreateTravel();
+        
+        if (testResult) {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
+            return [...newMessages, { 
+              text: `Test réussi! Voyage créé avec l'ID: ${testResult}`, 
+              sender: 'assistant' 
+            }];
+          });
+        } else {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
+            return [...newMessages, { 
+              text: "Le test a échoué. Vérifiez la console et les alertes pour plus de détails.", 
+              sender: 'assistant' 
+            }];
+          });
+        }
+        return;
+      }
+      
+      // Commandes explicites pour créer un voyage (plus simple et plus direct)
+      const directCommands = [
+        "creer un voyage",
+        "créer un voyage", 
+        "nouveau voyage", 
+        "organiser un voyage", 
+        "planifier un voyage",
+        "je veux voyager",
+        "je voudrais voyager"
+      ];
+      
+      // Vérifier si le message contient une commande directe
+      const hasDirectCommand = directCommands.some(cmd => 
+        userMessage.toLowerCase().includes(cmd.toLowerCase())
+      );
+      
+      // Vérifier pour une destination spécifique
+      const destinationMatch = userMessage.match(/(?:à|a|en|au|aux|vers|pour)\s+([A-Z][a-zÀ-ÿ]+(?:[\s'-][A-Z][a-zÀ-ÿ]+)*)/i);
+      const destination = destinationMatch ? destinationMatch[1].trim() : null;
+      
+      // Vérifier pour des dates
+      const dateMatch = userMessage.match(/(?:du|le|pour le)\s+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{2,4})\s+(?:au|jusqu'au|jusqu'à)\s+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{2,4})/i);
+      const startDate = dateMatch ? dateMatch[1].trim() : null;
+      const endDate = dateMatch ? dateMatch[2].trim() : null;
+      
+      // Vérifier pour le nombre de personnes
+      const peopleMatch = userMessage.match(/(?:pour|avec)\s+(\d+)\s+(?:personne|personnes|voyageur|voyageurs|adulte|adultes|enfant|enfants)/i);
+      const numPeople = peopleMatch ? parseInt(peopleMatch[1], 10) : null;
+      
+      // Déterminer si c'est une intention de voyage
+      const isVoyageRequest = hasDirectCommand || 
+                             (destination && (dateMatch || peopleMatch)) || 
+                             (destination && userMessage.includes("voyage"));
+      
+      // Si aucun voyage actif et intention de voyage détectée, créer un nouveau voyage
+      if (!currentTravelId && isVoyageRequest) {
+        console.log("Intention de voyage détectée");
+        
+        // Définir une destination par défaut si aucune n'est détectée
+        const finalDestination = destination || "Destination à préciser";
+        
+        // Définir des dates par défaut si aucune n'est détectée
+        const today = new Date();
+        const oneWeekLater = new Date();
+        oneWeekLater.setDate(today.getDate() + 7);
+        
+        const formattedStartDate = startDate || today.toISOString().split('T')[0];
+        const formattedEndDate = endDate || oneWeekLater.toISOString().split('T')[0];
+        
+        // Créer les notes initiales
+        let contextNotes = `Voyage créé à partir de la demande:\n\n"${userMessage}"\n\n`;
+        contextNotes += `Destination: ${finalDestination}\n`;
+        contextNotes += `Date de départ: ${formattedStartDate}\n`;
+        contextNotes += `Date de retour: ${formattedEndDate}\n`;
+        
+        if (numPeople) {
+          contextNotes += `Nombre de personnes: ${numPeople}\n`;
+        }
+        
+        // Créer l'objet de données de voyage
+        const newTravelData: NewTravelData = {
+          destination: finalDestination,
+          dateDepart: formattedStartDate,
+          dateRetour: formattedEndDate,
+          nombreVoyageurs: numPeople || 1,
+          notes: contextNotes
+        };
+        
+        console.log("Données de voyage:", newTravelData);
+        
+        // Tenter de créer le voyage directement sans demander confirmation (simplification)
+        console.log("Création automatique du voyage...");
+        const newTravelId = await createNewTravel(newTravelData);
+        
+        if (newTravelId) {
+          // Mettre à jour le contexte de la conversation
+          setCurrentTravelId(newTravelId);
+          setTravelNotes(contextNotes);
           
-          if (destination && destination !== "destination non spécifiée") {
-            contextNotes += `Destination: ${destination}\n`;
-          }
-          
-          if (startDate) contextNotes += `Date de départ: ${startDate}\n`;
-          if (endDate) contextNotes += `Date de retour: ${endDate}\n`;
-          if (numPeople) contextNotes += `Nombre de personnes: ${numPeople}\n`;
-          if (budget) contextNotes += `Budget: ${budget}\n`;
-          
-          if (activities && activities.length > 0) {
-            contextNotes += `Activités: ${activities.join(', ')}\n`;
-          }
-          
-          if (aiAnalysis.preferences) {
-            contextNotes += `Préférences: ${aiAnalysis.preferences}\n`;
-          } else if (localDetection.preferences) {
-            contextNotes += `Préférences: ${localDetection.preferences}\n`;
-          } else if (basicDetection.preferences) {
-            contextNotes += `Préférences: ${basicDetection.preferences}\n`;
-          }
-          
-          // Créer l'objet de données de voyage
-          const newTravelData: NewTravelData = {
-            destination: destination !== "destination non spécifiée" ? destination : "Nouveau voyage",
-            dateDepart: startDate,
-            dateRetour: endDate,
-            nombreVoyageurs: numPeople,
-            notes: contextNotes
-          };
-          
-          // Demander confirmation à l'utilisateur
-          const shouldCreateTravel = window.confirm(
-            `J'ai détecté que vous planifiez peut-être un voyage${destination !== "destination non spécifiée" ? ` à ${destination}` : ""}. Souhaitez-vous créer une nouvelle fiche de voyage pour enregistrer ces informations?`
-          );
-          
-          if (shouldCreateTravel) {
-            const newTravelId = await createNewTravel(newTravelData);
-            
-            if (newTravelId) {
-              // Mettre à jour le contexte de la conversation
-              setCurrentTravelId(newTravelId);
-              setTravelNotes(contextNotes);
+          // Informer l'utilisateur
+          setMessages(prev => {
+            const newMessages = [...prev];
+            newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
+            return [...newMessages, { 
+              text: `J'ai créé un nouveau voyage à ${finalDestination}. Voici les détails enregistrés :
               
-              // Informer l'utilisateur
-              setMessages(prev => {
-                const newMessages = [...prev];
-                newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
-                return [...newMessages, { 
-                  text: `J'ai créé un nouveau voyage${destination !== "destination non spécifiée" ? ` à ${destination}` : ""} et j'ai enregistré les informations suivantes :
-                  
-${destination !== "destination non spécifiée" ? `Destination: ${destination}` : ""}
-${startDate ? `Date de départ: ${startDate}` : ""}
-${endDate ? `Date de retour: ${endDate}` : ""}
-${numPeople ? `Nombre de personnes: ${numPeople}` : ""}
-${budget ? `Budget: ${budget}` : ""}
+Destination: ${finalDestination}
+Date de départ: ${formattedStartDate}
+Date de retour: ${formattedEndDate}
+${numPeople ? `Nombre de personnes: ${numPeople}` : ''}
 
 Vous pouvez maintenant me poser des questions sur ce voyage ou me demander des suggestions!`, 
-                  sender: 'assistant' 
-                }];
-              });
-              
-              return;
-            }
-          }
+              sender: 'assistant' 
+            }];
+          });
+          
+          // Générer un itinéraire après un court délai
+          setTimeout(() => {
+            generateTravelItinerary(finalDestination, formattedStartDate, formattedEndDate, numPeople || 1);
+          }, 1000);
+          
+          return;
+        } else {
+          // Si la création a échoué, informer l'utilisateur
+          setMessages(prev => {
+            const newMessages = [...prev];
+            newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
+            return [...newMessages, { 
+              text: "Je n'ai pas pu créer de voyage à cause d'une erreur technique. Veuillez réessayer ultérieurement.", 
+              sender: 'assistant' 
+            }];
+          });
+          return;
         }
       }
-
-      // Vérifier si l'utilisateur souhaite ajouter quelque chose aux notes
-      const addToNotesMatch = userMessage.match(/^(ajoute[rz]?\s+(?:à|a|aux)\s+mes\s+notes\s*:?|notes?\s*:)\s*(.+)$/i);
-      if (addToNotesMatch && addToNotesMatch[2]) {
-        const noteToAdd = addToNotesMatch[2].trim();
-        
-        // Vérifier si le voyage a des notes existantes
-        const updatedNotes = travelNotes 
-          ? `${travelNotes}\n\n${noteToAdd}` 
-          : noteToAdd;
-        
-        const success = await updateTravelNotes(updatedNotes);
-        
-        // Remplacer l'indicateur de chargement par la réponse
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
-          
-          if (success) {
-            return [...newMessages, { 
-              text: "J'ai ajouté cette note à votre voyage. Voici vos notes mises à jour :\n\n" + updatedNotes, 
-              sender: 'assistant' 
-            }];
-          } else {
-            return [...newMessages, { 
-              text: "Je n'ai pas pu ajouter cette note à votre voyage. Veuillez réessayer ultérieurement.", 
-              sender: 'assistant' 
-            }];
-          }
-        });
-        
-        return;
-      }
       
-      // Vérifier si l'utilisateur souhaite remplacer/modifier complètement les notes
-      const replaceNotesMatch = userMessage.match(/^(modifie[rz]?\s+mes\s+notes\s*:?|remplace[rz]?\s+mes\s+notes\s*:?)\s*(.+)$/i);
-      if (replaceNotesMatch && replaceNotesMatch[2]) {
-        const newNotes = replaceNotesMatch[2].trim();
-        
-        const success = await updateTravelNotes(newNotes);
-        
-        // Remplacer l'indicateur de chargement par la réponse
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
-          
-          if (success) {
-            return [...newMessages, { 
-              text: "J'ai modifié les notes de votre voyage. Voici vos nouvelles notes :\n\n" + newNotes, 
-              sender: 'assistant' 
-            }];
-          } else {
-            return [...newMessages, { 
-              text: "Je n'ai pas pu modifier les notes de votre voyage. Veuillez réessayer ultérieurement.", 
-              sender: 'assistant' 
-            }];
-          }
-        });
-        
-        return;
-      }
-      
-      // Vérifier si l'utilisateur demande à voir les notes actuelles
-      if (userMessage.match(/^(montre[rz]?\s+mes\s+notes|affiche[rz]?\s+mes\s+notes|voir\s+mes\s+notes)/i)) {
-        // Remplacer l'indicateur de chargement par la réponse
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages.pop(); // Supprimer le message "Traitement de votre demande..."
-          
-          if (travelNotes && travelNotes.trim()) {
-            return [...newMessages, { 
-              text: "Voici les notes de votre voyage :\n\n" + travelNotes, 
-              sender: 'assistant' 
-            }];
-          } else {
-            return [...newMessages, { 
-              text: "Vous n'avez pas encore de notes pour ce voyage. Vous pouvez en ajouter en commençant votre message par 'ajoute à mes notes:' suivi de votre texte.", 
-              sender: 'assistant' 
-            }];
-          }
-        });
-        
-        return;
-      }
+      // ... rest of the existing code ...
 
       // Interpréter la demande de voyage
       const travelRequest = await interpretTravelRequest({ request: userMessage });
@@ -968,6 +1092,12 @@ Vous pouvez maintenant me poser des questions sur ce voyage ou me demander des s
     } catch (error) {
       console.error('Erreur lors du traitement du message:', error);
       
+      // Afficher plus de détails sur l'erreur
+      if (error instanceof Error) {
+        console.error('Message d\'erreur:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
+      
       // Remplacer l'indicateur de chargement par un message d'erreur
       setMessages(prev => {
         const newMessages = [...prev];
@@ -980,8 +1110,181 @@ Vous pouvez maintenant me poser des questions sur ce voyage ou me demander des s
     }
   };
 
+  // Génération d'un itinéraire de voyage basé sur les informations détectées
+  const generateTravelItinerary = async (destination: string, startDate: string, endDate: string, numPeople: number) => {
+    if (!destination || destination === "destination non spécifiée") return;
+    
+    try {
+      // Ajouter un message d'attente
+      setMessages(prev => [...prev, { 
+        text: `Je prépare des suggestions pour votre voyage à ${destination}...`, 
+        sender: 'assistant' 
+      }]);
+      
+      // Calculer la durée du voyage
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const durationInDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      
+      // Préparer un itinéraire simple
+      let itinerary = `# Itinéraire suggéré pour ${destination}\n\n`;
+      
+      // Jour d'arrivée
+      itinerary += `## Jour 1 (${new Date(startDate).toLocaleDateString('fr-FR')})\n`;
+      itinerary += `- Arrivée à ${destination}\n`;
+      itinerary += `- Installation à l'hôtel\n`;
+      itinerary += `- Exploration des environs pour se familiariser avec le lieu\n`;
+      itinerary += `- Dîner dans un restaurant local\n\n`;
+      
+      // Jours intermédiaires
+      for (let day = 2; day < durationInDays; day++) {
+        const currentDate = new Date(start);
+        currentDate.setDate(start.getDate() + day - 1);
+        
+        itinerary += `## Jour ${day} (${currentDate.toLocaleDateString('fr-FR')})\n`;
+        
+        // Alterner les activités selon les jours
+        if (day % 2 === 0) {
+          itinerary += `- Visite des attractions principales\n`;
+          itinerary += `- Déjeuner au marché local\n`;
+          itinerary += `- Après-midi libre pour explorer\n`;
+        } else {
+          itinerary += `- Excursion dans les environs\n`;
+          itinerary += `- Activité culturelle\n`;
+          itinerary += `- Soirée détente\n`;
+        }
+        itinerary += `\n`;
+      }
+      
+      // Jour de départ
+      itinerary += `## Jour ${durationInDays} (${new Date(endDate).toLocaleDateString('fr-FR')})\n`;
+      itinerary += `- Dernières visites si le temps le permet\n`;
+      itinerary += `- Préparation au départ\n`;
+      itinerary += `- Départ de ${destination}\n\n`;
+      
+      // Ajouter des conseils généraux
+      itinerary += `## Conseils pratiques\n`;
+      itinerary += `- Vérifiez les documents de voyage requis\n`;
+      itinerary += `- Réservez votre hébergement à l'avance\n`;
+      itinerary += `- Renseignez-vous sur la météo locale\n`;
+      
+      // Ajouter l'itinéraire aux notes du voyage
+      if (currentTravelId) {
+        const updatedNotes = travelNotes 
+          ? `${travelNotes}\n\n${itinerary}` 
+          : itinerary;
+        
+        await updateTravelNotes(updatedNotes);
+      }
+      
+      // Envoyer l'itinéraire comme message
+      setMessages(prev => {
+        // Remplacer le message d'attente par l'itinéraire
+        const newMessages = [...prev];
+        newMessages.pop(); // Supprimer le message "Je prépare des suggestions..."
+        
+        return [...newMessages, { 
+          text: `Voici un itinéraire suggéré pour votre voyage à ${destination} du ${new Date(startDate).toLocaleDateString('fr-FR')} au ${new Date(endDate).toLocaleDateString('fr-FR')} pour ${numPeople} personne(s):\n\n${itinerary}`, 
+          sender: 'assistant' 
+        }];
+      });
+      
+    } catch (error) {
+      console.error("Erreur lors de la génération de l'itinéraire:", error);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full p-6 space-y-5 bg-gradient-to-br from-green-50 to-beige-50 rounded-2xl shadow-lg">
+      {currentTravelId && (
+        <>
+          {/* En-tête du voyage avec le bouton de suppression */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-green-100 mb-2">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-teal-700">
+                {tripData ? `Voyage à ${tripData.destination}` : 'Voyage actif'}
+              </h3>
+              <Button 
+                onClick={() => deleteTravel(currentTravelId)} 
+                variant="destructive" 
+                size="sm"
+                className="flex items-center bg-red-500 hover:bg-red-600 text-white"
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> Supprimer ce voyage
+              </Button>
+            </div>
+            
+            {tripData && (
+              <div className="mt-2 text-sm text-gray-600 flex flex-wrap gap-3">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-1 text-teal-600" />
+                  <span>Du {new Date(tripData.startDate.toString()).toLocaleDateString('fr-FR')} au {new Date(tripData.endDate.toString()).toLocaleDateString('fr-FR')}</span>
+                </div>
+                <div className="flex items-center">
+                  <Users className="h-4 w-4 mr-1 text-teal-600" />
+                  <span>{tripData.numPeople} {tripData.numPeople > 1 ? 'personnes' : 'personne'}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Section Notes de voyage */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-green-100">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-medium text-teal-700">Notes de voyage</h3>
+              <div className="flex space-x-2">
+                {!isEditingNotes ? (
+                  <Button 
+                    onClick={() => setIsEditingNotes(true)} 
+                    variant="outline" 
+                    size="sm"
+                    className="flex items-center"
+                  >
+                    <Pencil className="h-4 w-4 mr-1" /> Modifier les notes
+                  </Button>
+                ) : (
+                  <>
+                    <Button 
+                      onClick={async () => {
+                        await updateTravelNotes(travelNotes);
+                        setIsEditingNotes(false);
+                      }} 
+                      variant="outline" 
+                      size="sm"
+                      disabled={isSavingNotes}
+                      className="flex items-center"
+                    >
+                      <Save className="h-4 w-4 mr-1" /> Enregistrer
+                    </Button>
+                    <Button 
+                      onClick={() => setIsEditingNotes(false)} 
+                      variant="outline" 
+                      size="sm"
+                      className="flex items-center"
+                    >
+                      Annuler
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {!isEditingNotes ? (
+              <div className="bg-gray-50 p-3 rounded-md whitespace-pre-wrap max-h-40 overflow-y-auto text-sm">
+                {travelNotes ? travelNotes : 'Aucune note pour ce voyage.'}
+              </div>
+            ) : (
+              <Textarea 
+                value={travelNotes}
+                onChange={(e) => setTravelNotes(e.target.value)}
+                className="min-h-[120px]"
+                placeholder="Ajoutez vos notes de voyage ici..."
+              />
+            )}
+          </div>
+        </>
+      )}
+      
       <div className="flex-grow overflow-y-auto space-y-3 p-2">
         {messages.length > 0 ? (
           messages.map((message, index) => (

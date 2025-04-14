@@ -16,8 +16,13 @@ import {
   MoreHorizontal,
   Tag,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Star,
+  StarOff
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatHistoryListProps {
   tripId?: string; // Optionnel, pour filtrer par voyage
@@ -40,6 +45,8 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
   const [showDebug, setShowDebug] = useState(false);
   // Garder trace des IDs pour éviter les doublons
   const [loadedIds, setLoadedIds] = useState<Set<string>>(new Set());
+  
+  const { toast } = useToast();
   
   // Fonction pour rafraîchir les données
   const refreshChatHistories = async (reset = true) => {
@@ -465,6 +472,38 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
     return !hasDuplicates;
   };
   
+  // Ajouter une fonction pour supprimer un voyage
+  const deleteTravel = async (travelId: string) => {
+    try {
+      const shouldDelete = window.confirm("Êtes-vous sûr de vouloir supprimer ce voyage ? Cette action est irréversible.");
+      
+      if (!shouldDelete) return;
+      
+      // Récupérer le document de voyage
+      const travelRef = doc(db, 'travels', travelId);
+      
+      // Supprimer le voyage
+      await deleteDoc(travelRef);
+      
+      // Rafraîchir la liste
+      toast({
+        title: 'Voyage supprimé',
+        description: 'Le voyage a été supprimé avec succès',
+        variant: 'default',
+      });
+      
+      // Rafraîchir la liste des conversations
+      refreshChatHistories(true);
+    } catch (error) {
+      console.error('Erreur lors de la suppression du voyage:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de supprimer le voyage',
+        variant: 'destructive',
+      });
+    }
+  };
+  
   if (loading && chatHistories.length === 0) {
     return (
       <div className="p-8 flex justify-center items-center">
@@ -746,50 +785,36 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
                 {/* Menu d'actions */}
                 <div className="absolute right-3 top-4 flex items-center">
                   <button 
-                    onClick={() => setActiveMenuId(activeMenuId === history.id ? null : history.id || null)}
+                    onClick={(e) => {
+                      e.stopPropagation(); 
+                      toggleFavorite(history.id!, history.isFavorite || false);
+                    }}
                     className="p-1.5 rounded-full hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
                   >
-                    <MoreHorizontal size={16} className="text-gray-500" />
+                    {history.isFavorite ? (
+                      <BookmarkX size={14} className="text-gray-500" />
+                    ) : (
+                      <Bookmark size={14} className="text-gray-500" />
+                    )}
                   </button>
                 </div>
                 
-                {activeMenuId === history.id && (
-                  <div className="absolute right-8 top-8 bg-white shadow-md rounded-lg p-2 z-10 border border-[#e6e0d4]">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation(); 
-                        toggleFavorite(history.id!, history.isFavorite || false);
-                        setActiveMenuId(null);
-                      }}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-[#f8f5ec] transition-colors w-full text-left text-sm"
-                    >
-                      {history.isFavorite ? (
-                        <>
-                          <BookmarkX size={14} className="text-gray-500" />
-                          <span>Retirer des favoris</span>
-                        </>
-                      ) : (
-                        <>
-                          <Bookmark size={14} className="text-gray-500" />
-                          <span>Ajouter aux favoris</span>
-                        </>
-                      )}
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm("Êtes-vous sûr de vouloir supprimer cette conversation ?")) {
-                          deleteConversation(history.id!);
-                        }
-                        setActiveMenuId(null);
-                      }}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-[#f8f5ec] transition-colors w-full text-left text-sm text-red-600"
-                    >
-                      <Trash2 size={14} />
-                      <span>Supprimer</span>
-                    </button>
-                  </div>
-                )}
+                {/* Bouton de suppression */}
+                <div className="absolute right-3 top-4 flex items-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (history.tripId) {
+                        deleteTravel(history.tripId);
+                      } else {
+                        deleteConversation(history.id!);
+                      }
+                    }}
+                    className="p-1.5 rounded-full hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={14} className="text-gray-500" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
