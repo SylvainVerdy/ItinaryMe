@@ -29,73 +29,123 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   
-  // Récupérer l'historique des conversations
-  useEffect(() => {
-    const fetchChatHistories = async () => {
-      if (!user) return;
-      
+  // Fonction pour rafraîchir les données
+  const refreshChatHistories = async () => {
+    if (!user) {
+      console.log("Aucun utilisateur connecté, impossible de charger les conversations");
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    console.log("Chargement des conversations pour l'utilisateur:", user.uid);
+    
+    try {
+      // Essayons d'abord sans le tri par updatedAt pour éviter l'erreur d'index
       try {
-        setLoading(true);
+        let historiesQuery = query(
+          collection(db, 'conversations'),
+          where('userId', '==', user.uid)
+          // Trier côté client en attendant que l'index soit créé
+        );
         
-        // Vérifier d'abord si la collection existe
-        try {
-          let historiesQuery = query(
-            collection(db, 'chatHistories'),
+        // Si un tripId est fourni, filtrer par voyage
+        if (tripId) {
+          historiesQuery = query(
+            collection(db, 'conversations'),
             where('userId', '==', user.uid),
-            orderBy('updatedAt', 'desc')
+            where('tripId', '==', tripId)
+            // Trier côté client en attendant que l'index soit créé
           );
-          
-          // Si un tripId est fourni, filtrer par voyage
-          if (tripId) {
-            historiesQuery = query(
-              collection(db, 'chatHistories'),
-              where('userId', '==', user.uid),
-              where('tripId', '==', tripId),
-              orderBy('updatedAt', 'desc')
-            );
-          }
-          
-          const querySnapshot = await getDocs(historiesQuery);
-          const histories: ChatHistory[] = [];
-          
-          querySnapshot.forEach((doc) => {
-            const data = doc.data() as ChatHistory;
-            histories.push({
-              ...data,
-              id: doc.id
-            });
-          });
-          
-          setChatHistories(histories);
-        } catch (firestoreError) {
-          console.error("Erreur Firestore:", firestoreError);
-          // En cas d'erreur, initialiser avec un tableau vide
-          setChatHistories([]);
         }
+        
+        console.log("Exécution de la requête Firestore sur la collection 'conversations'...");
+        const querySnapshot = await getDocs(historiesQuery);
+        console.log("Nombre de documents retournés:", querySnapshot.size);
+        
+        const histories: ChatHistory[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data() as ChatHistory;
+          console.log("Document trouvé:", doc.id, "titre:", data.title, "messages:", data.messages?.length || 0);
+          histories.push({
+            ...data,
+            id: doc.id
+          });
+        });
+        
+        // Trier les histoires côté client par la date de mise à jour (décroissant)
+        histories.sort((a, b) => {
+          const dateA = new Date(a.updatedAt).getTime();
+          const dateB = new Date(b.updatedAt).getTime();
+          return dateB - dateA;
+        });
+        
+        console.log("Historique des conversations chargé:", histories.length, "conversations trouvées");
+        // Vérification de structure des données
+        if (histories.length > 0) {
+          const firstHistory = histories[0];
+          console.log("Structure de la première conversation:", {
+            id: firstHistory.id,
+            title: firstHistory.title,
+            messagesCount: firstHistory.messages?.length || 0,
+            hasMessages: Array.isArray(firstHistory.messages),
+            createdAt: firstHistory.createdAt,
+            updatedAt: firstHistory.updatedAt
+          });
+        }
+        
+        setChatHistories(histories);
       } catch (err) {
         console.error("Erreur lors de la récupération de l'historique des conversations:", err);
-        setError("Impossible de charger l'historique des conversations");
-        // En cas d'erreur, initialiser avec un tableau vide
+        setError(`Impossible de charger l'historique des conversations. Veuillez créer l'index dans Firebase: ${err}`);
         setChatHistories([]);
-      } finally {
-        setLoading(false);
       }
+    } catch (mainErr) {
+      console.error("Erreur principale:", mainErr);
+      setError("Erreur inattendue lors du chargement");
+      setChatHistories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Récupérer l'historique des conversations au chargement
+  useEffect(() => {
+    console.log("ChatHistoryList monté - lancement du chargement initial");
+    refreshChatHistories();
+    
+    // Écouter l'événement de rafraîchissement
+    const handleRefresh = () => {
+      console.log("Événement de rafraîchissement détecté");
+      refreshChatHistories();
     };
     
-    fetchChatHistories();
+    window.addEventListener('chatHistoryRefresh', handleRefresh);
+    
+    // Nettoyer l'écouteur d'événement lors du démontage
+    return () => {
+      console.log("ChatHistoryList démonté - nettoyage des écouteurs");
+      window.removeEventListener('chatHistoryRefresh', handleRefresh);
+    };
   }, [user, tripId]);
   
   // Filtrer les conversations par terme de recherche
-  const filteredHistories = chatHistories.filter(history => 
-    history.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredHistories = chatHistories.filter(history => {
+    // Vérifier que history.title existe avant de l'utiliser
+    if (!history || !history.title) {
+      console.log("Conversation sans titre détectée:", history);
+      return false;
+    }
+    return history.title.toLowerCase().includes(searchTerm.toLowerCase());
+  });
   
   // Supprimer une conversation
   const deleteConversation = async (id: string) => {
     if (!user || !id) return;
     
     try {
-      await deleteDoc(doc(db, 'chatHistories', id));
+      await deleteDoc(doc(db, 'conversations', id));
       setChatHistories(prev => prev.filter(history => history.id !== id));
     } catch (err) {
       console.error("Erreur lors de la suppression de la conversation:", err);
@@ -108,7 +158,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
     if (!user || !id) return;
     
     try {
-      await updateDoc(doc(db, 'chatHistories', id), {
+      await updateDoc(doc(db, 'conversations', id), {
         isFavorite: !isFavorite
       });
       
@@ -139,6 +189,10 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
   
   // Extraire un résumé de la conversation
   const getConversationSummary = (history: ChatHistory) => {
+    if (!history.messages || !Array.isArray(history.messages) || history.messages.length === 0) {
+      return "Pas de message";
+    }
+    
     const lastMessage = history.messages
       .filter(msg => msg.role !== 'system')
       .slice(-1)[0];
@@ -163,8 +217,57 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
   
   if (error) {
     return (
-      <div className="p-4 bg-red-50 text-red-700 rounded-lg">
-        {error}
+      <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-6">
+        <div className="p-4 bg-red-50 text-red-700 rounded-lg mb-4">
+          <p className="font-medium mb-2">Erreur lors du chargement des conversations</p>
+          <p className="text-sm">{error}</p>
+        </div>
+        
+        {error.includes('index') && (
+          <div className="p-4 bg-yellow-50 text-yellow-700 rounded-lg mb-4">
+            <p className="font-medium mb-2">Action requise : Création d'index Firebase</p>
+            <p className="text-sm mb-3">
+              Pour résoudre ce problème, vous devez créer un index dans Firebase. Suivez ces étapes:
+            </p>
+            <ol className="list-decimal pl-5 text-sm space-y-1 mb-3">
+              <li>Cliquez sur le lien dans le message d'erreur ci-dessus</li>
+              <li>Connectez-vous à votre compte Firebase si nécessaire</li>
+              <li>Cliquez sur "Créer l'index" pour confirmer</li>
+              <li>Attendez quelques minutes que l'index soit créé</li>
+              <li>Revenez à cette page et actualisez</li>
+            </ol>
+            <button 
+              onClick={refreshChatHistories}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition-colors text-sm"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="14" 
+                height="14" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                <path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+              </svg>
+              <span>Réessayer</span>
+            </button>
+          </div>
+        )}
+        
+        <div className="flex justify-center">
+          <Link 
+            href="/dashboard/chat/new" 
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-colors text-sm font-medium"
+          >
+            <PlusCircle size={16} />
+            <span>Démarrer une nouvelle conversation</span>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -176,13 +279,38 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
           {tripId ? 'Conversations du voyage' : 'Historique des conversations'}
         </h2>
         
-        <Link 
-          href="/dashboard/chat/new" 
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors text-sm font-medium"
-        >
-          <PlusCircle size={14} />
-          <span>Nouvelle conversation</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={refreshChatHistories}
+            className="p-1.5 rounded-lg hover:bg-[#f8f5ec] transition-colors"
+            title="Rafraîchir"
+            disabled={loading}
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+              className={`text-gray-600 ${loading ? 'animate-spin' : ''}`}
+            >
+              <path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+              <path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+            </svg>
+          </button>
+          
+          <Link 
+            href="/dashboard/chat/new" 
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors text-sm font-medium"
+          >
+            <PlusCircle size={14} />
+            <span>Nouvelle conversation</span>
+          </Link>
+        </div>
       </div>
       
       {/* Barre de recherche et filtres */}
@@ -242,7 +370,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
                   <div className="flex-grow">
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium text-gray-800 group-hover:text-purple-600 transition-colors">
-                        {history.title}
+                        {history.title || "Sans titre"}
                       </h3>
                       {history.isFavorite && (
                         <Bookmark size={14} className="text-purple-500" />
@@ -273,7 +401,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
               {/* Menu d'actions */}
               <div className="absolute right-3 top-4 flex items-center">
                 <button 
-                  onClick={() => setActiveMenuId(activeMenuId === history.id ? null : history.id)}
+                  onClick={() => setActiveMenuId(activeMenuId === history.id ? null : history.id || null)}
                   className="p-1.5 rounded-full hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
                 >
                   <MoreHorizontal size={16} className="text-gray-500" />

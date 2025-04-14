@@ -39,7 +39,7 @@ export default function ChatPage({ params }: ChatPageProps) {
         
         if (chatId !== 'new') {
           // Charger un historique existant
-          const docRef = doc(db, 'chatHistories', chatId);
+          const docRef = doc(db, 'conversations', chatId);
           const docSnapshot = await getDoc(docRef);
           
           if (docSnapshot.exists()) {
@@ -49,8 +49,14 @@ export default function ChatPage({ params }: ChatPageProps) {
               id: docSnapshot.id
             });
             setMessages(data.messages);
+            console.log("Conversation chargée:", {
+              id: docSnapshot.id,
+              title: data.title,
+              messagesCount: data.messages?.length || 0
+            });
           } else {
             setError("Conversation non trouvée");
+            console.error("Document non trouvé pour ID:", chatId);
           }
         } else {
           // Nouvelle conversation
@@ -164,41 +170,123 @@ export default function ChatPage({ params }: ChatPageProps) {
       
       // Générer un titre automatique si c'est une nouvelle conversation
       let updatedHistory = chatHistory;
-      if (chatId === 'new' && messages.length <= 2) {
-        // Créer un titre à partir du premier message de l'utilisateur
+      if (chatId === 'new' || (chatHistory?.title === 'Nouvelle conversation' && messages.length <= 2)) {
+        // Créer un titre basé sur le premier message de l'utilisateur
+        // Option 1: Utiliser directement le contenu du message utilisateur (limité à 30 caractères)
         let title = inputValue;
         if (title.length > 30) {
           title = title.substring(0, 30) + '...';
         }
+        
+        // Option 2: Demander à l'IA de générer un titre basé sur le message
+        try {
+          const titleResponse = await fetch('http://localhost:11434/api/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'qwen2.5',
+              messages: [
+                { 
+                  role: 'system', 
+                  content: 'Génère un titre court et descriptif (3-6 mots) pour une conversation basée sur ce message. Réponds uniquement avec le titre, sans ponctuation ni explications.' 
+                },
+                { role: 'user', content: inputValue }
+              ],
+              stream: false
+            }),
+          });
+          
+          if (titleResponse.ok) {
+            const titleData = await titleResponse.json();
+            const generatedTitle = titleData.message.content.trim();
+            
+            // Si le titre généré est valide et pas trop long, l'utiliser
+            if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= 40) {
+              title = generatedTitle;
+            }
+          }
+        } catch (titleError) {
+          console.error("Erreur lors de la génération du titre:", titleError);
+          // En cas d'erreur, utiliser le titre par défaut (déjà défini)
+        }
+        
         updatedHistory = { ...chatHistory, title };
         setChatHistory(updatedHistory);
+        
+        console.log("Titre généré:", title);
       }
       
       // Sauvegarder la conversation dans Firestore
       try {
         const updatedMessages = [...messages, userMessage, assistantMessage];
         
+        // S'assurer que le titre est défini
+        if (!updatedHistory?.title) {
+          updatedHistory = {
+            ...updatedHistory!,
+            title: "Conversation du " + new Date().toLocaleDateString('fr-FR')
+          };
+          setChatHistory(updatedHistory);
+          console.log("Un titre par défaut a été généré");
+        }
+        
+        console.log("Sauvegarde de la conversation:", {
+          id: chatId,
+          isNew: chatId === 'new',
+          title: updatedHistory?.title || "Titre par défaut", // Fallback
+          messagesCount: updatedMessages.length,
+          userId: user.uid,
+          collection: 'conversations'
+        });
+        
         if (chatId === 'new') {
           // Créer une nouvelle conversation
-          const newChatRef = await addDoc(collection(db, 'chatHistories'), {
+          const conversationData = {
             ...updatedHistory,
             messages: updatedMessages,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
+            userId: user.uid,
+            title: updatedHistory?.title || "Conversation du " + new Date().toLocaleDateString('fr-FR') // Fallback supplémentaire
+          };
+          
+          console.log("Structure des données à sauvegarder:", {
+            userId: conversationData.userId,
+            title: conversationData.title,
+            messagesCount: conversationData.messages.length,
+            createdAt: conversationData.createdAt,
+            updatedAt: conversationData.updatedAt,
           });
+          
+          const newChatRef = await addDoc(collection(db, 'conversations'), conversationData);
+          
+          console.log("Nouvelle conversation créée avec ID:", newChatRef.id);
           
           setChatHistory(prev => ({
             ...prev!,
             id: newChatRef.id
           }));
           
+          // Déclencher la mise à jour de l'historique des conversations
+          window.dispatchEvent(new Event('chatHistoryRefresh'));
+          
           // Rediriger vers la nouvelle URL
           router.replace(`/dashboard/chat/${newChatRef.id}`);
         } else {
           // Mettre à jour une conversation existante
-          await updateDoc(doc(db, 'chatHistories', chatId), {
+          const updateData = {
+            title: updatedHistory?.title || "Conversation du " + new Date().toLocaleDateString('fr-FR'), // Fallback
             messages: updatedMessages,
             updatedAt: new Date().toISOString()
-          });
+          };
+          
+          await updateDoc(doc(db, 'conversations', chatId), updateData);
+          
+          console.log("Conversation existante mise à jour, ID:", chatId);
+          
+          // Déclencher la mise à jour de l'historique des conversations
+          window.dispatchEvent(new Event('chatHistoryRefresh'));
         }
       } catch (error) {
         console.error("Erreur lors de la sauvegarde de la conversation:", error);
