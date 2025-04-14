@@ -16,11 +16,12 @@ export interface Trip {
   id?: string;
   userId: string;
   destination: string;
-  startDate: string;
-  endDate: string;
+  startDate: Date | string;
+  endDate: Date | string;
   numPeople: number;
-  createdAt: string;
+  createdAt: Date | string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  notes?: Note[] | string;
 }
 
 // Types pour les documents de voyage dans le style Notion
