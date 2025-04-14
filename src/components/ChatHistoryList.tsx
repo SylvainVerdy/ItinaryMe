@@ -38,11 +38,11 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5); // Augmenté à 5 par page pour une meilleure expérience
+  const [itemsPerPage] = useState(20); // Augmenté de 5 à 20 conversations par page
   const [hasMore, setHasMore] = useState(false);
   const [lastVisible, setLastVisible] = useState<any>(null);
   const [totalItems, setTotalItems] = useState(0);
-  const [showDebug, setShowDebug] = useState(false);
+  const [showDebug, setShowDebug] = useState(true); // Mode debug activé par défaut pour diagnostiquer
   // Garder trace des IDs pour éviter les doublons
   const [loadedIds, setLoadedIds] = useState<Set<string>>(new Set());
   
@@ -147,7 +147,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
         }
         
         const histories: ChatHistory[] = [];
-        const currentIds = new Set<string>();
+        const newLoadedIds = new Set<string>(reset ? [] : [...loadedIds]);
         
         // Sauvegarder le dernier document visible pour la pagination
         const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
@@ -165,7 +165,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
             const docId = docSnapshot.id;
             
             // Vérifier si ce document est déjà chargé
-            if (loadedIds.has(docId)) {
+            if (newLoadedIds.has(docId)) {
               console.log("Document déjà chargé, ignoré:", docId);
               continue;
             }
@@ -188,7 +188,19 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
             // S'assurer que le titre existe
             if (!data.title) {
               console.warn("Document sans titre:", docId);
-              data.title = "Conversation sans titre";
+              // Assigner un titre par défaut plus descriptif
+              const dateCreation = data.createdAt ? new Date(data.createdAt).toLocaleDateString('fr-FR') : 'date inconnue';
+              data.title = `Conversation du ${dateCreation}`;
+              
+              // Essayer de déterminer un meilleur titre à partir des messages
+              if (data.messages && data.messages.length > 0) {
+                // Prendre le premier message de l'utilisateur
+                const firstUserMessage = data.messages.find(msg => msg.role === 'user');
+                if (firstUserMessage && firstUserMessage.content) {
+                  const shortContent = firstUserMessage.content.substring(0, 30);
+                  data.title = `${shortContent}${firstUserMessage.content.length > 30 ? '...' : ''}`;
+                }
+              }
             }
             
             histories.push({
@@ -197,100 +209,169 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
             });
             
             // Ajouter l'ID à la liste des IDs chargés
-            currentIds.add(docId);
+            newLoadedIds.add(docId);
           } catch (e) {
-            console.error("Erreur lors du traitement du document:", docSnapshot.id, e);
+            console.error("Erreur lors du traitement d'un document:", e);
           }
         }
         
-        console.log(`Historique des conversations chargé: ${histories.length} conversations trouvées sur cette page, ${currentIds.size} nouveaux IDs`);
-        
-        // Mettre à jour la liste des IDs chargés
-        const newLoadedIds = new Set([...loadedIds, ...currentIds]);
-        setLoadedIds(newLoadedIds);
-        
-        // Si reset est true, remplacer les conversations, sinon les ajouter
+        // Mettre à jour l'état avec les nouvelles conversations
         if (reset) {
-          console.log(`Initialisation avec ${histories.length} conversations`);
           setChatHistories(histories);
         } else {
-          console.log(`Ajout de ${histories.length} nouvelles conversations aux ${chatHistories.length} existantes.`);
           setChatHistories(prev => [...prev, ...histories]);
         }
         
-        // Mettre à jour hasMore APRÈS avoir mis à jour les conversations
-        const moreAvailable = (newLoadedIds.size < totalItems) && histories.length > 0;
-        console.log(`Plus de conversations disponibles: ${moreAvailable ? 'Oui' : 'Non'} (${newLoadedIds.size}/${totalItems})`);
-        setHasMore(moreAvailable);
+        // Mettre à jour la liste des IDs chargés
+        setLoadedIds(newLoadedIds);
+        console.log("IDs uniques chargés:", newLoadedIds.size);
         
-      } catch (err: any) {
-        // Vérifier si l'erreur est due à un index manquant
-        if (err.message && err.message.includes('index')) {
-          console.error("Erreur d'index Firebase:", err);
-          setError(`Impossible de charger l'historique des conversations. Veuillez créer l'index dans Firebase: ${err}`);
-          
-          // Tentative de récupération sans tri
-          try {
-            console.log("Tentative de récupération sans tri...");
-            const fallbackQuery = query(
-              collection(db, 'conversations'),
-              where('userId', '==', user.uid)
-            );
-            
-            const fallbackSnapshot = await getDocs(fallbackQuery);
-            const fallbackHistories: ChatHistory[] = [];
-            
-            fallbackSnapshot.forEach((doc) => {
-              const data = doc.data() as ChatHistory;
-              fallbackHistories.push({
-                ...data,
-                id: doc.id
-              });
-            });
-            
-            // Trier manuellement
-            fallbackHistories.sort((a, b) => {
-              const dateA = new Date(a.updatedAt).getTime();
-              const dateB = new Date(b.updatedAt).getTime();
-              return dateB - dateA;
-            });
-            
-            console.log("Récupération de secours réussie:", fallbackHistories.length, "conversations");
-            setChatHistories(fallbackHistories);
-          } catch (fallbackErr) {
-            console.error("Échec de la tentative de récupération sans tri:", fallbackErr);
-          }
+        // Mettre à jour l'indicateur s'il y a plus à charger
+        setHasMore(newLoadedIds.size < countSnapshot.size);
+        console.log("Plus à charger:", newLoadedIds.size < countSnapshot.size);
+        
+        // Incrémenter la page
+        if (!reset) {
+          setCurrentPage(prev => prev + 1);
+        }
+        
+      } catch (error: any) {
+        console.error("Erreur lors de la requête Firestore:", error);
+        
+        // Gestion spécifique des erreurs d'index
+        if (error.message && error.message.includes('index')) {
+          setError(`Erreur d'index Firestore: ${error.message}`);
         } else {
-          console.error("Erreur lors de la récupération de l'historique des conversations:", err);
-          setError(`Impossible de charger l'historique des conversations: ${err.message}`);
+          setError(`Erreur lors du chargement des conversations: ${error.message}`);
         }
       }
-    } catch (mainErr: any) {
-      console.error("Erreur principale:", mainErr);
-      setError(`Erreur inattendue lors du chargement: ${mainErr.message}`);
+    } catch (error: any) {
+      console.error("Erreur générale:", error);
+      setError(`Erreur: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
   
-  // Chargement de la page suivante
+  // Fonction pour charger plus de conversations
   const loadMoreConversations = () => {
-    console.log(`Chargement de la page ${currentPage + 1}, déjà chargées: ${chatHistories.length} sur un total de ${totalItems}, IDs uniques: ${loadedIds.size}`);
+    if (loading || !hasMore) return;
     
-    if (!lastVisible) {
-      console.error("Impossible de charger plus de conversations: lastVisible est null");
-      return;
-    }
+    console.log("Chargement de plus de conversations...");
+    refreshChatHistories(false); // Ne pas réinitialiser les données existantes
+  };
+  
+  // Fonction pour charger TOUTES les conversations d'un coup
+  const loadAllConversations = async () => {
+    if (!user) return;
     
-    // Si nous avons déjà tout chargé, ne pas continuer
-    if (loadedIds.size >= totalItems) {
-      console.log("Toutes les conversations sont déjà chargées");
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Réinitialiser l'état
+      setChatHistories([]);
+      setLastVisible(null);
+      setLoadedIds(new Set());
+      
+      console.log("Chargement de TOUTES les conversations...");
+      
+      // Requête sans limite pour obtenir toutes les conversations
+      let allConversationsQuery = query(
+        collection(db, 'conversations'),
+        where('userId', '==', user.uid),
+        orderBy('updatedAt', 'desc')
+      );
+      
+      if (tripId) {
+        allConversationsQuery = query(
+          collection(db, 'conversations'),
+          where('userId', '==', user.uid),
+          where('tripId', '==', tripId),
+          orderBy('updatedAt', 'desc')
+        );
+      }
+      
+      const querySnapshot = await getDocs(allConversationsQuery);
+      console.log("Nombre total de documents:", querySnapshot.size);
+      
+      const histories: ChatHistory[] = [];
+      const allLoadedIds = new Set<string>();
+      
+      // Traitement des documents
+      for (const docSnapshot of querySnapshot.docs) {
+        try {
+          const docId = docSnapshot.id;
+          const data = docSnapshot.data() as ChatHistory;
+          
+          // Vérifier que les données sont valides
+          if (!data) {
+            console.warn("Document sans données:", docId);
+            continue;
+          }
+          
+          // S'assurer que le tableau de messages existe
+          if (!data.messages) {
+            data.messages = [];
+          }
+          
+          // S'assurer que le titre existe
+          if (!data.title) {
+            console.warn("Document sans titre dans loadAllConversations:", docId);
+            // Assigner un titre par défaut plus descriptif
+            const dateCreation = data.createdAt ? new Date(data.createdAt).toLocaleDateString('fr-FR') : 'date inconnue';
+            data.title = `Conversation du ${dateCreation}`;
+            
+            // Essayer de déterminer un meilleur titre à partir des messages
+            if (data.messages && data.messages.length > 0) {
+              // Prendre le premier message de l'utilisateur
+              const firstUserMessage = data.messages.find(msg => msg.role === 'user');
+              if (firstUserMessage && firstUserMessage.content) {
+                const shortContent = firstUserMessage.content.substring(0, 30);
+                data.title = `${shortContent}${firstUserMessage.content.length > 30 ? '...' : ''}`;
+              }
+            }
+          }
+          
+          histories.push({
+            ...data,
+            id: docId
+          });
+          
+          // Ajouter l'ID à la liste des IDs chargés
+          allLoadedIds.add(docId);
+        } catch (e) {
+          console.error("Erreur lors du traitement d'un document:", e);
+        }
+      }
+      
+      // Mettre à jour l'état
+      setChatHistories(histories);
+      setLoadedIds(allLoadedIds);
+      setTotalItems(querySnapshot.size);
       setHasMore(false);
-      return;
+      
+      console.log("Toutes les conversations chargées:", histories.length);
+      console.log("Total des IDs uniques:", allLoadedIds.size);
+      
+      toast({
+        title: 'Conversations chargées',
+        description: `${histories.length} conversations chargées avec succès`,
+        variant: 'default',
+      });
+      
+    } catch (error: any) {
+      console.error("Erreur lors du chargement de toutes les conversations:", error);
+      setError(`Erreur: ${error.message}`);
+      
+      toast({
+        title: 'Erreur',
+        description: `Impossible de charger toutes les conversations: ${error.message}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
-    
-    setCurrentPage(prev => prev + 1);
-    refreshChatHistories(false);
   };
   
   // Récupérer l'historique des conversations au chargement
@@ -674,12 +755,21 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
           <div>Dernier visible: {lastVisible ? 'Défini' : 'Non défini'}</div>
           <div>Conversations uniques: {new Set(chatHistories.map(h => h.id)).size}/{chatHistories.length}</div>
           
-          <button 
-            onClick={checkDuplicates}
-            className="mt-2 bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs"
-          >
-            Vérifier doublons
-          </button>
+          <div className="flex gap-2 mt-2">
+            <button 
+              onClick={checkDuplicates}
+              className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs"
+            >
+              Vérifier doublons
+            </button>
+            
+            <button 
+              onClick={loadAllConversations}
+              className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs"
+            >
+              Charger TOUTES
+            </button>
+          </div>
         </div>
       )}
       

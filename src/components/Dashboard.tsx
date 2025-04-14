@@ -100,10 +100,10 @@ export function Dashboard() {
         // Créer un tableau pour stocker les promesses de récupération d'images
         const imagePromises: Promise<void>[] = [];
         
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
+        querySnapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
           const travel = {
-            id: doc.id,
+            id: docSnapshot.id,
             destination: data.destination,
             dateDepart: data.dateDepart,
             dateRetour: data.dateRetour,
@@ -208,16 +208,87 @@ export function Dashboard() {
       
       setChatMessages(prevMessages => [...prevMessages, assistantMessage]);
 
-      // Sauvegarder la conversation dans Firestore
+      // Historiser automatiquement la conversation avec un titre généré
       if (user) {
         try {
-          await addDoc(collection(db, 'conversations'), {
+          // Ne pas sauvegarder si c'est la première intervention de l'utilisateur
+          const updatedMessages = [...chatMessages, userMessage, assistantMessage];
+          const userMessagesCount = updatedMessages.filter(msg => msg.role === 'user').length;
+          
+          if (userMessagesCount === 0) {
+            console.log("Pas d'historisation: aucun message utilisateur");
+            return;
+          }
+          
+          // Extraire le premier message de l'utilisateur pour générer le titre
+          const firstUserMessage = updatedMessages.find(msg => msg.role === 'user')?.content || "";
+          
+          // Générer un titre pour la conversation
+          let title = "Conversation du " + new Date().toLocaleDateString('fr-FR');
+          
+          // Utiliser Ollama pour générer un titre plus descriptif
+          try {
+            console.log("Génération du titre pour la conversation...");
+            const titleResponse = await fetch('http://localhost:11434/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: 'qwen2.5',
+                messages: [
+                  { 
+                    role: 'system', 
+                    content: `Génère un titre court mais descriptif (4-7 mots) pour une conversation basée sur ce message.
+                    Le titre doit être accrocheur et résumer au mieux le sujet de la conversation.
+                    Inclus les éléments clés comme:
+                    - La destination principale du voyage si mentionnée
+                    - La période ou les dates si mentionnées
+                    - Le type de voyage (affaires, vacances, etc.) si mentionné
+                    - Tout autre élément distinctif important
+                    
+                    Réponds uniquement avec le titre, sans ponctuation finale ni explications supplémentaires.` 
+                  },
+                  { role: 'user', content: firstUserMessage }
+                ],
+                stream: false,
+              }),
+            });
+            
+            if (titleResponse.ok) {
+              const titleData = await titleResponse.json();
+              const generatedTitle = titleData.message.content.trim();
+              
+              // Si le titre généré est valide, l'utiliser
+              if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= 60) {
+                title = generatedTitle.replace(/^["']|["']$/g, '').trim();
+                console.log("Titre généré pour la conversation:", title);
+              }
+            }
+          } catch (titleError) {
+            console.error("Erreur lors de la génération du titre, utilisation du titre par défaut:", titleError);
+          }
+          
+          // Sauvegarder la conversation avec le titre généré
+          const docRef = await addDoc(collection(db, 'conversations'), {
             userId: user.uid,
-            messages: [userMessage, assistantMessage],
-            timestamp: new Date()
+            title: title,
+            messages: updatedMessages.map(msg => ({
+              id: Math.random().toString(36).substring(2, 15),
+              role: msg.role,
+              content: msg.content,
+              timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp.toISOString()
+            })),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tags: [],
+            isFavorite: false
           });
+          
+          console.log("Conversation historisée avec succès - Titre:", title, "ID:", docRef.id);
+          
+          // Déclencher une mise à jour de l'historique des conversations
+          window.dispatchEvent(new Event('chatHistoryRefresh'));
         } catch (error) {
-          console.error("Erreur lors de la sauvegarde de la conversation:", error);
+          console.error("Erreur lors de l'historisation de la conversation:", error);
         }
       }
     } catch (error) {
@@ -721,12 +792,14 @@ export function Dashboard() {
                   <p className="text-xs text-gray-500 text-center">
                     Powered by Ollama · Les réponses sont générées par intelligence artificielle et peuvent ne pas être précises.
                   </p>
-                  <button 
-                    className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
-                    onClick={() => setCurrentView('chat-history')}
-                  >
-                    Voir l'historique des conversations
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                      onClick={() => setCurrentView('chat-history')}
+                    >
+                      Voir l'historique des conversations
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

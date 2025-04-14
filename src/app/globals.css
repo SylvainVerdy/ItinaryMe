@@ -120,3 +120,13 @@ div[class*="fixed top-0"] {
 .fixed-content > * {
   pointer-events: auto;
 }
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-fade-out {
+  animation: fadeOut 3s forwards;
+}

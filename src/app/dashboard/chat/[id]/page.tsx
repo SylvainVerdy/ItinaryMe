@@ -16,6 +16,97 @@ interface ChatPageProps {
   };
 }
 
+// Fonctions d'extraction pour la génération de titres
+const extractDestination = (text: string): string | null => {
+  // Motifs de destination
+  const destinationPatterns = [
+    /(?:à|a|au|en|aux|pour|vers|direction)\s+([A-Z][a-zÀ-ÿ\s-]+)(?:\s|,|.|$)/i,
+    /(?:visiter|découvrir|explorer)\s+([A-Z][a-zÀ-ÿ\s-]+)(?:\s|,|.|$)/i,
+    /voyage\s+(?:à|a|au|en|aux)\s+([A-Z][a-zÀ-ÿ\s-]+)(?:\s|,|.|$)/i,
+    /séjour\s+(?:à|a|au|en|aux)\s+([A-Z][a-zÀ-ÿ\s-]+)(?:\s|,|.|$)/i,
+  ];
+  
+  for (const pattern of destinationPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  
+  return null;
+};
+
+const extractDates = (text: string): string[] => {
+  const dates: string[] = [];
+  
+  // Format simple: du 10 au 20 juin
+  const simplePattern = /(?:du|depuis le)\s+(\d{1,2}(?:\s+)?(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|janv|févr|fév|mar|avr|mai|juin|juil|août|sept|oct|nov|déc)?)\s+(?:au|jusqu'au|à)\s+(\d{1,2}(?:\s+)?(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|janv|févr|fév|mar|avr|mai|juin|juil|août|sept|oct|nov|déc))/i;
+  
+  const simpleMatch = text.match(simplePattern);
+  if (simpleMatch) {
+    if (simpleMatch[2].includes(simpleMatch[1])) {
+      // Si la première date inclut le mois, on utilise le format court
+      dates.push(simpleMatch[1] + "-" + simpleMatch[2]);
+    } else {
+      // Sinon on utilise le format complet
+      dates.push(simpleMatch[1] + " au " + simpleMatch[2]);
+    }
+  }
+  
+  // Format mois: juin 2023
+  const monthPattern = /\b(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})\b/i;
+  const monthMatch = text.match(monthPattern);
+  if (monthMatch && dates.length === 0) {
+    dates.push(monthMatch[1]);
+  }
+  
+  // Période générique
+  if (text.includes("semaine prochaine") && dates.length === 0) {
+    dates.push("semaine prochaine");
+  } else if (text.includes("mois prochain") && dates.length === 0) {
+    dates.push("mois prochain");
+  } else if (text.includes("ce week-end") && dates.length === 0) {
+    dates.push("week-end");
+  }
+  
+  return dates;
+};
+
+const extractBudget = (text: string): string | null => {
+  // Formats: budget de 1000€, 1500 euros, etc.
+  const budgetPattern = /(?:budget|coût|prix|montant|dépenser).*?(\d+\s*(?:€|euros|EUR|dollars|\$|USD))/i;
+  const budgetMatch = text.match(budgetPattern);
+  
+  if (budgetMatch && budgetMatch[1]) {
+    return budgetMatch[1].trim();
+  }
+  
+  return null;
+};
+
+const extractPeople = (text: string): string | null => {
+  // Formats: 2 personnes, avec 3 amis, etc.
+  const peoplePatterns = [
+    /(\d+)\s+(?:personne|personnes|voyageur|voyageurs|ami|amis|adulte|adultes)/i,
+    /(?:avec|pour|accompagné de)\s+(\d+)\s+(?:personne|personnes|voyageur|voyageurs|ami|amis|adulte|adultes)/i,
+    /(?:nous\s+sommes|en\s+groupe\s+de)\s+(\d+)(?:\s+personnes|\s+voyageurs)?/i,
+  ];
+  
+  for (const pattern of peoplePatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  
+  // Si "nous" est mentionné sans nombre précis
+  if (text.includes(" nous ") || text.includes(" on ") || text.includes("ensemble")) {
+    return "2";
+  }
+  
+  return null;
+};
+
 export default function ChatPage({ params }: ChatPageProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -28,6 +119,7 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const [titleGenerated, setTitleGenerated] = useState(false);
   
   // Chargement de l'historique de conversation
   useEffect(() => {
@@ -166,130 +258,188 @@ export default function ChatPage({ params }: ChatPageProps) {
         timestamp: new Date().toISOString()
       };
       
-      setMessages(prevMessages => [...prevMessages, assistantMessage]);
+      const updatedMessages = [...messages, userMessage, assistantMessage];
+      setMessages(updatedMessages);
       
-      // Générer un titre automatique si c'est une nouvelle conversation
+      // Générer un titre automatique si c'est une nouvelle conversation ou après le premier message
       let updatedHistory = chatHistory;
-      if (chatId === 'new' || (chatHistory?.title === 'Nouvelle conversation' && messages.length <= 2)) {
-        // Créer un titre basé sur le premier message de l'utilisateur
-        // Option 1: Utiliser directement le contenu du message utilisateur (limité à 30 caractères)
-        let title = inputValue;
-        if (title.length > 30) {
-          title = title.substring(0, 30) + '...';
-        }
+      if (chatId === 'new' || (chatHistory?.title === 'Nouvelle conversation' && updatedMessages.filter(m => m.role === 'user').length === 1)) {
+        // Récupérer le premier message de l'utilisateur
+        const firstUserMessage = updatedMessages.find(m => m.role === 'user')?.content || inputValue;
         
-        // Option 2: Demander à l'IA de générer un titre basé sur le message
+        console.log("GÉNÉRATION DE TITRE: Condition activée", {
+          chatId,
+          isNew: chatId === 'new',
+          currentTitle: chatHistory?.title,
+          userMessagesCount: updatedMessages.filter(m => m.role === 'user').length
+        });
+        
+        // Générer un titre avec Ollama (première tentative)
         try {
-          const titleResponse = await fetch('http://localhost:11434/api/chat', {
+          console.log("GÉNÉRATION DE TITRE: Appel à Ollama pour le titre");
+          
+          const ollamaResponse = await fetch('http://localhost:11434/api/chat', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: 'qwen2.5',
               messages: [
                 { 
                   role: 'system', 
-                  content: 'Génère un titre court et descriptif (3-6 mots) pour une conversation basée sur ce message. Réponds uniquement avec le titre, sans ponctuation ni explications.' 
+                  content: `Génère un titre court mais descriptif (4-7 mots) pour une conversation basée sur ce message.
+                  Le titre doit être accrocheur et résumer au mieux la conversation.
+                  Inclus les éléments clés comme:
+                  - La destination principale du voyage si mentionnée
+                  - La période ou les dates si mentionnées
+                  - Le type de voyage (affaires, vacances, etc.) si mentionné
+                  - Le budget si mentionné
+                  - Tout autre élément distinctif important
+                  
+                  Réponds uniquement avec le titre, sans ponctuation finale ni explications supplémentaires.` 
                 },
-                { role: 'user', content: inputValue }
+                { role: 'user', content: firstUserMessage }
               ],
-              stream: false
+              stream: false,
+              options: {
+                temperature: 0.3 // Température basse pour des résultats plus cohérents
+              }
             }),
           });
           
-          if (titleResponse.ok) {
-            const titleData = await titleResponse.json();
-            const generatedTitle = titleData.message.content.trim();
+          if (ollamaResponse.ok) {
+            const titleData = await ollamaResponse.json();
+            let title = titleData.message.content.trim();
             
-            // Si le titre généré est valide et pas trop long, l'utiliser
-            if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= 40) {
-              title = generatedTitle;
+            console.log("GÉNÉRATION DE TITRE: Titre brut généré par Ollama:", title);
+            
+            // Nettoyer le titre si nécessaire (enlever guillemets, etc.)
+            title = title.replace(/^["']|["']$/g, '').trim();
+            
+            // Si le titre généré est valide, l'utiliser
+            if (title && title.length > 0 && title.length <= 60) {
+              updatedHistory = { ...chatHistory, title };
+              setChatHistory(updatedHistory);
+              setTitleGenerated(true);
+              console.log("GÉNÉRATION DE TITRE: Titre final retenu:", title);
+              
+              // Réinitialiser l'indicateur après quelques secondes
+              setTimeout(() => {
+                setTitleGenerated(false);
+              }, 3000); // Correspond à la durée de l'animation
+            } else {
+              throw new Error("Titre généré invalide");
+            }
+          } else {
+            throw new Error(`Erreur lors de l'appel à Ollama: ${ollamaResponse.status}`);
+          }
+        } catch (error) {
+          console.log("GÉNÉRATION DE TITRE: Échec de la génération avec Ollama, utilisation de la méthode locale", error);
+          
+          // Fallback: Utiliser notre méthode d'extraction locale
+          // Extraire des informations clés du message
+          const destination = extractDestination(firstUserMessage);
+          const dates = extractDates(firstUserMessage);
+          const budget = extractBudget(firstUserMessage);
+          const people = extractPeople(firstUserMessage);
+          
+          let title = "";
+          
+          // Construire un titre descriptif basé sur les informations extraites
+          if (destination) {
+            title += destination;
+            
+            if (dates.length > 0) {
+              title += " " + dates[0];
+            }
+            
+            if (budget) {
+              title += " Budget " + budget;
+            }
+            
+            if (people) {
+              title += " " + people + " Pers.";
+            }
+          } else {
+            // Si aucune destination n'est détectée, utiliser un titre de base
+            title = firstUserMessage;
+            if (title.length > 30) {
+              title = title.substring(0, 30) + '...';
             }
           }
-        } catch (titleError) {
-          console.error("Erreur lors de la génération du titre:", titleError);
-          // En cas d'erreur, utiliser le titre par défaut (déjà défini)
+          
+          updatedHistory = { ...chatHistory, title };
+          setChatHistory(updatedHistory);
+          setTitleGenerated(true);
+          console.log("GÉNÉRATION DE TITRE: Titre local généré:", title);
+          
+          // Réinitialiser l'indicateur après quelques secondes
+          setTimeout(() => {
+            setTitleGenerated(false);
+          }, 3000); // Correspond à la durée de l'animation
         }
-        
-        updatedHistory = { ...chatHistory, title };
-        setChatHistory(updatedHistory);
-        
-        console.log("Titre généré:", title);
       }
       
       // Sauvegarder la conversation dans Firestore
       try {
-        const updatedMessages = [...messages, userMessage, assistantMessage];
-        
-        // S'assurer que le titre est défini
+        // S'assurer que le titre est défini avec un fallback si nécessaire
         if (!updatedHistory?.title) {
           updatedHistory = {
             ...updatedHistory!,
             title: "Conversation du " + new Date().toLocaleDateString('fr-FR')
           };
           setChatHistory(updatedHistory);
-          console.log("Un titre par défaut a été généré");
         }
         
-        console.log("Sauvegarde de la conversation:", {
-          id: chatId,
-          isNew: chatId === 'new',
-          title: updatedHistory?.title || "Titre par défaut", // Fallback
-          messagesCount: updatedMessages.length,
+        // Préparer les données pour Firestore
+        const conversionData = {
           userId: user.uid,
-          collection: 'conversations'
-        });
+          title: updatedHistory.title,
+          messages: updatedMessages,
+          updatedAt: new Date().toISOString(),
+          tags: updatedHistory.tags || []
+        };
         
         if (chatId === 'new') {
-          // Créer une nouvelle conversation
-          const conversationData = {
-            ...updatedHistory,
-            messages: updatedMessages,
-            updatedAt: new Date().toISOString(),
-            userId: user.uid,
-            title: updatedHistory?.title || "Conversation du " + new Date().toLocaleDateString('fr-FR') // Fallback supplémentaire
+          // Pour une nouvelle conversation, ajouter la date de création
+          const newConversationData = {
+            ...conversionData,
+            createdAt: new Date().toISOString(),
+            isFavorite: false
           };
           
-          console.log("Structure des données à sauvegarder:", {
-            userId: conversationData.userId,
-            title: conversationData.title,
-            messagesCount: conversationData.messages.length,
-            createdAt: conversationData.createdAt,
-            updatedAt: conversationData.updatedAt,
+          console.log("SAUVEGARDE: Création d'une nouvelle conversation", {
+            title: newConversationData.title,
+            messagesCount: newConversationData.messages.length
           });
           
-          const newChatRef = await addDoc(collection(db, 'conversations'), conversationData);
+          // Créer un nouveau document dans Firestore
+          const newChatRef = await addDoc(collection(db, 'conversations'), newConversationData);
+          console.log("SAUVEGARDE: Conversation créée avec ID:", newChatRef.id);
           
-          console.log("Nouvelle conversation créée avec ID:", newChatRef.id);
-          
+          // Mettre à jour l'état local avec le nouvel ID
           setChatHistory(prev => ({
             ...prev!,
             id: newChatRef.id
           }));
           
-          // Déclencher la mise à jour de l'historique des conversations
-          window.dispatchEvent(new Event('chatHistoryRefresh'));
-          
-          // Rediriger vers la nouvelle URL
+          // Rediriger vers la page de la nouvelle conversation
           router.replace(`/dashboard/chat/${newChatRef.id}`);
         } else {
-          // Mettre à jour une conversation existante
-          const updateData = {
-            title: updatedHistory?.title || "Conversation du " + new Date().toLocaleDateString('fr-FR'), // Fallback
-            messages: updatedMessages,
-            updatedAt: new Date().toISOString()
-          };
+          // Pour une conversation existante
+          console.log("SAUVEGARDE: Mise à jour de la conversation", {
+            id: chatId,
+            title: conversionData.title,
+            messagesCount: conversionData.messages.length
+          });
           
-          await updateDoc(doc(db, 'conversations', chatId), updateData);
-          
-          console.log("Conversation existante mise à jour, ID:", chatId);
-          
-          // Déclencher la mise à jour de l'historique des conversations
-          window.dispatchEvent(new Event('chatHistoryRefresh'));
+          // Mettre à jour le document existant
+          await updateDoc(doc(db, 'conversations', chatId), conversionData);
         }
+        
+        // Notifier les autres composants de la mise à jour
+        window.dispatchEvent(new Event('chatHistoryRefresh'));
       } catch (error) {
-        console.error("Erreur lors de la sauvegarde de la conversation:", error);
+        console.error("ERREUR: Échec de la sauvegarde de la conversation:", error);
       }
     } catch (error) {
       console.error('Erreur lors de la communication avec Ollama:', error);
@@ -352,7 +502,7 @@ export default function ChatPage({ params }: ChatPageProps) {
   
   return (
     <div className="flex flex-col h-screen bg-[#f8f5ec] overflow-hidden">
-      {/* Header */}
+      {/* Header avec titre dynamique */}
       <header className="h-14 border-b border-[#e6e0d4] flex items-center justify-between px-4 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <Link
@@ -361,10 +511,42 @@ export default function ChatPage({ params }: ChatPageProps) {
           >
             <ArrowLeft size={18} className="text-gray-600" />
           </Link>
-          <h2 className="font-medium text-gray-800 truncate max-w-md">
-            {chatHistory?.title || "Nouvelle conversation"}
-          </h2>
+          
+          {chatId === 'new' || !chatHistory?.title || chatHistory.title === 'Nouvelle conversation' ? (
+            <div className="relative flex items-center">
+              <h2 className="font-medium text-gray-800 truncate max-w-md">
+                {chatHistory?.title || "Nouvelle conversation"}
+              </h2>
+              {titleGenerated && (
+                <div className="absolute -top-5 left-0 text-xs text-green-600 animate-fade-out">
+                  Titre généré !
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="group relative cursor-pointer">
+              <h2 className="font-medium text-gray-800 truncate max-w-md group-hover:text-blue-600 transition-colors">
+                {chatHistory.title}
+              </h2>
+              {titleGenerated && (
+                <div className="absolute -top-5 left-0 text-xs text-green-600 animate-fade-out">
+                  Titre mis à jour !
+                </div>
+              )}
+              <div className="absolute hidden group-hover:block top-full left-0 bg-white shadow-md p-2 rounded-md text-xs text-gray-500 whitespace-nowrap z-10">
+                Généré à partir du contexte de la conversation
+              </div>
+            </div>
+          )}
         </div>
+        
+        {/* Indicateur visuel de génération de titre */}
+        {isSendingMessage && chatId === 'new' && (
+          <div className="text-xs text-gray-500 flex items-center gap-1">
+            <div className="animate-spin h-3 w-3 border-t-2 border-blue-500 rounded-full"></div>
+            <span>Génération du titre...</span>
+          </div>
+        )}
       </header>
       
       {/* Chat Messages */}
