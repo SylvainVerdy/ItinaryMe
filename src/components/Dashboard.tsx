@@ -321,18 +321,27 @@ export function Dashboard() {
               Raccourcis
             </div>
             <div className="space-y-1">
-              <button className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors">
+              <Link 
+                href="/calendar" 
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
+              >
                 <Calendar size={14} className="text-gray-500" />
                 <span>Calendrier</span>
-              </button>
-              <button className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors">
+              </Link>
+              <Link 
+                href="/destinations" 
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
+              >
                 <Globe size={14} className="text-gray-500" />
                 <span>Destinations</span>
-              </button>
-              <button className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors">
+              </Link>
+              <Link 
+                href="/favorites" 
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
+              >
                 <Bookmark size={14} className="text-gray-500" />
                 <span>Favoris</span>
-              </button>
+              </Link>
             </div>
           </div>
           
