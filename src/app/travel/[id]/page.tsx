@@ -6,9 +6,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { travelService, TravelPlan } from '@/services/travelService';
 import { LogoutButton } from '@/components/LogoutButton';
 import Link from 'next/link';
-import { Star, Image, Calendar, Users, LinkIcon } from 'lucide-react';
+import { Star, Image, Calendar, Users, LinkIcon, FileText, FileEdit, CheckCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { MapPin } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
@@ -33,8 +33,20 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [showEditImage, setShowEditImage] = useState(false);
+  const [showEditNotes, setShowEditNotes] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [imageData, setImageData] = useState<string | null>(null);
   
+  // Vérifier le paramètre editNotes dans l'URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldEditNotes = params.get('editNotes') === 'true';
+    if (shouldEditNotes) {
+      setShowEditNotes(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -60,6 +72,11 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
         
         setTravel(travelData);
         setIsFavorite(travelData.isFavorite || false);
+        
+        // Initialiser les notes
+        if (travelData.notes) {
+          setNotes(travelData.notes);
+        }
         
         // Tenter de récupérer l'image depuis la collection 'images'
         try {
@@ -166,6 +183,51 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
       }
     } catch (error) {
       console.error("Erreur lors de l'actualisation des données:", error);
+    }
+  };
+  
+  // Sauvegarder les notes
+  const saveNotes = async () => {
+    if (isSavingNotes) return;
+    
+    try {
+      setIsSavingNotes(true);
+      
+      await updateDoc(doc(db, 'travels', travelId), {
+        notes: notes,
+        updatedAt: serverTimestamp()
+      });
+      
+      toast({
+        title: "Notes enregistrées",
+        description: "Vos notes ont été enregistrées avec succès.",
+        variant: "default",
+      });
+      
+      // Fermer l'éditeur de notes si ouvert via URL
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('editNotes') === 'true') {
+        // Rediriger vers la même page sans le paramètre editNotes
+        router.push(`/travel/${travelId}`);
+      }
+      
+      // Mettre à jour les données du voyage localement
+      if (travel) {
+        setTravel({
+          ...travel,
+          notes: notes
+        });
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement des notes:", error);
+      
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de l'enregistrement des notes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingNotes(false);
     }
   };
   
@@ -306,10 +368,86 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
                     </div>
                   )}
                   
-                  {travel.notes && (
-                    <div className="border-t border-[#e6e0d4] pt-6 mt-6">
-                      <h3 className="text-lg font-medium mb-3">Notes</h3>
-                      <div className="text-gray-700 whitespace-pre-wrap">{travel.notes}</div>
+                  {/* Éditeur de notes */}
+                  {showEditNotes && (
+                    <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
+                      <h3 className="text-xl font-medium text-gray-800 mb-6 flex items-center gap-2">
+                        <FileText size={20} className="text-blue-500" />
+                        <span>Notes de voyage pour {travel.destination}</span>
+                      </h3>
+                      
+                      <p className="text-sm text-gray-600 mb-4">
+                        Ajoutez vos notes, idées et réflexions sur ce voyage. Ces notes seront également disponibles dans la section Documents.
+                      </p>
+                      
+                      <div className="border border-[#e6e0d4] rounded-lg overflow-hidden">
+                        <textarea
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          className="w-full p-4 min-h-[300px] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                          placeholder="Écrivez vos notes ici..."
+                        />
+                      </div>
+                      
+                      <div className="mt-4 flex justify-between">
+                        <button
+                          onClick={() => {
+                            const params = new URLSearchParams(window.location.search);
+                            if (params.get('editNotes') === 'true') {
+                              router.push(`/travel/${travelId}`);
+                            } else {
+                              setShowEditNotes(false);
+                            }
+                          }}
+                          className="px-4 py-2 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
+                        >
+                          Annuler
+                        </button>
+                        
+                        <button 
+                          onClick={saveNotes}
+                          disabled={isSavingNotes}
+                          className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium flex items-center gap-2"
+                        >
+                          {isSavingNotes ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              <span>Enregistrement...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle size={14} />
+                              <span>Enregistrer les notes</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Affichage des notes si elles existent et que l'éditeur n'est pas ouvert */}
+                  {!showEditNotes && travel.notes && travel.notes.trim() && (
+                    <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
+                          <FileText size={20} className="text-blue-500" />
+                          <span>Notes de voyage</span>
+                        </h3>
+                        
+                        <button
+                          onClick={() => setShowEditNotes(true)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium flex items-center gap-1"
+                        >
+                          <FileEdit size={14} />
+                          <span>Modifier</span>
+                        </button>
+                      </div>
+                      
+                      <div className="border-t border-[#e6e0d4] pt-4">
+                        <div className="prose max-w-none">
+                          <p className="whitespace-pre-wrap">{travel.notes}</p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
