@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, getDoc, doc } from 'firebase/firestore';
 import { LogoutButton } from './LogoutButton';
 import Link from 'next/link';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -37,6 +37,9 @@ interface TravelPlan {
   dateDepart: string;
   dateRetour: string;
   nombreVoyageurs: number;
+  imageUrl: string | null;
+  imageId: string | null;
+  isFavorite: boolean;
   createdAt: Date;
 }
 
@@ -44,6 +47,15 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+}
+
+interface FirestoreImageData {
+  base64Data: string;
+  travelId: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  uploadedAt: any;
 }
 
 export function Dashboard() {
@@ -85,17 +97,46 @@ export function Dashboard() {
         const querySnapshot = await getDocs(travelQuery);
         const travels: TravelPlan[] = [];
         
+        // Créer un tableau pour stocker les promesses de récupération d'images
+        const imagePromises: Promise<void>[] = [];
+        
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          travels.push({
+          const travel = {
             id: doc.id,
             destination: data.destination,
             dateDepart: data.dateDepart,
             dateRetour: data.dateRetour,
             nombreVoyageurs: data.nombreVoyageurs,
+            imageUrl: data.imageUrl || null, // URL par défaut
+            imageId: data.imageId || null,
+            isFavorite: data.isFavorite || false,
             createdAt: data.createdAt?.toDate() || new Date(),
-          });
+          };
+          
+          travels.push(travel);
+          
+          // Si le voyage a un ID d'image, ajouter une promesse pour récupérer l'image
+          if (travel.imageId) {
+            const imagePromise = getDoc(doc(db, 'images', travel.imageId))
+              .then(imageDoc => {
+                if (imageDoc.exists()) {
+                  const imageData = imageDoc.data() as FirestoreImageData;
+                  if (imageData && imageData.base64Data) {
+                    travel.imageUrl = imageData.base64Data;
+                  }
+                }
+              })
+              .catch(error => {
+                console.error(`Erreur lors de la récupération de l'image pour le voyage ${travel.id}:`, error);
+              });
+            
+            imagePromises.push(imagePromise);
+          }
         });
+        
+        // Attendre que toutes les images soient récupérées
+        await Promise.all(imagePromises);
         
         // Trier par date de création (plus récent en premier)
         travels.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

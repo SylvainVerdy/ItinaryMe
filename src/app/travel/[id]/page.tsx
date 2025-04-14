@@ -6,13 +6,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { travelService, TravelPlan } from '@/services/travelService';
 import { LogoutButton } from '@/components/LogoutButton';
 import Link from 'next/link';
-import { Star } from 'lucide-react';
+import { Star, Image, Calendar, Users, LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { MapPin } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import EditTravelImage from './edit-image';
 
 // Interface des propriétés
 interface TravelDetailPageProps {
@@ -31,6 +32,8 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
   const [loadingTravel, setLoadingTravel] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [showEditImage, setShowEditImage] = useState(false);
+  const [imageData, setImageData] = useState<string | null>(null);
   
   useEffect(() => {
     if (!loading && !user) {
@@ -57,6 +60,32 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
         
         setTravel(travelData);
         setIsFavorite(travelData.isFavorite || false);
+        
+        // Tenter de récupérer l'image depuis la collection 'images'
+        try {
+          if (travelData.imageId) {
+            console.log("Récupération de l'image depuis la collection 'images'...");
+            const imageDoc = await getDoc(doc(db, 'images', travelData.imageId));
+            
+            if (imageDoc.exists()) {
+              console.log("Image trouvée dans la collection 'images'");
+              const imageData = imageDoc.data();
+              setImageData(imageData.base64Data);
+            } else {
+              console.log("L'image n'existe pas dans la collection 'images'");
+              // Fallback vers l'URL si disponible
+              setImageData(travelData.imageUrl || null);
+            }
+          } else {
+            // Aucun ID d'image, utiliser l'URL si disponible
+            setImageData(travelData.imageUrl || null);
+          }
+        } catch (imgError) {
+          console.error("Erreur lors de la récupération de l'image:", imgError);
+          // Fallback vers l'URL si disponible
+          setImageData(travelData.imageUrl || null);
+        }
+        
       } catch (error) {
         console.error("Erreur lors de la récupération du voyage:", error);
         setError("Une erreur est survenue lors du chargement du voyage.");
@@ -109,6 +138,37 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
     }
   };
   
+  // Rafraîchir les données du voyage
+  const refreshTravelData = async () => {
+    try {
+      const docRef = doc(db, 'travels', travelId);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const travelData = { 
+          id: docSnap.id, 
+          ...docSnap.data() 
+        };
+        setTravel(travelData);
+        setIsFavorite(travelData.isFavorite || false);
+        
+        // Rafraîchir aussi l'image
+        if (travelData.imageId) {
+          const imageDoc = await getDoc(doc(db, 'images', travelData.imageId));
+          if (imageDoc.exists()) {
+            setImageData(imageDoc.data().base64Data);
+          } else {
+            setImageData(travelData.imageUrl || null);
+          }
+        } else {
+          setImageData(travelData.imageUrl || null);
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'actualisation des données:", error);
+    }
+  };
+  
   if (loading || loadingTravel) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -151,106 +211,124 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
             <span className="text-sm text-gray-700">Voyage</span>
           </div>
           
-          <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] overflow-hidden mb-8">
-            <div className="h-48 md:h-64 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-              {travel.imageUrl ? (
-                <img 
-                  src={travel.imageUrl} 
-                  alt={travel.destination} 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-white">
-                  <MapPin size={48} />
-                </div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                <div className="flex items-center justify-between">
-                  <h1 className="text-2xl md:text-3xl font-medium text-white">
-                    {travel.destination}
-                  </h1>
-                  <button 
-                    onClick={toggleFavorite}
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                  >
-                    <Star 
-                      size={20} 
-                      className={`${isFavorite ? 'text-yellow-400 fill-yellow-400' : 'text-white'}`} 
+          {loading || loadingTravel ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          ) : travel ? (
+            <>
+              <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] overflow-hidden mb-8">
+                <div className="h-48 md:h-64 bg-gradient-to-r from-blue-500 to-purple-600 relative">
+                  {imageData ? (
+                    <img 
+                      src={imageData} 
+                      alt={travel.destination} 
+                      className="w-full h-full object-cover"
                     />
-                  </button>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-white">
+                      <MapPin size={48} />
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                    <div className="flex items-center justify-between">
+                      <h1 className="text-2xl md:text-3xl font-medium text-white">
+                        {travel.destination}
+                      </h1>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => setShowEditImage(!showEditImage)}
+                          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                          title="Modifier l'image et les liens"
+                        >
+                          <Image size={20} className="text-white" />
+                        </button>
+                        <button 
+                          onClick={toggleFavorite}
+                          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                          title={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                        >
+                          <Star 
+                            size={20} 
+                            className={`${isFavorite ? 'text-yellow-400 fill-yellow-400' : 'text-white'}`} 
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-between items-start">
-              <h2 className="text-xl font-semibold mb-4">{travel.destination}</h2>
-              <div className="flex space-x-2">
-                <Link
-                  href={`/travel/${travel.id}/edit`}
-                  className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-                >
-                  Modifier
-                </Link>
-                <button
-                  onClick={handleDelete}
-                  className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-medium mb-2">Informations générales</h3>
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-sm text-gray-500">Destination</p>
-                    <p>{travel.destination}</p>
+                
+                <div className="p-6">
+                  <div className="flex flex-wrap gap-6 mb-6">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="text-blue-500" size={20} />
+                      <div>
+                        <div className="text-sm text-gray-500">Dates</div>
+                        <div className="font-medium">
+                          {new Date(travel.dateDepart).toLocaleDateString('fr-FR')} - {new Date(travel.dateRetour).toLocaleDateString('fr-FR')}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Users className="text-blue-500" size={20} />
+                      <div>
+                        <div className="text-sm text-gray-500">Voyageurs</div>
+                        <div className="font-medium">{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Dates du voyage</p>
-                    <p>
-                      Du {new Date(travel.dateDepart).toLocaleDateString()} au {new Date(travel.dateRetour).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Voyageurs</p>
-                    <p>{travel.nombreVoyageurs} personne{travel.nombreVoyageurs > 1 ? 's' : ''}</p>
-                  </div>
+                  
+                  {travel.links && travel.links.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
+                        <LinkIcon size={18} className="text-blue-500" />
+                        <span>Liens utiles</span>
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {travel.links.map(link => (
+                          <a 
+                            key={link.id} 
+                            href={link.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-3 border border-[#e6e0d4] rounded-lg hover:bg-[#f8f5ec] transition-colors"
+                          >
+                            <LinkIcon size={16} className="text-blue-500 flex-shrink-0" />
+                            <div className="overflow-hidden">
+                              <div className="font-medium text-sm">{link.title}</div>
+                              <div className="text-xs text-gray-500 truncate">{link.url}</div>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {travel.notes && (
+                    <div className="border-t border-[#e6e0d4] pt-6 mt-6">
+                      <h3 className="text-lg font-medium mb-3">Notes</h3>
+                      <div className="text-gray-700 whitespace-pre-wrap">{travel.notes}</div>
+                    </div>
+                  )}
                 </div>
               </div>
               
-              <div>
-                <h3 className="font-medium mb-2">Notes</h3>
-                <p className="bg-gray-50 p-3 rounded min-h-[100px]">
-                  {travel.notes || "Aucune note pour ce voyage."}
-                </p>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <h3 className="font-medium mb-2">Activités prévues</h3>
-              {travel.activities && travel.activities.length > 0 ? (
-                <ul className="list-disc list-inside space-y-1">
-                  {travel.activities.map((activity, index) => (
-                    <li key={index}>{activity}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-500">Aucune activité planifiée pour ce voyage.</p>
+              {showEditImage && (
+                <EditTravelImage 
+                  travelId={travelId} 
+                  currentImageUrl={imageData || undefined} 
+                  currentLinks={travel.links || []}
+                  onUpdate={refreshTravelData} 
+                />
               )}
+            </>
+          ) : (
+            <div className="bg-red-50 p-4 rounded-lg text-red-700">
+              Voyage non trouvé ou vous n'avez pas les permissions pour y accéder.
             </div>
-          </div>
-          
-          <div className="flex justify-center mt-8">
-            <Link 
-              href="/chat"
-              className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            >
-              Discuter avec l'assistant pour ce voyage
-            </Link>
-          </div>
+          )}
         </div>
       </main>
       

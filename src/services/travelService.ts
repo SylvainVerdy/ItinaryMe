@@ -20,6 +20,9 @@ export interface TravelPlanInput {
   nombreVoyageurs: number;
   notes?: string;
   activities?: string[];
+  imageUrl?: string;
+  imageId?: string;
+  links?: Array<{id: string; title: string; url: string}>;
 }
 
 export interface TravelPlan extends TravelPlanInput {
@@ -27,6 +30,7 @@ export interface TravelPlan extends TravelPlanInput {
   userId: string;
   createdAt: Date;
   updatedAt: Date;
+  isFavorite?: boolean;
 }
 
 const TRAVEL_COLLECTION = 'travels';
@@ -79,6 +83,10 @@ export const travelService = {
           nombreVoyageurs: data.nombreVoyageurs,
           notes: data.notes || '',
           activities: data.activities || [],
+          imageUrl: data.imageUrl || null,
+          imageId: data.imageId || null,
+          links: data.links || [],
+          isFavorite: data.isFavorite || false,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date()
         });
@@ -111,6 +119,10 @@ export const travelService = {
         nombreVoyageurs: data.nombreVoyageurs,
         notes: data.notes || '',
         activities: data.activities || [],
+        imageUrl: data.imageUrl || null,
+        imageId: data.imageId || null,
+        links: data.links || [],
+        isFavorite: data.isFavorite || false,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date()
       };

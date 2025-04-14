@@ -1,0 +1,38 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Permettre temporairement tous les accès pour le débogage
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Permettre l'accès aux images de voyage pour les utilisateurs authentifiés
+    match /travel-images/{travelId}/{imageId} {
+      // Permettre la lecture si l'utilisateur est authentifié et possède le voyage
+      // ou si l'image est publique
+      allow read: if request.auth != null && 
+                   (resource.metadata.isPublic == true ||
+                    exists(/databases/$(database)/documents/travels/$(travelId)) && 
+                    get(/databases/$(database)/documents/travels/$(travelId)).data.userId == request.auth.uid);
+      
+      // Permettre l'upload seulement si l'utilisateur est authentifié et possède le voyage
+      allow create, update, delete: if request.auth != null && 
+                                      exists(/databases/$(database)/documents/travels/$(travelId)) && 
+                                      get(/databases/$(database)/documents/travels/$(travelId)).data.userId == request.auth.uid;
+    }
+    
+    // Règles pour les avatars des utilisateurs
+    match /user-profiles/{userId}/{imageId} {
+      // Permettre à l'utilisateur de lire et écrire ses propres images de profil
+      allow read: if true; // Les avatars sont publics
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour les fichiers publics
+    match /public/{fileId} {
+      allow read: if true;  // Tout le monde peut lire
+      allow write: if request.auth != null;  // Seuls les utilisateurs authentifiés peuvent écrire
+    }
+  }
+} 
