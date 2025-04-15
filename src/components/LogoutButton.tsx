@@ -9,11 +9,13 @@ import { LogOut, Loader } from 'lucide-react';
 interface LogoutButtonProps {
   className?: string;
   variant?: 'icon' | 'text' | 'minimal';
+  onClick?: () => Promise<void>;
 }
 
 export function LogoutButton({ 
   className = '',
-  variant = 'text'
+  variant = 'text',
+  onClick
 }: LogoutButtonProps) {
   const { signOut } = useAuth();
   const { t } = useLanguage();
@@ -23,8 +25,12 @@ export function LogoutButton({
   const handleLogout = async () => {
     try {
       setIsLoading(true);
-      await signOut();
-      router.push('/login');
+      if (onClick) {
+        await onClick();
+      } else {
+        await signOut();
+        window.location.href = '/';
+      }
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
     } finally {

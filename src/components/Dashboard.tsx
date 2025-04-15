@@ -26,7 +26,8 @@ import {
   User,
   Sparkles,
   FileText,
-  Bookmark
+  Bookmark,
+  LogOut
 } from 'lucide-react';
 import { TravelDocumentList } from './TravelDocumentList';
 import { ChatHistoryList } from './ChatHistoryList';
@@ -59,7 +60,7 @@ interface FirestoreImageData {
 }
 
 export function Dashboard() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { t } = useLanguage();
   const [travelPlans, setTravelPlans] = useState<TravelPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -465,7 +466,17 @@ export function Dashboard() {
                 </div>
                 <div className="text-sm font-medium">{user.email?.split('@')[0]}</div>
               </div>
-              <LogoutButton variant="icon" />
+              <LogoutButton 
+                variant="icon" 
+                onClick={async () => {
+                  try {
+                    await signOut();
+                    window.location.href = '/';
+                  } catch (error) {
+                    console.error('Erreur lors de la déconnexion:', error);
+                  }
+                }} 
+              />
             </div>
           </div>
         </div>
