@@ -1,202 +1,225 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
-import { travelService, TravelPlanInput } from '@/services/travelService';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 interface TravelFormProps {
-  initialData?: TravelPlanInput;
-  travelId?: string;
-  isEditing?: boolean;
+  onSubmit: (data: {
+    destination: string;
+    startDate: string;
+    endDate: string;
+    numPeople: number;
+    notes?: string;
+  }) => void;
+  onCancel?: () => void;
+  initialValues?: {
+    destination?: string;
+    startDate?: string;
+    endDate?: string;
+    numPeople?: number;
+    notes?: string;
+  };
+  isLoading?: boolean;
 }
 
-export function TravelForm({ initialData, travelId, isEditing = false }: TravelFormProps) {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+export const TravelForm = ({
+  onSubmit,
+  onCancel,
+  initialValues = {},
+  isLoading = false
+}: TravelFormProps) => {
+  // Valeurs par défaut
+  const defaultStartDate = new Date().toISOString().split('T')[0];
+  const defaultEndDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  const [formData, setFormData] = useState<TravelPlanInput>({
-    destination: '',
-    dateDepart: '',
-    dateRetour: '',
-    nombreVoyageurs: 1,
-    notes: '',
-    activities: []
-  });
-
-  // Si on est en mode édition, charger les données initiales
-  useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    } else {
-      // Vérifier si un paramètre de destination est présent dans l'URL
-      const searchParams = new URLSearchParams(window.location.search);
-      const destinationParam = searchParams.get('destination');
-      
-      if (destinationParam) {
-        setFormData(prev => ({
-          ...prev,
-          destination: destinationParam
-        }));
-      }
-    }
-  }, [initialData]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'nombreVoyageurs' ? parseInt(value) : value
-    }));
+  // Formatage de date pour rendre la saisie plus facile
+  const formatDateForInput = (dateString: string | Date | undefined | null): string => {
+    if (!dateString) return '';
+    
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    if (isNaN(date.getTime())) return '';
+    
+    // Format YYYY-MM-DD pour les inputs type="date"
+    return date.toISOString().split('T')[0];
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // État du formulaire
+  const [formData, setFormData] = useState({
+    destination: initialValues.destination || '',
+    startDate: formatDateForInput(initialValues.startDate) || defaultStartDate,
+    endDate: formatDateForInput(initialValues.endDate) || defaultEndDate,
+    numPeople: initialValues.numPeople || 1,
+    notes: initialValues.notes || ''
+  });
+
+  // État de validation
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Gérer les changements dans le formulaire
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    // Gérer les nombres
+    if (name === 'numPeople') {
+      const numValue = parseInt(value);
+      
+      // Valider que c'est un nombre positif
+      if (isNaN(numValue) || numValue < 1) {
+        setErrors(prev => ({ ...prev, [name]: 'Le nombre de voyageurs doit être au moins 1' }));
+      } else {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+      
+      setFormData(prev => ({ ...prev, [name]: numValue }));
+    } else {
+      // Gérer les champs de texte
+      setFormData(prev => ({ ...prev, [name]: value }));
+      
+      // Validation pour les champs requis
+      if (name === 'destination' && !value.trim()) {
+        setErrors(prev => ({ ...prev, [name]: 'La destination est requise' }));
+      } else {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+    }
+  };
+
+  // Soumission du formulaire
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
-      setFormError("Vous devez être connecté pour créer un voyage.");
+    // Validation finale
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.destination.trim()) {
+      newErrors.destination = 'La destination est requise';
+    }
+    
+    if (!formData.startDate) {
+      newErrors.startDate = 'La date de départ est requise';
+    }
+    
+    if (!formData.endDate) {
+      newErrors.endDate = 'La date de retour est requise';
+    }
+    
+    // Vérifier que la date de retour est après la date de départ
+    if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate)) {
+      newErrors.endDate = 'La date de retour doit être après la date de départ';
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
     
-    if (!formData.destination || !formData.dateDepart || !formData.dateRetour) {
-      setFormError("Veuillez remplir tous les champs obligatoires.");
-      return;
-    }
-    
-    try {
-      setIsSubmitting(true);
-      setFormError(null);
-      
-      if (isEditing && travelId) {
-        // Mode édition
-        await travelService.updateTravel(travelId, formData);
-        router.push(`/travel/${travelId}`);
-      } else {
-        // Mode création
-        const newTravelId = await travelService.createTravel(user.uid, formData);
-        router.push(`/travel/${newTravelId}`);
-      }
-    } catch (error: any) {
-      console.error("Erreur lors de l'enregistrement du voyage:", error);
-      // Afficher le message d'erreur spécifique si disponible
-      setFormError(error.message || "Une erreur est survenue lors de l'enregistrement. Veuillez réessayer.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Soumettre le formulaire
+    onSubmit(formData);
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">
-        {isEditing ? 'Modifier votre voyage' : 'Planifier un nouveau voyage'}
-      </h1>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="destination">Destination</Label>
+        <Input
+          id="destination"
+          name="destination"
+          value={formData.destination}
+          onChange={handleChange}
+          placeholder="Paris, Tokyo, New York..."
+          disabled={isLoading}
+          className={errors.destination ? 'border-red-500' : ''}
+        />
+        {errors.destination && (
+          <p className="text-red-500 text-sm mt-1">{errors.destination}</p>
+        )}
+      </div>
       
-      {formError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {formError}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="startDate">Date de départ</Label>
+          <Input
+            id="startDate"
+            name="startDate"
+            type="date"
+            value={formData.startDate}
+            onChange={handleChange}
+            disabled={isLoading}
+            className={errors.startDate ? 'border-red-500' : ''}
+          />
+          {errors.startDate && (
+            <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>
+          )}
         </div>
-      )}
+        
+        <div>
+          <Label htmlFor="endDate">Date de retour</Label>
+          <Input
+            id="endDate"
+            name="endDate"
+            type="date"
+            value={formData.endDate}
+            onChange={handleChange}
+            disabled={isLoading}
+            className={errors.endDate ? 'border-red-500' : ''}
+          />
+          {errors.endDate && (
+            <p className="text-red-500 text-sm mt-1">{errors.endDate}</p>
+          )}
+        </div>
+      </div>
       
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="destination" className="block text-sm font-medium text-gray-700">
-            Destination
-          </label>
-          <input
-            type="text"
-            id="destination"
-            name="destination"
-            value={formData.destination}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            placeholder="Paris, Tokyo, New York..."
-            required
-          />
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="dateDepart" className="block text-sm font-medium text-gray-700">
-              Date de départ
-            </label>
-            <input
-              type="date"
-              id="dateDepart"
-              name="dateDepart"
-              value={formData.dateDepart}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="dateRetour" className="block text-sm font-medium text-gray-700">
-              Date de retour
-            </label>
-            <input
-              type="date"
-              id="dateRetour"
-              name="dateRetour"
-              value={formData.dateRetour}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              required
-            />
-          </div>
-        </div>
-        
-        <div>
-          <label htmlFor="nombreVoyageurs" className="block text-sm font-medium text-gray-700">
-            Nombre de voyageurs
-          </label>
-          <select
-            id="nombreVoyageurs"
-            name="nombreVoyageurs"
-            value={formData.nombreVoyageurs}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-              <option key={num} value={num}>{num}</option>
-            ))}
-          </select>
-        </div>
-        
-        <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-            Notes (optionnel)
-          </label>
-          <textarea
-            id="notes"
-            name="notes"
-            value={formData.notes || ''}
-            onChange={handleChange}
-            rows={4}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            placeholder="Ajoutez des notes ou des détails sur votre voyage..."
-          />
-        </div>
-        
-        <div className="flex justify-end space-x-4">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
+      <div>
+        <Label htmlFor="numPeople">Nombre de voyageurs</Label>
+        <Input
+          id="numPeople"
+          name="numPeople"
+          type="number"
+          min="1"
+          value={formData.numPeople}
+          onChange={handleChange}
+          disabled={isLoading}
+          className={errors.numPeople ? 'border-red-500' : ''}
+        />
+        {errors.numPeople && (
+          <p className="text-red-500 text-sm mt-1">{errors.numPeople}</p>
+        )}
+      </div>
+      
+      <div>
+        <Label htmlFor="notes">Notes</Label>
+        <Textarea
+          id="notes"
+          name="notes"
+          placeholder="Préférences, informations importantes..."
+          value={formData.notes}
+          onChange={handleChange}
+          disabled={isLoading}
+          rows={4}
+        />
+      </div>
+      
+      <div className="flex justify-end space-x-2 pt-2">
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
             Annuler
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {isSubmitting ? 'Enregistrement...' : isEditing ? 'Mettre à jour' : 'Créer le voyage'}
-          </button>
-        </div>
-      </form>
-    </div>
+          </Button>
+        )}
+        <Button type="submit" disabled={isLoading || Object.keys(errors).length > 0}>
+          {isLoading ? 'Chargement...' : 'Enregistrer'}
+        </Button>
+      </div>
+    </form>
   );
-} 
+}; 

@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { travelService, TravelPlan } from '@/services/travelService';
 import { LogoutButton } from '@/components/LogoutButton';
 import Link from 'next/link';
-import { Star, Image, Calendar, Users, LinkIcon, FileText, FileEdit, CheckCircle, Loader2 } from 'lucide-react';
+import { Star, Image, Calendar, Users, LinkIcon, FileText, FileEdit, CheckCircle, Loader2, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -14,6 +14,8 @@ import { MapPin } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import EditTravelImage from './edit-image';
+import { EditTripDates } from '@/components/EditTripDates';
+import TravelNotes from '@/components/TravelNotes';
 
 // Interface des propriétés
 interface TravelDetailPageProps {
@@ -330,6 +332,15 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
                           {new Date(travel.dateDepart).toLocaleDateString('fr-FR')} - {new Date(travel.dateRetour).toLocaleDateString('fr-FR')}
                         </div>
                       </div>
+                      
+                      <div className="ml-2">
+                        <EditTripDates 
+                          tripId={travel.id}
+                          currentStartDate={travel.dateDepart || travel.startDate}
+                          currentEndDate={travel.dateRetour || travel.endDate}
+                          onUpdate={() => refreshTravelData()}
+                        />
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -443,7 +454,7 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
                   )}
                   
                   {/* Affichage des notes si elles existent et que l'éditeur n'est pas ouvert */}
-                  {!showEditNotes && travel.notes && travel.notes.trim() && (
+                  {!showEditNotes && (
                     <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
@@ -467,6 +478,34 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
                       </div>
                     </div>
                   )}
+
+                  {/* Affichage des notes stockées dans la collection "notes" */}
+                  <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
+                        <MessageSquare size={20} className="text-blue-500" />
+                        <span>Notes liées au voyage</span>
+                      </h3>
+                    </div>
+                    
+                    <TravelNotes 
+                      tripId={travelId} 
+                      onAddNote={(content) => {
+                        toast({
+                          title: "Note ajoutée",
+                          description: "Votre note a été ajoutée avec succès.",
+                          variant: "default",
+                        });
+                      }}
+                      onGenerateNote={(content) => {
+                        toast({
+                          title: "Note générée",
+                          description: "Une note a été générée par l'IA.",
+                          variant: "default",
+                        });
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
               

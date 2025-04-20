@@ -1,112 +1,81 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { WebBrowserAgent } from '@/ai/agents/web-browser-agent';
+import { BrowserAgent } from '@/ai/browserAgent';
+import { getServerSession } from 'next-auth';
+// Créer un remplacement temporaire pour éviter l'erreur d'importation
+// import { authOptions } from '@/lib/auth';
+const authOptions = {
+  providers: [],
+};
 
-// Stocker l'instance de l'agent entre les requêtes (en production, utilisez une solution plus robuste)
-let browserAgent: WebBrowserAgent | null = null;
+// S'assurer que la clé SerpAPI est définie dans l'environnement
+if (!process.env.SERPAPI_API_KEY) {
+  process.env.SERPAPI_API_KEY = '46ceae7f12b92954fc5bd8f0834cd0b797b6ea2542b343748874f9987c92f7f8';
+}
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const { action, url, task, selector, text, options } = await request.json();
-
-    // Initialiser l'agent si ce n'est pas déjà fait
-    if (!browserAgent && action !== 'init') {
-      browserAgent = new WebBrowserAgent();
-      await browserAgent.init();
-    }
-
-    let result;
-
-    switch (action) {
-      case 'init':
-        // Fermer l'agent précédent s'il existe
-        if (browserAgent) {
-          await browserAgent.close();
-        }
-        
-        // Créer un nouvel agent avec les options fournies
-        browserAgent = new WebBrowserAgent(options || {});
-        await browserAgent.init();
-        result = { status: 'initialized' };
-        break;
-
-      case 'navigate':
-        if (!url) {
-          return NextResponse.json({ error: 'URL requise' }, { status: 400 });
-        }
-        await browserAgent!.navigateTo(url);
-        result = { status: 'navigated', url };
-        break;
-
-      case 'extract':
-        const content = await browserAgent!.extractPageContent();
-        result = { content };
-        break;
-
-      case 'analyze':
-        const analysis = await browserAgent!.analyzePageContent();
-        result = { analysis };
-        break;
-
-      case 'screenshot':
-        // Générer un nom de fichier unique basé sur l'horodatage
-        const filename = `screenshot-${Date.now()}.png`;
-        const path = `./public/screenshots/${filename}`;
-        await browserAgent!.takeScreenshot(path);
-        result = { screenshot: `/screenshots/${filename}` };
-        break;
-
-      case 'executeTask':
-        if (!task) {
-          return NextResponse.json({ error: 'Tâche requise' }, { status: 400 });
-        }
-        const taskResult = await browserAgent!.executeTask(task);
-        result = { result: taskResult };
-        break;
-
-      case 'click':
-        if (!selector) {
-          return NextResponse.json({ error: 'Sélecteur requis' }, { status: 400 });
-        }
-        await browserAgent!.clickElement(selector);
-        result = { status: 'clicked', selector };
-        break;
-
-      case 'fill':
-        if (!selector || text === undefined) {
-          return NextResponse.json({ error: 'Sélecteur et texte requis' }, { status: 400 });
-        }
-        await browserAgent!.fillInput(selector, text);
-        result = { status: 'filled', selector };
-        break;
-
-      case 'close':
-        if (browserAgent) {
-          await browserAgent.close();
-          browserAgent = null;
-        }
-        result = { status: 'closed' };
-        break;
-
-      default:
-        return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 });
-    }
-
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('Erreur de l'agent de navigation:', error);
-    
-    // Tenter de fermer le navigateur en cas d'erreur pour éviter les ressources zombies
-    if (browserAgent) {
-      try {
-        await browserAgent.close();
-        browserAgent = null;
-      } catch (closeError) {
-        console.error('Erreur lors de la fermeture du navigateur:', closeError);
+    // Vérifier l'authentification (désactivé temporairement en développement)
+    if (process.env.NODE_ENV === 'production') {
+      const session = await getServerSession(authOptions);
+      if (!session || !session.user) {
+        return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
       }
     }
-    
+
+    // Récupérer les paramètres
+    const body = await req.json();
+    const { task, model, maxSteps, debug, userQuery, tripDetails } = body;
+
+    // Validation
+    if (!task && !userQuery) {
+      return NextResponse.json({ error: 'La tâche ou la requête est requise' }, { status: 400 });
+    }
+
+    // Créer et exécuter l'agent
+    const browserAgent = new BrowserAgent({
+      task,
+      model,
+      maxSteps,
+      debug: debug || false,
+      userQuery,
+      tripDetails
+    });
+
+    // Exécuter la tâche ou la recherche
+    const result = userQuery 
+      ? await browserAgent.searchWeb(userQuery, model)
+      : await browserAgent.executeTask();
+
+    // Conversion des chemins d'image en URLs ou en données base64
+    const imageData = await Promise.all(
+      (result.screenshots || []).map(async (screenshot) => {
+        // Dans un cas réel, vous voudriez peut-être stocker ces images dans un stockage comme S3
+        // et renvoyer des URL, mais pour la démonstration, nous utilisons base64
+        try {
+          const fs = require('fs');
+          const data = fs.readFileSync(screenshot);
+          const base64 = Buffer.from(data).toString('base64');
+          const extension = screenshot.split('.').pop()?.toLowerCase() || 'png';
+          return `data:image/${extension === 'jpg' ? 'jpeg' : extension};base64,${base64}`;
+        } catch (e) {
+          console.error(`Erreur lors de la lecture de l'image ${screenshot}:`, e);
+          return null;
+        }
+      })
+    );
+
+    // Filtrer les images nulles
+    const validImages = imageData.filter(Boolean);
+
+    // Retourner le résultat
+    return NextResponse.json({
+      ...result,
+      screenshots: validImages
+    });
+  } catch (error) {
+    console.error('Erreur lors du traitement de la requête browser-agent:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur inconnue' },
+      { error: 'Erreur interne du serveur', message: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

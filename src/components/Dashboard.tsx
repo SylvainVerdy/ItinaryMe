@@ -32,6 +32,19 @@ import {
 import { TravelDocumentList } from './TravelDocumentList';
 import { ChatHistoryList } from './ChatHistoryList';
 
+// Interface pour la réponse JSON d'Ollama
+interface OllamaTravelResponse {
+  confirmation: boolean;
+  destination: string;
+  date_depart: string;
+  date_retour: string;
+  nombre_voyageurs: number;
+  type_voyage?: string;
+  budget?: string;
+  informations_manquantes: string[];
+  message_utilisateur: string;
+}
+
 interface TravelPlan {
   id: string;
   destination: string;
@@ -90,6 +103,8 @@ export function Dashboard() {
       
       try {
         setLoading(true);
+        console.log("Dashboard: Chargement des voyages pour l'utilisateur", user.uid);
+        
         const travelQuery = query(
           collection(db, 'travels'),
           where('userId', '==', user.uid)
@@ -103,12 +118,19 @@ export function Dashboard() {
         
         querySnapshot.forEach((docSnapshot) => {
           const data = docSnapshot.data();
+          
+          // Vérifier que le voyage appartient à l'utilisateur actuel
+          if (data.userId !== user.uid) {
+            console.warn(`Voyage ${docSnapshot.id} n'appartient pas à l'utilisateur ${user.uid}`);
+            return; // Passer au voyage suivant
+          }
+          
           const travel = {
             id: docSnapshot.id,
             destination: data.destination,
-            dateDepart: data.dateDepart,
-            dateRetour: data.dateRetour,
-            nombreVoyageurs: data.nombreVoyageurs,
+            dateDepart: data.dateDepart || data.startDate,
+            dateRetour: data.dateRetour || data.endDate,
+            nombreVoyageurs: data.nombreVoyageurs || data.numPeople || 1,
             imageUrl: data.imageUrl || null, // URL par défaut
             imageId: data.imageId || null,
             isFavorite: data.isFavorite || false,
@@ -136,19 +158,23 @@ export function Dashboard() {
           }
         });
         
-        // Attendre que toutes les images soient récupérées
-        await Promise.all(imagePromises);
+        // Attendre que toutes les promesses d'images soient résolues
+        if (imagePromises.length > 0) {
+          await Promise.all(imagePromises);
+        }
         
-        // Trier par date de création (plus récent en premier)
+        // Trier les voyages par date de création (plus récent d'abord)
         travels.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        
+        console.log(`Dashboard: ${travels.length} voyages trouvés pour l'utilisateur ${user.uid}`);
         setTravelPlans(travels);
+        setLoading(false);
       } catch (error) {
         console.error("Erreur lors de la récupération des voyages:", error);
-      } finally {
         setLoading(false);
       }
     };
-
+    
     fetchTravelPlans();
   }, [user]);
 
@@ -175,7 +201,212 @@ export function Dashboard() {
     setIsSendingMessage(true);
 
     try {
-      // Appel API à Ollama
+      // Vérifier si le message contient une intention de voyage
+      // Import de la fonction nécessaire depuis le module
+      if (typeof window !== "undefined") {
+        try {
+          // Tenter de détecter une intention de voyage dans le message
+          const messageToAnalyze = inputValue;
+          
+          // Détection d'une intention de voyage basée sur des expressions régulières
+          const destinationRegex = /(?:voyage|visiter|partir|aller|séjour)(?:.*?)(?:à|en|au|pour|vers)\s+([A-Z][a-zÀ-ÿ]+|[A-Za-zÀ-ÿ\s]+)/i;
+          const datesRegex = /(?:du|le|pour le)\s+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4})(?:.*?)(?:au|jusqu'au|jusqu'à|à)\s+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4})/i;
+          const nbPersonnesRegex = /(\d+)\s+(?:personne|personnes|voyageur|voyageurs)/i;
+          
+          const containsDestination = destinationRegex.test(messageToAnalyze);
+          const containsDates = datesRegex.test(messageToAnalyze);
+          const explicitDestinations = /\b(Italie|Rome|Florence|Paris|France|Espagne|Madrid|Barcelone|Portugal|Lisbonne|Allemagne|Berlin|Grèce|Athènes|Londres|Angleterre|New York|Japon|Tokyo)\b/i.test(messageToAnalyze);
+          const travelKeywords = /(?:voyage|séjour|vacances|visiter|partir|planifier|organiser|réserver|découvrir|explorer)/i.test(messageToAnalyze);
+          
+          const couldBeTravelIntent = (containsDestination || (explicitDestinations && travelKeywords)) && messageToAnalyze.length > 15;
+          
+          // Si le message est long et contient des mots-clés liés au voyage
+          if (couldBeTravelIntent) {
+            console.log("Intention de voyage détectée, extraction des informations");
+            
+            // Extraction des informations
+            let destination = "";
+            let dateDepart = "";
+            let dateRetour = "";
+            let nombreVoyageurs = 0;
+            let type_voyage = "";
+            let budget = "";
+            
+            // Extraire la destination
+            const destinationMatch = messageToAnalyze.match(destinationRegex);
+            if (destinationMatch && destinationMatch[1]) {
+              destination = destinationMatch[1].trim();
+            } else {
+              // Essayer une autre approche pour extraire la destination
+              const directDestMatch = messageToAnalyze.match(/\b(Italie|Rome|Florence|Paris|France|Espagne|Madrid|Barcelone|Portugal|Lisbonne|Allemagne|Berlin|Grèce|Athènes|Londres|Angleterre|New York|Japon|Tokyo)\b/i);
+              if (directDestMatch) {
+                destination = directDestMatch[0];
+              }
+            }
+            
+            // Extraire les dates
+            const datesMatch = messageToAnalyze.match(datesRegex);
+            if (datesMatch && datesMatch[1] && datesMatch[2]) {
+              dateDepart = datesMatch[1];
+              dateRetour = datesMatch[2];
+            }
+            
+            // Extraire le nombre de voyageurs
+            const nbPersonnesMatch = messageToAnalyze.match(nbPersonnesRegex);
+            if (nbPersonnesMatch && nbPersonnesMatch[1]) {
+              nombreVoyageurs = parseInt(nbPersonnesMatch[1], 10);
+            }
+            
+            // Détecter le type de voyage (vacances, affaires, etc.)
+            const typeVoyageMatch = messageToAnalyze.match(/\b(vacances|affaires|tourisme|loisir|détente|culturel|aventure|romantique|familial)\b/i);
+            if (typeVoyageMatch) {
+              type_voyage = typeVoyageMatch[0];
+            }
+            
+            // Détecter le budget estimé
+            const budgetMatch = messageToAnalyze.match(/budget(?:.*?)(?:de|environ|:)\s+(\d+[\s,.]?(?:\d+)?(?:\s?[€$]|\s?euros|\s?dollars)?)/i);
+            if (budgetMatch && budgetMatch[1]) {
+              budget = budgetMatch[1].trim();
+            }
+            
+            // Création de l'objet JSON pour Ollama
+            const travelInfoJson = {
+              type: "travel_intent",
+              query: messageToAnalyze,
+              extracted_info: {
+                destination: destination || null,
+                date_depart: dateDepart || null,
+                date_retour: dateRetour || null,
+                nombre_voyageurs: nombreVoyageurs || null,
+                type_voyage: type_voyage || null,
+                budget: budget || null
+              },
+              has_complete_info: !!(destination && dateDepart && dateRetour && nombreVoyageurs)
+            };
+            
+            console.log("Informations de voyage extraites:", travelInfoJson);
+            
+            // Message intermédiaire pour indiquer que l'assistant va créer un voyage
+            const intermediateMessage: ChatMessage = {
+              role: 'assistant',
+              content: "J'ai détecté que vous souhaitez planifier un voyage. Je vais analyser votre demande...",
+              timestamp: new Date()
+            };
+            
+            setChatMessages(prevMessages => [...prevMessages, intermediateMessage]);
+            
+            // Appel API à Ollama avec les informations extraites
+            const response = await fetch('http://localhost:11434/api/chat', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'qwen2.5',
+                messages: [
+                  { 
+                    role: 'system', 
+                    content: `Tu es un assistant de voyage appelé IA Voyageur. Tu aides les utilisateurs à planifier leur voyage.
+                    Je t'envoie une intention de voyage déjà détectée avec certaines informations extraites.
+                    Ton rôle est de:
+                    1. Vérifier les informations extraites et les corriger si nécessaire
+                    2. Demander les informations manquantes s'il y en a
+                    3. Répondre exclusivement en format JSON structuré comme suit:
+                    {
+                      "confirmation": true,
+                      "destination": "destination confirmée/corrigée", 
+                      "date_depart": "date de départ confirmée/corrigée",
+                      "date_retour": "date de retour confirmée/corrigée",
+                      "nombre_voyageurs": nombre confirmé/corrigé,
+                      "type_voyage": "type de voyage détecté",
+                      "budget": "budget estimé si mentionné",
+                      "informations_manquantes": ["liste des infos manquantes"],
+                      "message_utilisateur": "message à afficher à l'utilisateur demandant les infos manquantes ou confirmant les infos"
+                    }
+                    Si des informations sont manquantes, liste-les dans "informations_manquantes" et demande-les poliment dans "message_utilisateur".
+                    Si toutes les informations sont présentes, "informations_manquantes" doit être un tableau vide et "message_utilisateur" doit être un message de confirmation.
+                    Ta réponse DOIT être un objet JSON valide et rien d'autre.` 
+                  },
+                  { 
+                    role: 'user', 
+                    content: JSON.stringify(travelInfoJson) 
+                  }
+                ],
+                stream: false
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error('Erreur de connexion à Ollama');
+            }
+
+            const data = await response.json();
+            
+            try {
+              // Tentative de parser la réponse JSON
+              let jsonResponse: OllamaTravelResponse;
+              try {
+                // Si la réponse est déjà un objet
+                if (typeof data.message.content === 'object') {
+                  jsonResponse = data.message.content as OllamaTravelResponse;
+                } else {
+                  // Sinon, on parse la chaîne
+                  jsonResponse = JSON.parse(data.message.content) as OllamaTravelResponse;
+                }
+                
+                console.log("Réponse JSON d'Ollama:", jsonResponse);
+                
+                // Ajouter la réponse formatée de l'assistant au chat
+                const assistantMessage: ChatMessage = {
+                  role: 'assistant',
+                  content: jsonResponse.message_utilisateur || "J'ai bien reçu vos informations de voyage.",
+                  timestamp: new Date()
+                };
+                
+                setChatMessages(prevMessages => [...prevMessages, assistantMessage]);
+                
+                // Si toutes les informations sont complètes, proposer de créer le voyage
+                if (jsonResponse.confirmation && jsonResponse.informations_manquantes.length === 0) {
+                  setTimeout(() => {
+                    // Créer le message avec le bouton
+                    const buttonMessage: ChatMessage = {
+                      role: 'system',
+                      content: `<div style="margin-top: 10px;">
+                        <button 
+                          onclick="window.location.href='/chat?message=${encodeURIComponent(messageToAnalyze)}&destination=${encodeURIComponent(jsonResponse.destination)}&dateDepart=${encodeURIComponent(jsonResponse.date_depart)}&dateRetour=${encodeURIComponent(jsonResponse.date_retour)}&nombreVoyageurs=${jsonResponse.nombre_voyageurs}&typeVoyage=${encodeURIComponent(jsonResponse.type_voyage || '')}&budget=${encodeURIComponent(jsonResponse.budget || '')}'" 
+                          style="display: inline-block; padding: 0.75rem 1.5rem; background: linear-gradient(to right, #3B82F6, #2563EB); color: white; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s ease;"
+                          onmouseover="this.style.background='linear-gradient(to right, #2563EB, #1D4ED8)'"
+                          onmouseout="this.style.background='linear-gradient(to right, #3B82F6, #2563EB)'"
+                        >
+                          Créer mon voyage à ${jsonResponse.destination}
+                        </button>
+                      </div>`,
+                      timestamp: new Date()
+                    };
+                    
+                    setChatMessages(prevMessages => [...prevMessages, buttonMessage]);
+                  }, 1000);
+                }
+                
+                setIsSendingMessage(false);
+                return;
+                
+              } catch (jsonError) {
+                console.error("Erreur lors du parsing de la réponse JSON:", jsonError);
+                // Continuer avec le flux normal en cas d'erreur de parsing
+              }
+            } catch (processingError) {
+              console.error("Erreur lors du traitement de la réponse JSON:", processingError);
+              // Continuer avec le flux normal en cas d'erreur de traitement
+            }
+          }
+        } catch (detectionError) {
+          console.error("Erreur lors de la détection d'intention de voyage:", detectionError);
+          // Continuer avec le flux normal en cas d'erreur
+        }
+      }
+
+      // Appel API à Ollama (flux normal si pas d'intention de voyage détectée ou erreur)
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
         headers: {
@@ -184,7 +415,7 @@ export function Dashboard() {
         body: JSON.stringify({
           model: 'qwen2.5',
           messages: [
-            { role: 'system', content: 'Tu es un assistant de voyage appelé IA Voyageur. Tu aides les utilisateurs à planifier leur voyage, à découvrir des destinations et à créer des itinéraires. Sois précis, utile et amical.' },
+            { role: 'system', content: 'Tu es un assistant de voyage appelé IA Voyageur. Tu aides les utilisateurs à planifier leur voyage, à découvrir des destinations et à créer des itinéraires. Si tu détectes une intention de voyage, suggère à l\'utilisateur de créer un voyage à partir de l\'interface principale pour obtenir une expérience complète de planification. Sois précis, utile et amical.' },
             ...chatMessages
               .filter(msg => msg.role !== 'system')
               .map(msg => ({ role: msg.role, content: msg.content })),
@@ -747,7 +978,14 @@ export function Dashboard() {
                             : 'bg-white border border-[#e6e0d4] text-gray-800 shadow-sm'
                         }`}
                       >
-                        <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                        {msg.role === 'system' ? (
+                          <div 
+                            className="whitespace-pre-wrap leading-relaxed" 
+                            dangerouslySetInnerHTML={{ __html: msg.content }}
+                          />
+                        ) : (
+                          <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                        )}
                         <div 
                           className={`text-xs mt-2 ${
                             msg.role === 'user' ? 'text-blue-200' : 'text-gray-500'

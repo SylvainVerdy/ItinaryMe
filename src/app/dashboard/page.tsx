@@ -1,5 +1,6 @@
 "use client";
 
+import React from 'react';
 import { Dashboard } from '@/components/Dashboard';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
@@ -28,5 +29,10 @@ export default function DashboardPage() {
     return null; // La redirection sera gérée par l'effet
   }
   
-  return <Dashboard />;
+  return (
+    <div>
+      {/* Afficher le Dashboard existant */}
+      <Dashboard />
+    </div>
+  );
 } 

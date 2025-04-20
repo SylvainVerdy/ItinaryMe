@@ -10,6 +10,18 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
+// Ajout d'un polyfill pour async_hooks en environnement navigateur
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  window.AsyncHooksContextManager = {
+    context: () => ({}),
+    disable: () => {},
+    enable: () => {},
+    bind: () => {},
+    with: () => {},
+  };
+}
+
 export const metadata: Metadata = {
   title: 'ItinaryMe',
   description: 'Planifiez vos voyages avec ItinaryMe',

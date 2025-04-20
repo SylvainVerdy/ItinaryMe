@@ -22,6 +22,20 @@ import {
   SeamlessIcon,
 } from "@/components/icons";
 
+// Polyfill pour async_hooks requis par OpenTelemetry
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  window.process = window.process || {};
+  // @ts-ignore
+  window.process.env = window.process.env || {};
+  // @ts-ignore
+  window.process.env.GENKIT_TELEMETRY_DISABLED = 'true';
+  // @ts-ignore
+  window.process.hrtime = () => [0, 0];
+  // @ts-ignore
+  window.asyncHooks = { createHook: () => ({ enable: () => {}, disable: () => {} }) };
+}
+
 type FormData = {
   email: string;
   password: string;
