@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { travelService, TravelPlan } from '@/services/travelService';
@@ -16,11 +16,13 @@ import { Footer } from '@/components/Footer';
 import EditTravelImage from './edit-image';
 import { EditTripDates } from '@/components/EditTripDates';
 import TravelNotes from '@/components/TravelNotes';
-import ItineraryMap from '@/components/ItineraryMap';
+import ItineraryMap, { ItineraryMapHandle } from '@/components/ItineraryMap';
 import * as React from 'react';
 import TravelCalendar from '@/components/TravelCalendar';
 import { calendarService, TravelEvent } from '@/services/calendarService';
+import { integrationService } from '@/services/integrationService';
 import { v4 as uuidv4 } from 'uuid';
+import { MapPoint, TravelEvent, Note } from '@/lib/types';
 
 export default function TravelDetailPage() {
   const { user, loading } = useAuth();
@@ -40,6 +42,8 @@ export default function TravelDetailPage() {
   const [imageData, setImageData] = useState<string | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<TravelEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
+  const mapRef = useRef<ItineraryMapHandle>(null);
   
   // Vérifier le paramètre editNotes dans l'URL
   useEffect(() => {
@@ -141,6 +145,66 @@ export default function TravelDetailPage() {
       fetchCalendarEvents();
     }
   }, [travelId, travel]);
+  
+  useEffect(() => {
+    // Charger les points sur la carte
+    const fetchMapPoints = async () => {
+      if (!travelId || !calendarEvents.length) return;
+      
+      try {
+        // Extraire les points de la carte à partir des événements du calendrier
+        const points = await integrationService.extractMapPointsFromEvents(
+          calendarEvents.map(event => ({
+            ...event,
+            start: new Date(event.start),
+            end: new Date(event.end)
+          })) as TravelEvent[]
+        );
+        setMapPoints(points);
+      } catch (error) {
+        console.error("Erreur lors du chargement des points sur la carte:", error);
+      }
+    };
+    
+    if (!loadingEvents) {
+      fetchMapPoints();
+    }
+  }, [travelId, calendarEvents, loadingEvents]);
+  
+  // Synchroniser les notes avec le calendrier et la carte lors de l'initialisation
+  useEffect(() => {
+    const syncNotesWithComponents = async () => {
+      if (!travelId || loadingTravel || !user) return;
+      
+      try {
+        // Récupérer toutes les notes
+        const q = query(
+          collection(db, 'notes'),
+          where('tripId', '==', travelId),
+          where('userId', '==', user.uid)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const notesData: Note[] = querySnapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        } as Note));
+        
+        if (notesData.length > 0) {
+          // Synchroniser les notes avec le calendrier et la carte
+          await integrationService.syncNotesWithCalendarAndMap(travelId, notesData);
+          
+          // Rafraîchir les événements du calendrier
+          const updatedEvents = await calendarService.getEventsForTrip(travelId);
+          setCalendarEvents(updatedEvents);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la synchronisation des notes:", error);
+      }
+    };
+    
+    syncNotesWithComponents();
+  }, [travelId, loadingTravel, user]);
   
   const handleDelete = async () => {
     if (!travel || !confirm("Êtes-vous sûr de vouloir supprimer ce voyage ?")) {
@@ -268,10 +332,24 @@ export default function TravelDetailPage() {
       
       if (eventId) {
         // Ajouter l'événement à la liste locale
-        setCalendarEvents(prev => [
-          ...prev,
-          { id: eventId, tripId: travelId, ...event }
-        ]);
+        const newEvent = { id: eventId, tripId: travelId, ...event };
+        setCalendarEvents(prev => [...prev, newEvent]);
+        
+        // Si l'événement a des coordonnées, ajouter un point sur la carte
+        if (event.coordinates && mapRef.current) {
+          const pointId = mapRef.current.addPoint({
+            lat: event.coordinates.lat,
+            lng: event.coordinates.lng,
+            title: event.title,
+            description: event.description || '',
+            type: event.eventType || 'visit',
+            color: event.color,
+            day: new Date(event.start).getDate()
+          });
+          
+          // Lier l'événement au point sur la carte
+          await integrationService.linkEventToMapPoint(travelId, eventId, pointId);
+        }
         
         toast({
           title: "Événement ajouté",
@@ -339,6 +417,36 @@ export default function TravelDetailPage() {
         variant: "destructive",
       });
     }
+  };
+  
+  // Gestionnaire pour les clics sur la carte
+  const handleMapClick = async (lat: number, lng: number) => {
+    if (!mapRef.current) return;
+    
+    // Ouvrir une boîte de dialogue pour créer un nouvel événement avec ces coordonnées
+    const title = prompt("Titre de l'événement:");
+    if (!title) return;
+    
+    const type = prompt("Type d'événement (visit, transport, accommodation, food, activity, other):", "visit");
+    const validTypes = ['visit', 'transport', 'accommodation', 'food', 'activity', 'other'];
+    const eventType = validTypes.includes(type || '') ? type : 'visit';
+    
+    // Créer l'événement dans le calendrier
+    const start = new Date();
+    const end = new Date();
+    end.setHours(end.getHours() + 1);
+    
+    const newEvent: Omit<TravelEvent, 'id' | 'tripId'> = {
+      title,
+      start,
+      end,
+      allDay: false,
+      eventType: eventType as any,
+      coordinates: { lat, lng },
+      location: `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`
+    };
+    
+    await handleAddCalendarEvent(newEvent);
   };
   
   if (loading || loadingTravel) {
@@ -636,20 +744,29 @@ export default function TravelDetailPage() {
                         onEventAdd={handleAddCalendarEvent}
                         onEventUpdate={handleUpdateCalendarEvent}
                         onEventDelete={handleDeleteCalendarEvent}
+                        linkedMapRef={mapRef}
                       />
                     )}
                   </div>
 
-                  {travel.notes && (
-                    <div className="mb-8">
-                      <h2 className="text-2xl font-semibold mb-4">Visualisation de l'itinéraire</h2>
-                      <ItineraryMap 
-                        notes={travel.notes} 
-                        destination={travel.destination} 
-                        height="500px" 
-                      />
+                  {/* Affichage de la carte d'itinéraire */}
+                  <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
+                        <MapPin size={20} className="text-blue-500" />
+                        <span>Carte d'itinéraire</span>
+                      </h3>
                     </div>
-                  )}
+                    
+                    <ItineraryMap 
+                      ref={mapRef}
+                      points={mapPoints}
+                      startDate={travel.dateDepart}
+                      endDate={travel.dateRetour}
+                      height="500px"
+                      onMapClick={handleMapClick}
+                    />
+                  </div>
                 </div>
               </div>
               

@@ -14,6 +14,15 @@ export interface TravelEvent {
   color?: string;
   createdAt?: string;
   updatedAt?: string;
+  // Intégration avec la carte
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+  // Lien avec les notes
+  noteId?: string;
+  // Type d'événement (visite, transport, hébergement, etc.)
+  eventType?: 'visit' | 'transport' | 'accommodation' | 'food' | 'activity' | 'other';
 }
 
 // Convertir les dates du format de Firestore
@@ -103,5 +112,74 @@ export const calendarService = {
       console.error('Erreur lors de la suppression de l\'événement:', error);
       return false;
     }
+  },
+
+  // Lier un événement à une note
+  async linkEventToNote(eventId: string, noteId: string): Promise<boolean> {
+    try {
+      await updateDoc(doc(db, 'travelEvents', eventId), {
+        noteId,
+        updatedAt: serverTimestamp()
+      });
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la liaison de l\'événement à la note:', error);
+      return false;
+    }
+  },
+
+  // Récupérer les événements liés à une note
+  async getEventsForNote(noteId: string): Promise<TravelEvent[]> {
+    try {
+      const eventsQuery = query(
+        collection(db, 'travelEvents'), 
+        where('noteId', '==', noteId)
+      );
+      
+      const snapshot = await getDocs(eventsQuery);
+      const events: TravelEvent[] = [];
+      
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        events.push(convertEvent({
+          id: doc.id,
+          ...data
+        }));
+      });
+      
+      return events;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des événements pour la note:', error);
+      return [];
+    }
+  },
+
+  // Ajouter des coordonnées à un événement (pour la carte)
+  async addCoordinatesToEvent(eventId: string, coordinates: {lat: number, lng: number}): Promise<boolean> {
+    try {
+      await updateDoc(doc(db, 'travelEvents', eventId), {
+        coordinates,
+        updatedAt: serverTimestamp()
+      });
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout des coordonnées à l\'événement:', error);
+      return false;
+    }
+  },
+
+  // Générer un itinéraire journalier à partir des événements (pour la carte)
+  generateDailyItinerary(events: TravelEvent[], date: Date): TravelEvent[] {
+    // Filtrer les événements pour la date spécifique
+    return events.filter(event => {
+      const eventStart = new Date(event.start);
+      return eventStart.getDate() === date.getDate() && 
+             eventStart.getMonth() === date.getMonth() &&
+             eventStart.getFullYear() === date.getFullYear();
+    }).sort((a, b) => {
+      const aStart = new Date(a.start).getTime();
+      const bStart = new Date(b.start).getTime();
+      return aStart - bStart;
+    });
   }
 }; 

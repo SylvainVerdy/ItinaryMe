@@ -5,6 +5,7 @@ import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, deleteDo
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { Note } from '@/lib/types';
+import { integrationService } from '@/services/integrationService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -86,13 +87,17 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
       
       const docRef = await addDoc(collection(db, 'notes'), newNote);
       
-      setNotes([{ id: docRef.id, ...newNote }, ...notes]);
+      const noteWithId = { id: docRef.id, ...newNote };
+      setNotes([noteWithId, ...notes]);
       setNewNoteTitle('');
       setNewNoteContent('');
       
       if (onAddNote) {
         onAddNote(newNoteContent);
       }
+
+      // Synchroniser la note avec le calendrier et la carte
+      await integrationService.syncNotesWithCalendarAndMap(tripId, [noteWithId]);
     } catch (err) {
       console.error('Erreur lors de l\'ajout de la note:', err);
       setError('Impossible d\'ajouter la note. Veuillez réessayer.');
@@ -113,13 +118,23 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
         updatedAt: new Date().toISOString()
       });
       
+      const updatedNote = { 
+        ...noteToUpdate, 
+        title: editedTitle, 
+        content: editedContent, 
+        updatedAt: new Date().toISOString() 
+      };
+      
       setNotes(notes.map(note => 
         note.id === editingNoteId 
-          ? { ...note, title: editedTitle, content: editedContent, updatedAt: new Date().toISOString() }
+          ? updatedNote
           : note
       ));
       
       setEditingNoteId(null);
+
+      // Synchroniser la note modifiée avec le calendrier et la carte
+      await integrationService.syncNotesWithCalendarAndMap(tripId, [updatedNote]);
     } catch (err) {
       console.error('Erreur lors de la modification de la note:', err);
       setError('Impossible de modifier la note. Veuillez réessayer.');
@@ -131,6 +146,9 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
     try {
       await deleteDoc(doc(db, 'notes', noteId));
       setNotes(notes.filter(note => note.id !== noteId));
+      
+      // Supprimer les intégrations liées à cette note
+      // Cette fonctionnalité serait à implémenter dans l'integrationService
     } catch (err) {
       console.error('Erreur lors de la suppression de la note:', err);
       setError('Impossible de supprimer la note. Veuillez réessayer.');

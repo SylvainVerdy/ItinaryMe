@@ -24,6 +24,37 @@ export interface Trip {
   notes?: Note[] | string;
 }
 
+// Types pour les points sur la carte
+export interface MapPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  title: string;
+  description?: string;
+  type?: 'visit' | 'transport' | 'accommodation' | 'food' | 'activity' | 'other';
+  color?: string;
+  day?: number;
+  order?: number;
+}
+
+// Types pour les événements du calendrier
+export interface TravelEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  allDay?: boolean;
+  description?: string;
+  location?: string;
+  color?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+  noteId?: string;
+  eventType?: 'visit' | 'transport' | 'accommodation' | 'food' | 'activity' | 'other';
+}
+
 // Types pour les documents de voyage dans le style Notion
 export interface TravelDocument {
   id?: string;
