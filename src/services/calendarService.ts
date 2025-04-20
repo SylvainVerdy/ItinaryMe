@@ -23,6 +23,7 @@ export interface TravelEvent {
   noteId?: string;
   // Type d'événement (visite, transport, hébergement, etc.)
   eventType?: 'visit' | 'transport' | 'accommodation' | 'food' | 'activity' | 'other';
+  hideOnMap?: boolean; // Nouveau champ pour masquer l'événement sur la carte
 }
 
 // Convertir les dates du format de Firestore

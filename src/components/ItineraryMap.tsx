@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
-import { MapPin, Navigation, Bed, Utensils, Ticket, ExternalLink, Move, Calendar, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react';
+import { MapPin, Navigation, Bed, Utensils, Ticket, ExternalLink, Move, Calendar, RefreshCw, Edit, Trash } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { Button } from './ui/button';
 import toast from 'react-hot-toast';
+import { MapPoint, TravelEvent } from '@/lib/types';
 
 // Styles pour la carte
 const mapContainerStyle: React.CSSProperties = {
@@ -29,19 +30,6 @@ const fixLeafletIcons = () => {
   });
 };
 
-// Définir les types pour les événements de la carte
-interface MapPoint {
-  id: string;
-  lat: number;
-  lng: number;
-  title: string;
-  description?: string;
-  type?: 'visit' | 'transport' | 'accommodation' | 'food' | 'activity' | 'other';
-  color?: string;
-  day?: number;
-  order?: number;
-}
-
 interface ItineraryMapProps {
   points?: MapPoint[];
   startDate?: string | Date;
@@ -53,22 +41,8 @@ interface ItineraryMapProps {
   showDirections?: boolean;
   planningEvents?: TravelEvent[];
   syncWithPlanning?: boolean;
-}
-
-interface TravelEvent {
-  id: string;
-  title: string;
-  start: Date | string;
-  end: Date | string;
-  allDay: boolean;
-  description?: string;
-  location?: string;
-  color?: string;
-  coordinates?: {
-    lat: number;
-    lng: number;
-  };
-  day?: number;
+  showOnlyCalendarEvents?: boolean;
+  onEventDelete?: (eventId: string) => void;
 }
 
 export interface ItineraryMapHandle {
@@ -155,7 +129,9 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
   height = '500px',
   showDirections = true,
   planningEvents = [],
-  syncWithPlanning = false
+  syncWithPlanning = false,
+  showOnlyCalendarEvents = false,
+  onEventDelete
 }, ref) => {
   const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
@@ -171,6 +147,8 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
   const [manualLat, setManualLat] = useState<number>(0);
   const [manualLng, setManualLng] = useState<number>(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
+  const [filterOnlyCalendarEvents, setFilterOnlyCalendarEvents] = useState(showOnlyCalendarEvents);
   
   // Fixer les icônes Leaflet au chargement
   useEffect(() => {
@@ -249,63 +227,108 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
     }
   }, [selectedPointId, mapPoints]);
 
-  // Fonction pour vérifier si un jour est dans la plage du voyage
-  const isDayInTravelRange = (day: number): boolean => {
-    // Vérifier si le jour est valide
-    if (day <= 0) return false;
+  // Mettre à jour l'état local si la prop change
+  useEffect(() => {
+    setFilterOnlyCalendarEvents(showOnlyCalendarEvents);
+  }, [showOnlyCalendarEvents]);
+
+  // Fonction pour vérifier si un jour est dans la plage de voyage
+  const isDayInTravelRange = (day: number | string): boolean => {
+    if (typeof day === 'string') {
+      day = parseInt(day);
+    }
+    // En mode debug, afficher tous les points
+    if (debugMode) return true;
     
-    // Si des dates de voyage sont spécifiées, vérifier si ce jour est dans la plage
-    if (startDate && endDate) {
+    // Si pas de dates définies, afficher tous les points
+    if (!startDate || !endDate) return true;
+    
+    // En cas de jour non défini ou jour 0, toujours afficher le point
+    if (!day || day <= 0) return true;
+    
+    try {
+      // Obtenir les dates de début et fin exactes du voyage
       const travelStartDate = new Date(startDate);
-      const travelEndDate = new Date(endDate);
+      travelStartDate.setHours(0, 0, 0, 0); // Début de la journée
+      travelStartDate.setDate(travelStartDate.getDate() - 2); // Ajouter 2 jours de marge
       
-      // Étendre la plage d'un jour avant et après pour plus de tolérance
-      travelStartDate.setDate(travelStartDate.getDate() - 1);
-      travelEndDate.setDate(travelEndDate.getDate() + 1);
+      const travelEndDate = new Date(endDate);
+      travelEndDate.setHours(23, 59, 59, 999); // Fin de la journée
+      travelEndDate.setDate(travelEndDate.getDate() + 2); // Ajouter 2 jours de marge
       
       // Calculer la date correspondant à ce jour
       const dayDate = new Date(travelStartDate);
-      dayDate.setDate(travelStartDate.getDate() + day - 1);
+      dayDate.setDate(dayDate.getDate() + (day - 1));
+      dayDate.setHours(12, 0, 0, 0); // Midi
       
-      // Déboguer les dates
-      console.log(`Vérification jour ${day}, date: ${dayDate.toISOString()}, dans plage: ${travelStartDate.toISOString()} - ${travelEndDate.toISOString()}`);
+      // Vérifier si le jour est dans la plage du voyage (avec marge)
+      const isInRange = dayDate >= travelStartDate && dayDate <= travelEndDate;
       
-      // Ne garder que les jours dans la plage de dates du voyage
-      return dayDate >= travelStartDate && dayDate <= travelEndDate;
+      // En mode debug, afficher des informations détaillées
+      if (debugMode) {
+        console.log(`Jour ${day} (${dayDate.toLocaleDateString()}): ${isInRange ? 'Dans la plage' : 'Hors plage'}`);
+        console.log(`- Plage du voyage: ${travelStartDate.toLocaleDateString()} - ${travelEndDate.toLocaleDateString()}`);
+      }
+      
+      return isInRange;
+    } catch (error) {
+      console.error("Erreur lors du calcul des dates pour le filtrage:", error);
+      return true; // En cas d'erreur, afficher le point par défaut
     }
-    
-    return true;
   };
   
   // Filtrer les points à afficher sur la carte
   const filteredMapPoints = useMemo(() => {
-    // Si pas de dates définies, montrer tous les points
-    if (!startDate || !endDate) {
-      console.log('Pas de dates de voyage définies, affichage de tous les points:', mapPoints.length);
-      return mapPoints;
-    }
-    
-    const filtered = mapPoints.filter(point => {
-      // Si aucun jour n'est défini pour ce point, l'afficher quand même
-      if (!point.day) return true;
-      
-      return isDayInTravelRange(point.day);
-    });
-    
-    console.log(`Filtrage des points: ${filtered.length}/${mapPoints.length} points conservés`);
-    return filtered;
-  }, [mapPoints, startDate, endDate]);
-  
-  // Organiser les points par jour
-  const pointsByDay = useMemo(() => {
-    return filteredMapPoints.reduce((acc, point) => {
+    // Même en mode debug, respecter certains filtres de base
+    return mapPoints.filter(point => {
       const day = point.day || 0;
+      
+      // Si point de test (ajouté manuellement) ou non lié à un événement, conserver en mode debug
+      if (debugMode && (point.id.startsWith('test-') || !point.id.startsWith('event-'))) {
+        return true;
+      }
+      
+      // Toujours filtrer les points explicitement cachés
+      if (point.hideOnMap) {
+        return false;
+      }
+
+      // Filtre pour n'afficher que les points liés au calendrier
+      if (filterOnlyCalendarEvents) {
+        // Si le point n'a pas d'ID commençant par "event-", il n'est pas lié au calendrier
+        if (!point.id.startsWith('event-')) {
+          return false;
+        }
+        
+        // Vérifier si l'événement correspondant existe toujours dans planningEvents
+        const eventId = point.id.replace('event-', '');
+        const event = planningEvents.find(event => event.id === eventId);
+        
+        if (!event) {
+          return false;
+        }
+        
+        // Vérifier si l'événement est marqué comme caché sur la carte
+        if (event.hideOnMap) {
+          return false;
+        }
+      }
+      
+      // Pour tous les autres points, appliquer le filtrage normal
+      return isDayInTravelRange(day);
+    });
+  }, [mapPoints, startDate, endDate, debugMode, filterOnlyCalendarEvents, planningEvents]);
+  
+  // Grouper les points par jour
+  const pointsByDay = useMemo(() => {
+    return filteredMapPoints.reduce((acc: Record<string, MapPoint[]>, point) => {
+      const day = point.day?.toString() || "0";
       if (!acc[day]) {
         acc[day] = [];
       }
       acc[day].push(point);
       return acc;
-    }, {} as Record<number, MapPoint[]>);
+    }, {});
   }, [filteredMapPoints]);
 
   const getIconForType = (type?: string) => {
@@ -325,23 +348,39 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
     }
   };
 
-  // Créer des icônes personnalisées pour Leaflet
+  // Améliorer la manière dont on crée les icônes personnalisées
   const createCustomIcon = (type?: string, color?: string, order?: number, isActiveMoving?: boolean) => {
+    // Utiliser une couleur par défaut basée sur le type
+    let defaultColor = '#3B82F6'; // Bleu par défaut
+    
+    switch(type) {
+      case 'visit': defaultColor = '#4CAF50'; break; // Vert
+      case 'transport': defaultColor = '#2196F3'; break; // Bleu
+      case 'accommodation': defaultColor = '#9C27B0'; break; // Violet
+      case 'food': defaultColor = '#FF9800'; break; // Orange
+      case 'activity': defaultColor = '#F44336'; break; // Rouge
+    }
+    
+    const finalColor = color || defaultColor;
+    
+    // Créer un HTML pour l'icône avec une ombre plus prononcée et une meilleure visibilité
     const iconHtml = `
       <div style="
         display: flex; 
         align-items: center; 
         justify-content: center; 
-        width: 30px; 
-        height: 30px; 
-        background-color: ${color || '#3B82F6'}; 
+        width: 36px; 
+        height: 36px; 
+        background-color: ${finalColor}; 
         border-radius: 50%; 
         color: white;
         font-weight: bold;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        ${isActiveMoving ? 'border: 3px solid #fbbf24; animation: pulse 1.5s infinite;' : ''}
+        font-size: 16px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+        border: 3px solid white;
+        ${isActiveMoving ? 'animation: pulse 1.5s infinite;' : ''}
       ">
-        ${order !== undefined && order >= 0 ? (order + 1) : getIconForType(type)}
+        ${order !== undefined && order >= 0 ? (order + 1) : '•'}
       </div>
       ${isActiveMoving ? `
       <style>
@@ -353,11 +392,12 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
       </style>` : ''}
     `;
     
+    // Créer une icône plus grande et centrée correctement
     return L.divIcon({
       html: iconHtml,
       className: 'custom-div-icon',
-      iconSize: [30, 30],
-      iconAnchor: [15, 15]
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
     });
   };
 
@@ -466,7 +506,22 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
   };
 
   // Gérer le clic sur la carte quand on est en mode déplacement
-  const handleMapClick = (lat: number, lng: number) => {
+  const handleMapClickInMoveMode = (e: L.LeafletMouseEvent | number, lngParam?: number) => {
+    // Si e est un événement, extraire lat/lng
+    let lat: number, lng: number;
+    
+    if (typeof e === 'number' && typeof lngParam === 'number') {
+      // Cas où on reçoit directement lat, lng
+      lat = e;
+      lng = lngParam;
+    } else if (e && typeof e !== 'number') {
+      // Cas où on reçoit un événement LeafletMouseEvent
+      lat = e.latlng.lat;
+      lng = e.latlng.lng;
+    } else {
+      return; // Données invalides
+    }
+    
     if (moveMode && moveTarget) {
       // Utiliser un timeout pour éviter les doubles clics
       if (mapClickTimeout.current) {
@@ -486,173 +541,393 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
     }
   };
 
-  // Synchroniser avec le planning
-  useEffect(() => {
-    if (syncWithPlanning && planningEvents.length > 0) {
-      const mappedPoints: MapPoint[] = planningEvents
-        .filter(event => event.coordinates) // Ne traiter que les événements avec des coordonnées
-        .map((event, index) => {
-          // Trouver si ce point existe déjà dans notre liste
-          const existingPoint = mapPoints.find(p => p.id === `event-${event.id}`);
-          
-          // Déterminer le jour de l'événement
-          const eventDay = event.day || (startDate && new Date(event.start) ? 
-            Math.ceil((new Date(event.start).getTime() - new Date(startDate).getTime()) / (1000 * 3600 * 24)) + 1 : 
-            1);
-          
-          return {
-            id: existingPoint?.id || `event-${event.id}`,
-            lat: event.coordinates!.lat,
-            lng: event.coordinates!.lng,
-            title: event.title,
-            description: event.description || '',
-            type: determinePointType(event),
-            color: event.color || '#3B82F6',
-            day: eventDay > 0 ? eventDay : 1,
-            order: existingPoint?.order || index
-          };
-        });
+  // Fonction manuelle pour synchroniser avec le planning
+  const syncWithTravelPlanning = () => {
+    // Afficher tous les événements disponibles pour le débogage, y compris les coordonnées brutes
+    console.log("TOUS LES ÉVÉNEMENTS DU PLANNING:", planningEvents);
+    planningEvents.forEach((event, index) => {
+      console.log(`Événement #${index+1}: "${event.title}"`);
+      console.log(`- ID: ${event.id}`);
+      console.log(`- Date début: ${event.start ? new Date(event.start).toLocaleString() : "non définie"}`);
+      console.log(`- Date fin: ${event.end ? new Date(event.end).toLocaleString() : "non définie"}`);
+      console.log(`- Jour: ${event.day || "non défini"}`);
+      console.log(`- Coordonnées:`, event.coordinates);
+      if (event.coordinates) {
+        console.log(`  - lat: ${event.coordinates.lat} (type: ${typeof event.coordinates.lat})`);
+        console.log(`  - lng: ${event.coordinates.lng} (type: ${typeof event.coordinates.lng})`);
+        
+        // Vérifier si les coordonnées sont des chaînes qui peuvent être converties en nombres
+        if (typeof event.coordinates.lat === 'string') {
+          console.log(`  - lat convertie: ${parseFloat(event.coordinates.lat)}`);
+        }
+        if (typeof event.coordinates.lng === 'string') {
+          console.log(`  - lng convertie: ${parseFloat(event.coordinates.lng)}`);
+        }
+      }
+      console.log(`- Description: ${event.description || "aucune"}`);
+      console.log(`- Type: ${event.eventType || "non défini"}`);
+      console.log(`- Location: ${event.location || "non définie"}`);
+      console.log(`- Masqué sur la carte: ${event.hideOnMap ? "Oui" : "Non"}`);
+      console.log("-------------------");
+    });
+
+    if (planningEvents.length > 0) {
+      console.log('Synchronisation avec', planningEvents.length, 'événements du planning');
       
-      // Combiner les points existants (qui ne viennent pas du planning) avec les nouveaux
+      // Vérifier les dates du voyage
+      console.log("Dates du voyage:", { 
+        startDate: startDate ? new Date(startDate).toLocaleString() : "non définie", 
+        endDate: endDate ? new Date(endDate).toLocaleString() : "non définie" 
+      });
+      
+      // Créer un tableau pour stocker tous les points
+      const newPoints: MapPoint[] = [];
+      
+      // Conserver les points non liés aux événements
       const nonEventPoints = mapPoints.filter(p => !p.id.startsWith('event-'));
-      setMapPoints([...nonEventPoints, ...mappedPoints]);
+      newPoints.push(...nonEventPoints);
+      
+      // Filtrer les événements masqués
+      const visibleEvents = planningEvents.filter(event => !event.hideOnMap);
+      console.log(`${visibleEvents.length}/${planningEvents.length} événements visibles (non masqués)`);
+      
+      // IMPORTANT: Récupérer TOUS les événements avec des coordonnées valides sans filtrage de date
+      // Nous assouplirons au maximum les critères pour voir tous les événements possibles
+      const eventsWithCoordinates = visibleEvents.filter(event => {
+        // Vérifier si l'événement a des coordonnées qui peuvent être utilisées
+        let hasValidCoordinates = false;
+        
+        if (event.coordinates) {
+          // Tenter de convertir les coordonnées en nombres valides
+          const lat = typeof event.coordinates.lat === 'string' 
+            ? parseFloat(event.coordinates.lat) 
+            : event.coordinates.lat;
+          
+          const lng = typeof event.coordinates.lng === 'string' 
+            ? parseFloat(event.coordinates.lng) 
+            : event.coordinates.lng;
+          
+          hasValidCoordinates = !isNaN(Number(lat)) && !isNaN(Number(lng));
+          
+          if (!hasValidCoordinates) {
+            console.log(`Événement "${event.title}" ignoré: coordonnées invalides:`, event.coordinates);
+          }
+        } else {
+          // Si l'événement a une localisation mais pas de coordonnées, essayer de géocoder
+          if (event.location && event.location.trim() !== '') {
+            console.log(`Événement "${event.title}" a une localisation sans coordonnées: ${event.location}`);
+            // Note: Le géocodage est asynchrone et ne peut pas être fait ici directement
+            // Mais on pourrait ajouter une fonctionnalité pour géocoder automatiquement
+          } else {
+            console.log(`Événement "${event.title}" ignoré: pas de coordonnées ni de localisation`);
+          }
+        }
+        
+        return hasValidCoordinates;
+      });
+      
+      console.log(`${eventsWithCoordinates.length}/${visibleEvents.length} événements visibles (non masqués)`);
+      
+      // Si aucun événement n'a de coordonnées valides
+      if (eventsWithCoordinates.length === 0) {
+        toast.error("Aucun événement n'a de coordonnées géographiques valides", {
+          icon: '📍',
+          duration: 4000
+        });
+        return;
+      }
+      
+      // Créer des points pour tous les événements avec des coordonnées valides
+      const eventPoints = eventsWithCoordinates.map((event, index) => {
+        // Déterminer le jour (utiliser une valeur par défaut de 1 si non défini)
+        let eventDay = event.day || 1;
+        
+        // Si l'événement a une date et que le voyage a une date de début, calculer le jour
+        if (event.start && startDate) {
+          try {
+            const eventDate = new Date(event.start);
+            const travelStartDate = new Date(startDate);
+            
+            // Calculer le nombre de jours depuis le début du voyage
+            const diffTime = eventDate.getTime() - travelStartDate.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Utiliser le jour calculé uniquement s'il est positif
+            if (diffDays >= 0) {
+              eventDay = diffDays + 1; // Le jour 1 est le premier jour
+            }
+            
+            console.log(`Jour calculé pour "${event.title}": ${eventDay}`);
+          } catch (e) {
+            console.warn(`Erreur de calcul de date pour l'événement "${event.title}"`, e);
+          }
+        }
+        
+        // S'assurer que le jour est au moins 1
+        if (eventDay < 1) eventDay = 1;
+        
+        // Convertir les coordonnées en nombres
+        let lat: number;
+        let lng: number;
+        
+        try {
+          // Convertir explicitement les coordonnées en nombres
+          lat = typeof event.coordinates!.lat === 'string' 
+            ? parseFloat(event.coordinates!.lat) 
+            : Number(event.coordinates!.lat);
+          
+          lng = typeof event.coordinates!.lng === 'string' 
+            ? parseFloat(event.coordinates!.lng) 
+            : Number(event.coordinates!.lng);
+          
+          // Vérifier que les conversions sont valides
+          if (isNaN(lat) || isNaN(lng)) {
+            console.error(`Coordonnées invalides pour l'événement "${event.title}"`, event.coordinates);
+            // Utiliser des coordonnées par défaut pour Paris
+            lat = 48.8566;
+            lng = 2.3522;
+          }
+        } catch (e) {
+          console.error(`Erreur lors de la conversion des coordonnées pour "${event.title}"`, e);
+          // Utiliser des coordonnées par défaut pour Paris
+          lat = 48.8566;
+          lng = 2.3522;
+        }
+        
+        // Déterminer le type de point
+        let pointType: MapPoint['type'] = 'other';
+        
+        // Utiliser d'abord eventType s'il est défini
+        if (event.eventType && ['visit', 'transport', 'accommodation', 'food', 'activity', 'other'].includes(event.eventType)) {
+          pointType = event.eventType as MapPoint['type'];
+        } else {
+          // Sinon, déterminer le type en fonction du titre/description
+          pointType = determinePointType(event);
+        }
+        
+        // Créer le point
+        const newPoint: MapPoint = {
+          id: `event-${event.id}`,
+          lat,
+          lng,
+          title: event.title,
+          description: event.description || '',
+          type: pointType,
+          color: event.color || '#3B82F6',
+          day: eventDay,
+          order: index,
+          hideOnMap: event.hideOnMap
+        };
+        
+        console.log(`Point créé pour "${event.title}":`, newPoint);
+        return newPoint;
+      });
+      
+      console.log("Points créés:", eventPoints);
+      
+      // Ajouter tous les points d'événements aux points existants
+      newPoints.push(...eventPoints);
+      
+      // Mettre à jour les points sur la carte
+      setMapPoints(newPoints);
       setLastSyncTime(new Date());
       
-      toast.success("Carte synchronisée avec le planning", {
-        icon: '🔄',
-        duration: 2000
+      // Informer l'utilisateur
+      toast.success(`${eventPoints.length} points du planning ajoutés à la carte`, {
+        duration: 3000
+      });
+      
+      // Centrer la carte sur les points
+      if (eventPoints.length > 0 && mapInstance.current) {
+        try {
+          // Ajouter tous les points à un tableau de coordonnées pour créer les limites
+          const coordinates = eventPoints.map(p => [p.lat, p.lng]);
+          
+          // S'assurer que toutes les coordonnées sont valides
+          const validCoordinates = coordinates.filter(
+            coord => !isNaN(coord[0]) && !isNaN(coord[1])
+          );
+          
+          if (validCoordinates.length > 0) {
+            // Créer les limites et ajuster la vue
+            const bounds = L.latLngBounds(validCoordinates as [number, number][]);
+            mapInstance.current.fitBounds(bounds, { padding: [50, 50] });
+          } else {
+            console.warn("Impossible de centrer la carte: pas de coordonnées valides");
+          }
+        } catch (e) {
+          console.error("Erreur lors du centrage de la carte", e);
+        }
+      }
+    } else {
+      toast.error("Aucun événement disponible dans le planning", {
+        duration: 3000
       });
     }
-  }, [syncWithPlanning, planningEvents, startDate]);
+  };
 
   // Fonction pour déterminer le type de point en fonction de l'événement
   const determinePointType = (event: TravelEvent): MapPoint['type'] => {
     const title = event.title.toLowerCase();
-    const desc = (event.description || '').toLowerCase();
-    
-    if (title.includes('hotel') || title.includes('hébergement') || title.includes('logement') || 
-        desc.includes('hotel') || desc.includes('hébergement') || desc.includes('logement') ||
-        desc.includes('dormir')) {
-      return 'accommodation';
-    }
-    
-    if (title.includes('restaurant') || title.includes('dîner') || title.includes('déjeuner') || 
-        title.includes('repas') || desc.includes('manger') || desc.includes('restaurant') ||
-        desc.includes('repas')) {
-      return 'food';
-    }
     
     if (title.includes('vol') || title.includes('train') || title.includes('bus') || 
-        title.includes('transfert') || title.includes('transport') ||
-        desc.includes('transport') || desc.includes('trajet')) {
+        title.includes('transport') || title.includes('airport') || title.includes('gare')) {
       return 'transport';
     }
     
-    if (title.includes('visite') || title.includes('musée') || title.includes('monument') ||
-        desc.includes('visite') || desc.includes('découverte')) {
-      return 'visit';
+    if (title.includes('hôtel') || title.includes('hotel') || title.includes('airbnb') || 
+        title.includes('logement') || title.includes('appartement') || title.includes('chambre')) {
+      return 'accommodation';
     }
     
-    if (title.includes('activité') || title.includes('excursion') || 
-        desc.includes('activité') || desc.includes('excursion')) {
-      return 'activity';
+    if (title.includes('restaurant') || title.includes('café') || title.includes('bar') || 
+        title.includes('dîner') || title.includes('déjeuner') || title.includes('petit-déjeuner')) {
+      return 'food';
     }
     
-    return 'visit'; // Par défaut
+    return 'activity';
   };
 
-  // Fonction manuelle pour synchroniser avec le planning
-  const syncWithTravelPlanning = () => {
-    if (planningEvents.length > 0) {
-      // Déboguer les événements disponibles
-      console.log('Synchronisation avec les événements du planning:', planningEvents.length);
-      
-      // Si pas de coordonnées dans les événements, afficher un message approprié
-      const eventsWithCoordinates = planningEvents.filter(event => event.coordinates && 
-        event.coordinates.lat && event.coordinates.lng);
-      
-      if (eventsWithCoordinates.length === 0) {
-        toast.error("Aucun événement n'a de coordonnées géographiques. Ajoutez des lieux à vos événements.", {
-          icon: '📍',
-          duration: 4000
-        });
-        console.log("Problème: Aucun événement n'a de coordonnées", planningEvents);
-        return;
-      }
-      
-      const mappedPoints: MapPoint[] = eventsWithCoordinates
-        .map((event, index) => {
-          const existingPoint = mapPoints.find(p => p.id === `event-${event.id}`);
-          
-          // Déterminer le jour (en acceptant jour 0 si nécessaire)
-          let eventDay = event.day || 0;
-          
-          // Si pas de jour mais des dates, calculer le jour
-          if (!eventDay && startDate && event.start) {
-            try {
-              const eventStartDate = new Date(event.start);
-              const travelStartDate = new Date(startDate);
-              
-              // Calculer le nombre de jours depuis le début du voyage
-              const diffTime = Math.abs(eventStartDate.getTime() - travelStartDate.getTime());
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              
-              eventDay = diffDays + 1; // Premier jour = 1
-              console.log(`Événement ${event.title} calculé comme jour ${eventDay}`);
-            } catch (error) {
-              console.warn("Erreur de calcul de date pour l'événement:", event, error);
-              eventDay = 1; // Par défaut jour 1
-            }
-          }
-          
-          // Assurer un jour minimum de 1
-          if (eventDay <= 0) eventDay = 1;
-          
-          // Déboguer la création du point
-          console.log(`Création point depuis événement: "${event.title}" (jour ${eventDay})`, 
-            event.coordinates);
-          
-          return {
-            id: existingPoint?.id || `event-${event.id}`,
-            lat: event.coordinates!.lat,
-            lng: event.coordinates!.lng,
-            title: event.title,
-            description: event.description || '',
-            type: determinePointType(event),
-            color: event.color || '#3B82F6',
-            day: eventDay,
-            order: existingPoint?.order || index
-          };
-        });
-      
-      // Déboguer les points créés
-      console.log('Points créés depuis les événements:', mappedPoints.length);
-      
-      // Toujours garder les points non-événement
-      const nonEventPoints = mapPoints.filter(p => !p.id.startsWith('event-'));
-      const updatedPoints = [...nonEventPoints, ...mappedPoints];
-      
-      // Mettre à jour les points sur la carte
-      setMapPoints(updatedPoints);
-      setLastSyncTime(new Date());
-      
-      // Informer l'utilisateur
-      toast.success(`Carte mise à jour avec ${mappedPoints.length} points du planning`, {
-        icon: '🔄',
-        duration: 3000
+  // Ajouter des points de test
+  const addTestPoints = () => {
+    const newPoints: MapPoint[] = [
+      {
+        id: `point-${Date.now()}-1`,
+        lat: 48.8566,
+        lng: 2.3522,
+        title: 'Tour Eiffel',
+        description: 'Visite de la Tour Eiffel',
+        type: 'activity',
+        day: 1,
+        order: 0
+      },
+      {
+        id: `point-${Date.now()}-2`,
+        lat: 48.8606,
+        lng: 2.3376,
+        title: 'Arc de Triomphe',
+        description: 'Visite de l\'Arc de Triomphe',
+        type: 'activity',
+        day: 1,
+        order: 1
+      },
+      {
+        id: `point-${Date.now()}-3`,
+        lat: 48.8861,
+        lng: 2.3418,
+        title: 'Montmartre',
+        description: 'Promenade à Montmartre',
+        type: 'activity',
+        day: 2,
+        order: 0
+      },
+      {
+        id: `point-${Date.now()}-4`,
+        lat: 48.8611,
+        lng: 2.3364,
+        title: 'Hôtel Paris',
+        description: 'Nuit à l\'hôtel',
+        type: 'accommodation',
+        day: 1,
+        order: 2
+      },
+      {
+        id: `point-${Date.now()}-5`,
+        lat: 48.8738,
+        lng: 2.2950,
+        title: 'Restaurant Le Duplex',
+        description: 'Dîner gastronomique',
+        type: 'food',
+        day: 2,
+        order: 1
+      },
+    ];
+    
+    setMapPoints(prev => [...prev, ...newPoints]);
+    toast.success('Points de test ajoutés avec succès !');
+  };
+
+  // Fonction pour activer/désactiver le mode debug
+  const toggleDebugMode = () => {
+    const newDebugMode = !debugMode;
+    setDebugMode(newDebugMode);
+    
+    if (newDebugMode) {
+      toast.success("Mode debug activé avec filtrage de base", {
+        icon: '🛠️',
+        duration: 2000
       });
-      
-      // Actualiser le centre de la carte si des points existent
-      if (mappedPoints.length > 0 && mapInstance.current) {
-        // Calculer le centre des points pour un meilleur affichage
-        const bounds = L.latLngBounds(mappedPoints.map(p => [p.lat, p.lng]));
-        mapInstance.current.fitBounds(bounds, { padding: [50, 50] });
-      }
     } else {
-      toast.error("Aucun événement disponible dans le planning", {
-        icon: '❌',
-        duration: 3000
+      toast.success("Mode debug désactivé", {
+        icon: '🛠️',
+        duration: 2000
       });
+    }
+  };
+
+  // Ajouter un bouton pour activer/désactiver le filtre
+  const toggleCalendarFilter = () => {
+    setFilterOnlyCalendarEvents(prev => !prev);
+  };
+
+  // Ajouter un point correspondant à l'événement
+  const addEventPoint = (event: TravelEvent) => {
+    if (!event.coordinates) return null;
+    
+    const newPoint: Omit<MapPoint, 'id'> = {
+      lat: event.coordinates.lat,
+      lng: event.coordinates.lng,
+      title: event.title,
+      description: event.description || '',
+      type: event.eventType || 'activity',
+      day: event.noteId || "0", // Utiliser noteId comme jour
+      order: 0
+    };
+    // ... existing code ...
+  };
+
+  // Fonction pour attribuer une couleur en fonction du type de point
+  const getPointColor = (type: string = 'activity'): string => {
+    switch(type) {
+      case 'activity':
+        return '#FF9900'; // Orange
+      case 'transport':
+        return '#3498db'; // Bleu
+      case 'accommodation':
+        return '#1abc9c'; // Vert
+      case 'food':
+        return '#e74c3c'; // Rouge
+      default:
+        return '#9b59b6'; // Violet
+    }
+  };
+
+  const createMarker = (point: MapPoint, onClick?: () => void) => {
+    // Définir l'icône en fonction du type
+    let markerColor = getPointColor(point.type);
+    // ... existing code ...
+  };
+
+  // Créer les Points d'intérêt au clic
+  const handleMapClick = useCallback((e: L.LeafletMouseEvent) => {
+    if (!onMapClick) return;
+    
+    const { lat, lng } = e.latlng;
+    onMapClick(lat, lng);
+  }, [onMapClick]);
+
+  const getPointTypeIcon = (type?: string) => {
+    switch(type) {
+      case 'activity':
+        return <Ticket className="h-4 w-4" />;
+      case 'transport':
+        return <Navigation className="h-4 w-4" />;
+      case 'accommodation':
+        return <Bed className="h-4 w-4" />;
+      case 'food':
+        return <Utensils className="h-4 w-4" />;
+      default:
+        return <MapPin className="h-4 w-4" />;
     }
   };
 
@@ -671,6 +946,11 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
               <span>⚠️</span> Aucun point sur la carte
             </div>
           )}
+          {filteredMapPoints.length === 0 && mapPoints.length > 0 && (
+            <div className="flex items-center text-amber-500 bg-amber-50 px-3 py-1 rounded-md text-sm mr-2">
+              <span>⚠️</span> Points filtrés par date
+            </div>
+          )}
           {lastSyncTime && (
             <div className="flex items-center text-gray-500 text-xs mr-2">
               <Calendar size={12} className="mr-1" /> 
@@ -681,7 +961,6 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
             variant="outline"
             className="px-3 py-1 text-sm"
             onClick={() => {
-              // Ajouter un callback explicite
               console.log("Bouton Sync Planning cliqué");
               syncWithTravelPlanning();
             }}
@@ -689,6 +968,25 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
           >
             <RefreshCw size={14} className="mr-1" /> Sync Planning
           </Button>
+          
+          <Button 
+            variant={debugMode ? "default" : "outline"}
+            className="px-3 py-1 text-sm"
+            onClick={toggleDebugMode}
+            title="Activer/désactiver le mode debug"
+          >
+            {debugMode ? "Désactiver Debug" : "Debug"}
+          </Button>
+          
+          <Button 
+            variant="outline"
+            className="px-3 py-1 text-sm"
+            onClick={addTestPoints}
+            title="Ajouter des points de test"
+          >
+            🔍 Points Test
+          </Button>
+          
           <Button 
             variant={editMode ? "default" : "outline"}
             className="px-3 py-1 text-sm"
@@ -700,12 +998,24 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
           >
             {editMode ? "Terminer l'édition" : "Modifier l'itinéraire"}
           </Button>
+          
           <Button 
             variant="outline"
             className="px-3 py-1 text-sm"
             onClick={() => alert('Cette fonctionnalité utiliserait l\'API de directions dans une vraie application')}
           >
             Calculer itinéraire
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleCalendarFilter}
+            className={`flex items-center gap-1 ${filterOnlyCalendarEvents ? 'bg-blue-100' : ''}`}
+            title={filterOnlyCalendarEvents ? "Afficher tous les points" : "Afficher uniquement les événements du calendrier"}
+          >
+            <Calendar size={16} />
+            {filterOnlyCalendarEvents ? "Filtré" : "Tous"}
           </Button>
         </div>
       </div>
@@ -723,6 +1033,11 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
             .move-mode {
               cursor: crosshair !important;
             }
+            
+            /* Style pour améliorer la visibilité des marqueurs */
+            .custom-div-icon {
+              filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.3));
+            }
           `}</style>
           <MapContainer 
             center={mapCenter} 
@@ -739,17 +1054,26 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
             {filteredMapPoints.length === 0 && (
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-lg shadow-lg z-10 text-center">
                 <div className="text-amber-600 font-bold mb-2">Carte vide</div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 mb-2">
                   Aucun point n'est affiché sur la carte. Vérifiez que vos événements ont des coordonnées géographiques
                   et sont dans les dates du voyage.
                 </p>
-                <Button
-                  className="mt-4 text-xs"
-                  size="sm"
-                  onClick={syncWithTravelPlanning}
-                >
-                  <RefreshCw size={14} className="mr-1" /> Synchroniser avec le planning
-                </Button>
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    className="text-xs"
+                    size="sm"
+                    onClick={syncWithTravelPlanning}
+                  >
+                    <RefreshCw size={14} className="mr-1" /> Synchroniser
+                  </Button>
+                  <Button
+                    className="text-xs"
+                    size="sm"
+                    onClick={() => setDebugMode(true)}
+                  >
+                    🛠️ Mode Debug
+                  </Button>
+                </div>
               </div>
             )}
             
@@ -801,29 +1125,52 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
                           <span>Étape {orderInDay + 1}</span>
                         </div>
                       )}
-                      {editMode && (
-                        <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {editMode && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => {
+                                setEditingPoint(point);
+                                setShowEditPanel(true);
+                              }}
+                            >
+                              Modifier
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => enableMoveMode(point.id)}
+                            >
+                              Repositionner
+                            </Button>
+                          </>
+                        )}
+                        
+                        {/* Bouton de suppression, visible même en dehors du mode édition */}
+                        {point.id.startsWith('event-') && onEventDelete && (
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="text-xs"
+                            variant="destructive"
+                            className="text-xs col-span-2 mt-1"
                             onClick={() => {
-                              setEditingPoint(point);
-                              setShowEditPanel(true);
+                              const eventId = point.id.replace('event-', '');
+                              if (confirm(`Voulez-vous vraiment supprimer cet événement "${point.title}" ?`)) {
+                                // Supprimer l'événement via la fonction du composant parent
+                                onEventDelete(eventId);
+                                // Fermer la popup
+                                mapInstance.current?.closePopup();
+                                toast.success("Événement supprimé avec succès");
+                              }
                             }}
                           >
-                            Modifier
+                            Supprimer cet événement
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs"
-                            onClick={() => enableMoveMode(point.id)}
-                          >
-                            Repositionner
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </Popup>
                 </Marker>
@@ -858,7 +1205,7 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
                 mapInstance.current = m;
               }} 
               center={selectedPoint ? [selectedPoint.lat, selectedPoint.lng] : undefined}
-              onClick={handleMapClick}
+              onClick={handleMapClickInMoveMode}
               onMoveMode={moveMode}
             />
           </MapContainer>
@@ -1042,7 +1389,14 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
                         size="sm"
                         className="flex-1"
                         onClick={() => {
-                          if (confirm("Êtes-vous sûr de vouloir supprimer ce point ?")) {
+                          if (editingPoint.id.startsWith('event-') && onEventDelete) {
+                            if (confirm(`Voulez-vous vraiment supprimer l'événement "${editingPoint.title}" ?`)) {
+                              const eventId = editingPoint.id.replace('event-', '');
+                              onEventDelete(eventId);
+                              setEditingPoint(null);
+                              toast.success("Événement supprimé avec succès");
+                            }
+                          } else {
                             setMapPoints(prev => prev.filter(p => p.id !== editingPoint.id));
                             setEditingPoint(null);
                           }
@@ -1054,7 +1408,80 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 mb-4">Cliquez sur un point de la carte pour l'éditer</p>
+                // Liste des événements du calendrier
+                <div className="bg-white rounded-lg border p-3 mb-4">
+                  <h4 className="font-medium text-blue-600 mb-2">Événements sur la carte</h4>
+                  
+                  {filteredMapPoints.length === 0 ? (
+                    <p className="text-gray-500 text-sm italic">Aucun événement visible sur la carte</p>
+                  ) : (
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      {filteredMapPoints.map((point) => (
+                        <div
+                          key={point.id}
+                          className="p-2 border rounded-md hover:bg-gray-50 transition cursor-pointer"
+                          onClick={() => {
+                            mapInstance.current?.setView([point.lat, point.lng], 14);
+                            setSelectedPoint(point);
+                          }}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="font-medium flex items-center gap-1">
+                                {getPointTypeIcon(point.type)}
+                                <span>{point.title}</span>
+                              </div>
+                              {point.description && (
+                                <p className="text-xs text-gray-600 mt-1 truncate">{point.description}</p>
+                              )}
+                              {point.day && (
+                                <div className="text-xs text-gray-500 mt-1">Jour {point.day}</div>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                className="p-1 rounded hover:bg-gray-200"
+                                title="Centrer sur la carte"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  mapInstance.current?.setView([point.lat, point.lng], 14);
+                                }}
+                              >
+                                <MapPin size={14} className="text-blue-500" />
+                              </button>
+                              <button
+                                className="p-1 rounded hover:bg-gray-200"
+                                title="Modifier"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingPoint(point);
+                                }}
+                              >
+                                <Edit size={14} className="text-gray-500" />
+                              </button>
+                              {point.id.startsWith('event-') && onEventDelete && (
+                                <button
+                                  className="p-1 rounded hover:bg-red-100"
+                                  title="Supprimer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Voulez-vous vraiment supprimer l'événement "${point.title}" ?`)) {
+                                      const eventId = point.id.replace('event-', '');
+                                      onEventDelete(eventId);
+                                      toast.success("Événement supprimé avec succès");
+                                    }
+                                  }}
+                                >
+                                  <Trash size={14} className="text-red-500" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
               
               <h4 className="font-medium mb-2">Liste des étapes</h4>
@@ -1129,6 +1556,8 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
             {Object.keys(pointsByDay)
               .filter(dayStr => {
                 const day = parseInt(dayStr);
+                // En mode debug, afficher tous les jours
+                if (debugMode) return day > 0;
                 return isDayInTravelRange(day);
               })
               .sort((a, b) => parseInt(a) - parseInt(b))
@@ -1187,9 +1616,11 @@ const ItineraryMap = forwardRef<ItineraryMapHandle, ItineraryMapProps>(({
                 );
               })}
           </div>
-          {Object.keys(pointsByDay).filter(dayStr => isDayInTravelRange(parseInt(dayStr))).length === 0 && (
+          {Object.keys(pointsByDay).filter(dayStr => debugMode ? parseInt(dayStr) > 0 : isDayInTravelRange(parseInt(dayStr))).length === 0 && (
             <div className="text-gray-500 text-sm italic">
-              Aucun point à afficher dans les dates du voyage
+              {debugMode 
+                ? "Aucun point sur la carte. Cliquez sur 'Points Test' pour ajouter des exemples." 
+                : "Aucun point à afficher dans les dates du voyage"}
             </div>
           )}
         </div>

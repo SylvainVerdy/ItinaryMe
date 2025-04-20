@@ -133,6 +133,7 @@ export default function TravelDetailPage() {
       try {
         setLoadingEvents(true);
         const events = await calendarService.getEventsForTrip(travelId);
+        console.log("Événements du calendrier chargés:", events);
         setCalendarEvents(events);
       } catch (error) {
         console.error("Erreur lors du chargement des événements du calendrier:", error);
@@ -756,6 +757,45 @@ export default function TravelDetailPage() {
                         <MapPin size={20} className="text-blue-500" />
                         <span>Carte d'itinéraire</span>
                       </h3>
+                      
+                      {/* Bouton temporaire pour ajouter un événement test */}
+                      <button 
+                        onClick={async () => {
+                          if (!travelId) return;
+                          
+                          // Créer un événement test avec des coordonnées
+                          const testEvent: Omit<TravelEvent, 'id' | 'tripId'> = {
+                            title: "Événement test " + new Date().toLocaleTimeString(),
+                            description: "Cet événement a été créé pour tester la synchronisation",
+                            start: new Date(),
+                            end: new Date(new Date().getTime() + 2 * 60 * 60 * 1000), // +2 heures
+                            allDay: false,
+                            coordinates: {
+                              lat: 48.856614,
+                              lng: 2.352222
+                            },
+                            location: "Paris, France",
+                            eventType: "visit",
+                            color: "#FF5252"
+                          };
+                          
+                          try {
+                            // Ajouter l'événement test
+                            await handleAddCalendarEvent(testEvent);
+                            
+                            toast({
+                              title: "Événement test créé",
+                              description: "Un événement test a été ajouté. Cliquez sur 'Sync Planning' pour le voir sur la carte.",
+                              variant: "default",
+                            });
+                          } catch (error) {
+                            console.error("Erreur lors de la création de l'événement test:", error);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium flex items-center gap-1"
+                      >
+                        Ajouter événement test
+                      </button>
                     </div>
                     
                     <ItineraryMap 
@@ -765,6 +805,14 @@ export default function TravelDetailPage() {
                       endDate={travel.dateRetour}
                       height="500px"
                       onMapClick={handleMapClick}
+                      planningEvents={calendarEvents.map(event => ({
+                        ...event,
+                        start: event.start instanceof Date ? event.start : new Date(event.start),
+                        end: event.end instanceof Date ? event.end : new Date(event.end)
+                      }))}
+                      syncWithPlanning={true}
+                      showOnlyCalendarEvents={true}
+                      onEventDelete={handleDeleteCalendarEvent}
                     />
                   </div>
                 </div>

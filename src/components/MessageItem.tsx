@@ -134,14 +134,14 @@ export const MessageItem: React.FC<MessageProps> = ({
         </div>
         
         <div className="flex flex-col ml-2">
-          {/* Bouton de copie */}
-          <button
-            onClick={() => copyToClipboard(message.content)}
+        {/* Bouton de copie */}
+        <button
+          onClick={() => copyToClipboard(message.content)}
             className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100 mb-1"
-            title="Copier le message"
-          >
-            <Copy className="w-4 h-4 text-gray-400" />
-          </button>
+          title="Copier le message"
+        >
+          <Copy className="w-4 h-4 text-gray-400" />
+        </button>
           
           {/* Bouton pour lier le message à un voyage */}
           {isUser && onLinkToTrip && currentTravelId && !message.linkedToTrip && (

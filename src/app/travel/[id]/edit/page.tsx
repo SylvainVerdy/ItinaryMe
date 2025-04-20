@@ -29,7 +29,7 @@ export default function EditTravelPage() {
       return;
     }
     
-    const fetchTravelDetails = async () => {      
+    const fetchTravelDetails = async () => {
       try {
         setLoadingTravel(true);
         const travel = await travelService.getTravelById(travelId);

@@ -1,28 +1,81 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { addDays, format, isSameDay, startOfDay, endOfDay, differenceInDays, startOfHour, addHours } from 'date-fns';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { addDays, format, isSameDay, startOfDay, endOfDay, differenceInDays, startOfHour, addHours, isWithinInterval, isToday, isBefore, isAfter, parseISO, differenceInMinutes } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MapPin, Navigation, Bed, Utensils, Ticket, ExternalLink } from 'lucide-react';
+import { CalendarIcon, MapPin, Navigation, Bed, Utensils, Ticket, ExternalLink, ArrowLeft, ArrowRight, PlusCircle, X, Edit, Trash } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import { GeoPoint } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
+import { MapPoint, TravelEvent } from '@/lib/types';
 
-interface TravelEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  allDay?: boolean;
-  description?: string;
-  location?: string;
-  color?: string;
-  coordinates?: {
-    lat: number;
-    lng: number;
+// Type pour assurer la compatibilité entre les interfaces
+type Coordinates = {
+  lat: number;
+  lng: number;
+};
+
+// Composant TimePicker temporaire
+function TimePicker({ date, setDate }: { date: Date, setDate: (date: Date) => void }) {
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const [hoursStr, minutesStr] = e.target.value.split(':');
+    const newDate = new Date(date);
+    newDate.setHours(parseInt(hoursStr), parseInt(minutesStr));
+    setDate(newDate);
   };
-  noteId?: string;
-  eventType?: 'visit' | 'transport' | 'accommodation' | 'food' | 'activity' | 'other';
+  
+  return (
+    <Input
+      type="time"
+      value={`${hours}:${minutes}`}
+      onChange={handleTimeChange}
+    />
+  );
 }
+
+// Fonction utilitaire pour convertir les types de coordonnées
+const convertCoordinates = (coords: GeoPoint | Coordinates | undefined): Coordinates | undefined => {
+  if (!coords) return undefined;
+  
+  if ('latitude' in coords) {
+    return {
+      lat: coords.latitude,
+      lng: coords.longitude
+    };
+  }
+  return coords;
+};
+
+// Map des types d'événements pour assurer la compatibilité
+const mapEventType = (type?: string): TravelEvent['eventType'] => {
+  if (!type) return 'activity';
+  
+  // Convertir lodging en accommodation si nécessaire
+  if (type === 'lodging') return 'accommodation';
+  if (type === 'accommodation') return 'accommodation';
+  if (type === 'transport') return 'transport';
+  if (type === 'food') return 'food';
+  if (type === 'activity') return 'activity';
+  
+  return 'other';
+};
+
+// Fonction pour convertir accommodation en lodging pour l'interface utilisateur
+const formatEventTypeForUI = (type?: string): string => {
+  if (type === 'accommodation') return 'lodging';
+  return type || 'activity';
+};
 
 interface TravelCalendarProps {
   startDate: string | Date;
@@ -49,6 +102,9 @@ export default function TravelCalendar({
   onDateSelect,
   linkedMapRef
 }: TravelCalendarProps) {
+  // Type pour l'eventType utilisé en interne dans le formulaire
+  type UIEventType = 'activity' | 'transport' | 'lodging' | 'food' | 'other';
+
   // Convertir les dates si elles sont des chaînes de caractères
   const start = startDate instanceof Date ? startDate : new Date(startDate);
   const end = endDate instanceof Date ? endDate : new Date(endDate);
@@ -57,14 +113,32 @@ export default function TravelCalendar({
   const [displayMode, setDisplayMode] = useState<'day' | 'trip'>('trip');
   const [showEventForm, setShowEventForm] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [newEvent, setNewEvent] = useState<Omit<TravelEvent, 'id'>>({
+  const [eventForm, setEventForm] = useState<{
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+    description: string;
+    location: string;
+    color: string;
+    coordinates?: Coordinates;
+    noteId?: string;
+    eventType: UIEventType;
+    hideOnMap: boolean;
+  }>({
+    id: '',
     title: '',
     start: new Date(),
     end: new Date(),
-    allDay: true,
-    eventType: 'visit'
+    allDay: false,
+    description: '',
+    location: '',
+    color: '#3788d8',
+    eventType: 'activity',
+    hideOnMap: false,
   });
-  const [editingEvent, setEditingEvent] = useState<TravelEvent | null>(null);
+  const [editing, setEditing] = useState<TravelEvent | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<Array<{address: string, lat: number, lng: number}>>([]);
   const [searchingAddress, setSearchingAddress] = useState(false);
   const addressSearchTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -84,14 +158,18 @@ export default function TravelCalendar({
   
   // Initialiser la carte si linkedMapRef existe
   useEffect(() => {
-    if (linkedMapRef?.current && newEvent.coordinates) {
+    if (linkedMapRef?.current && eventForm.coordinates) {
       // Simuler le centrage de la carte sur les coordonnées de l'événement
-      console.log("Centrage de la carte sur:", newEvent.coordinates);
+      console.log("Centrage de la carte sur:", eventForm.coordinates);
       if (linkedMapRef.current.panTo) {
-        linkedMapRef.current.panTo(newEvent.coordinates.lat, newEvent.coordinates.lng);
+        // Convertir en format compatible
+        const coords = convertCoordinates(eventForm.coordinates);
+        if (coords) {
+          linkedMapRef.current.panTo(coords.lat, coords.lng);
+        }
       }
     }
-  }, [showLocationPicker, linkedMapRef, newEvent.coordinates]);
+  }, [showLocationPicker, linkedMapRef, eventForm.coordinates]);
   
   // Calculer le nombre de jours du voyage
   const tripDays = differenceInDays(end, start) + 1;
@@ -140,50 +218,87 @@ export default function TravelCalendar({
       ? addHours(defaultStartTime, 1) // Durée d'une heure par défaut
       : endOfDay(start);
     
-    setNewEvent({
+    setEventForm({
+      id: uuidv4(),
       title: '',
       start: defaultStartTime,
       end: defaultEndTime,
       allDay: displayMode !== 'day',
       description: '',
       location: '',
-      eventType: 'visit'
+      color: '#3788d8',
+      coordinates: undefined,
+      eventType: 'activity',
+      hideOnMap: false
     });
     
     setShowEventForm(true);
   };
   
-  const handleEditEvent = (event: TravelEvent) => {
-    setEditingEvent(event);
+  const editEvent = (event: TravelEvent) => {
+    const uiEventType = formatEventTypeForUI(event.eventType) as UIEventType;
     
-    if (onEventSelect) {
-      onEventSelect(event);
-    }
-    
+    // Convertir les coordonnées et le type d'événement au format interne
+    setEventForm({
+      id: event.id,
+      title: event.title,
+      start: event.start instanceof Date ? event.start : new Date(event.start),
+      end: event.end instanceof Date ? event.end : new Date(event.end),
+      allDay: event.allDay || false,
+      description: event.description || '',
+      location: event.location || '',
+      color: event.color || '#3788d8',
+      coordinates: convertCoordinates(event.coordinates as any),
+      eventType: uiEventType,
+      hideOnMap: event.hideOnMap || false
+    });
+    setEditing(event);
     setShowEventForm(true);
   };
   
   const handleSaveEvent = () => {
-    if (editingEvent) {
+    // Convertir le type d'événement au format attendu par l'API
+    const apiEventType = mapEventType(eventForm.eventType);
+    
+    // Préparer des coordonnées sûres pour l'API
+    const apiCoordinates = eventForm.coordinates ? {
+      lat: eventForm.coordinates.lat,
+      lng: eventForm.coordinates.lng
+    } : undefined;
+    
+    if (editing) {
       // Mettre à jour un événement existant
       onEventUpdate?.({
-        ...editingEvent,
-        ...newEvent,
+        ...editing,
+        title: eventForm.title,
+        start: eventForm.start,
+        end: eventForm.end,
+        allDay: eventForm.allDay,
+        description: eventForm.description,
+        location: eventForm.location,
+        color: eventForm.color,
+        coordinates: apiCoordinates,
+        eventType: apiEventType,
+        hideOnMap: eventForm.hideOnMap
       });
     } else {
       // Ajouter un nouvel événement
-      onEventAdd?.(newEvent);
+      onEventAdd?.({
+        title: eventForm.title,
+        start: eventForm.start,
+        end: eventForm.end,
+        allDay: eventForm.allDay,
+        description: eventForm.description,
+        location: eventForm.location,
+        color: eventForm.color,
+        coordinates: apiCoordinates,
+        eventType: apiEventType,
+        hideOnMap: eventForm.hideOnMap
+      });
     }
     
     setShowEventForm(false);
-    setEditingEvent(null);
-    setNewEvent({
-      title: '',
-      start: new Date(),
-      end: new Date(),
-      allDay: true,
-      eventType: 'visit'
-    });
+    setEditing(null);
   };
   
   const handleDeleteEvent = (id: string) => {
@@ -198,26 +313,30 @@ export default function TravelCalendar({
   };
 
   const getEventTypeIcon = (eventType?: string) => {
-    switch (eventType) {
-      case 'visit':
-        return <MapPin size={16} className="text-blue-500" />;
+    const type = formatEventTypeForUI(eventType);
+    switch (type) {
+      case 'activity':
+        return <Ticket size={16} className="text-pink-500" />;
       case 'transport':
         return <Navigation size={16} className="text-green-500" />;
-      case 'accommodation':
+      case 'lodging':
         return <Bed size={16} className="text-purple-500" />;
       case 'food':
         return <Utensils size={16} className="text-orange-500" />;
-      case 'activity':
-        return <Ticket size={16} className="text-pink-500" />;
+      case 'other':
+        return <ExternalLink size={16} className="text-gray-500" />;
       default:
         return <ExternalLink size={16} className="text-gray-500" />;
     }
   };
 
   const handleSetLocation = (coordinates: {lat: number, lng: number}) => {
-    setNewEvent({
-      ...newEvent,
-      coordinates
+    setEventForm({
+      ...eventForm,
+      coordinates: {
+        lat: coordinates.lat,
+        lng: coordinates.lng
+      }
     });
     setShowLocationPicker(false);
   };
@@ -289,7 +408,7 @@ export default function TravelCalendar({
     }
     
     // Définir les coordonnées de départ (soit celles de l'événement, soit celles du voyage)
-    const initialCoordinates = newEvent.coordinates || centerMapCoordinates;
+    const initialCoordinates = eventForm.coordinates || centerMapCoordinates;
     
     // Afficher le dialogue de sélection de position
     setShowLocationPicker(true);
@@ -302,9 +421,12 @@ export default function TravelCalendar({
           linkedMapRef.current.panTo(initialCoordinates.lat, initialCoordinates.lng);
           
           // Mettre à jour l'état local pour le suivi des coordonnées sélectionnées
-          setNewEvent(prev => ({
+          setEventForm(prev => ({
             ...prev,
-            coordinates: initialCoordinates
+            coordinates: {
+              lat: 48.8566, // Paris par défaut
+              lng: 2.3522
+            }
           }));
         } catch (error) {
           console.error("Erreur lors du centrage de la carte:", error);
@@ -318,6 +440,263 @@ export default function TravelCalendar({
     }, 300); // Délai pour permettre au dialogue de s'ouvrir
   };
   
+  // Rendu de l'interface d'édition d'événement
+  const renderEventEditor = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">
+                {editing ? 'Modifier l\'événement' : 'Ajouter un événement'}
+              </h3>
+              <Button variant="ghost" size="icon" onClick={() => {
+                setShowEventForm(false);
+                setEditing(null);
+              }}>
+                <X size={18} />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title">Titre</Label>
+                <Input 
+                  id="title" 
+                  value={eventForm.title} 
+                  onChange={(e) => setEventForm({...eventForm, title: e.target.value})}
+                  placeholder="Nom de l'événement"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="eventType">Type</Label>
+                  <Select 
+                    value={eventForm.eventType} 
+                    onValueChange={(value) => setEventForm({
+                      ...eventForm, 
+                      eventType: value as UIEventType
+                    })}
+                  >
+                    <SelectTrigger id="eventType">
+                      <SelectValue placeholder="Type d'événement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="activity">Activité</SelectItem>
+                      <SelectItem value="transport">Transport</SelectItem>
+                      <SelectItem value="lodging">Hébergement</SelectItem>
+                      <SelectItem value="food">Restauration</SelectItem>
+                      <SelectItem value="other">Autre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="color">Couleur</Label>
+                  <Input 
+                    id="color" 
+                    type="color" 
+                    value={eventForm.color} 
+                    onChange={(e) => setEventForm({...eventForm, color: e.target.value})}
+                    className="h-10"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="allDay" 
+                  checked={eventForm.allDay}
+                  onCheckedChange={(checked) => setEventForm({
+                    ...eventForm, 
+                    allDay: checked === true
+                  })}
+                />
+                <Label htmlFor="allDay">Journée entière</Label>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Date de début</Label>
+                  <CustomDatePicker value={eventForm.start} onChange={(date) => setEventForm({...eventForm, start: date})} />
+                </div>
+                
+                {!eventForm.allDay && (
+                  <div>
+                    <Label>Heure de début</Label>
+                    <TimePicker date={eventForm.start} setDate={(date) => setEventForm({...eventForm, start: date})} />
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Date de fin</Label>
+                  <CustomDatePicker value={eventForm.end} onChange={(date) => setEventForm({...eventForm, end: date})} />
+                </div>
+                
+                {!eventForm.allDay && (
+                  <div>
+                    <Label>Heure de fin</Label>
+                    <TimePicker date={eventForm.end} setDate={(date) => setEventForm({...eventForm, end: date})} />
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea 
+                  id="description" 
+                  value={eventForm.description} 
+                  onChange={(e) => setEventForm({...eventForm, description: e.target.value})}
+                  placeholder="Description de l'événement"
+                  rows={3}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="location">Lieu</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="location" 
+                    value={eventForm.location} 
+                    onChange={(e) => {
+                      setEventForm({...eventForm, location: e.target.value});
+                      handleAddressSearch(e.target.value);
+                    }}
+                    placeholder="Adresse ou lieu"
+                    className="flex-1"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    title="Sélectionner sur la carte"
+                    onClick={handleShowLocationPicker}
+                  >
+                    <MapPin size={18} />
+                  </Button>
+                </div>
+                
+                {addressSuggestions.length > 0 && (
+                  <div className="mt-2 bg-white shadow rounded-md overflow-hidden border">
+                    {addressSuggestions.map((suggestion, index) => (
+                      <div 
+                        key={index}
+                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        onClick={() => {
+                          setEventForm({
+                            ...eventForm,
+                            location: suggestion.address,
+                            coordinates: {
+                              lat: suggestion.lat,
+                              lng: suggestion.lng
+                            }
+                          });
+                          setAddressSuggestions([]);
+                        }}
+                      >
+                        {suggestion.address}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {searchingAddress && (
+                  <div className="mt-2 text-sm text-gray-500">
+                    Recherche en cours...
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="hideOnMap" 
+                  checked={eventForm.hideOnMap}
+                  onCheckedChange={(checked) => setEventForm({
+                    ...eventForm, 
+                    hideOnMap: checked === true
+                  })}
+                />
+                <Label htmlFor="hideOnMap">Ne pas afficher sur la carte</Label>
+              </div>
+              
+              <div className="flex gap-2 justify-end mt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowEventForm(false);
+                    setEditing(null);
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  onClick={handleSaveEvent}
+                  disabled={!eventForm.title.trim()}
+                >
+                  {editing ? 'Mettre à jour' : 'Ajouter'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+  
+  const mapPointFromEvent = (event: TravelEvent): MapPoint | null => {
+    if (!event.coordinates || event.hideOnMap) return null;
+    
+    const coords = convertCoordinates(event.coordinates as any);
+    if (!coords) return null;
+    
+    // Mapper le type d'événement au format attendu par MapPoint
+    const mapPointType = mapEventType(event.eventType) as MapPoint['type'];
+    
+    return {
+      id: event.id,
+      lat: coords.lat,
+      lng: coords.lng,
+      title: event.title,
+      description: event.description || '',
+      type: mapPointType,
+      color: event.color || '#3788d8',
+      day: format(event.start instanceof Date ? event.start : new Date(event.start), 'yyyy-MM-dd'),
+      order: 0
+    };
+  };
+  
+  // Formatage de la date pour l'affichage
+  const formatDate = (date: Date): string => {
+    return format(date, 'dd MMMM yyyy', { locale: fr });
+  };
+
+  // Formatage de l'heure pour l'affichage
+  const formatTime = (date: Date): string => {
+    return format(date, 'HH:mm', { locale: fr });
+  };
+
+  // Création d'un composant wrapper pour DatePicker
+  const CustomDatePicker = ({ value, onChange }: { value: Date, onChange: (date: Date) => void }) => {
+    // Utiliser le composant DatePicker de ui avec les bonnes props
+    // Cette implémentation dépendra de comment DatePicker est défini dans ui/date-picker.tsx
+    // Pour l'instant on utilise une solution simple
+    return (
+      <Input
+        type="date"
+        value={format(value, 'yyyy-MM-dd')}
+        onChange={(e) => {
+          if (e.target.value) {
+            const newDate = new Date(e.target.value);
+            newDate.setHours(value.getHours(), value.getMinutes());
+            onChange(newDate);
+          }
+        }}
+      />
+    );
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <div className="flex justify-between items-center mb-4">
@@ -380,36 +759,61 @@ export default function TravelCalendar({
                     {day.events.map((event) => (
                       <li 
                         key={event.id} 
-                        className="flex items-start p-2 rounded-md bg-white border"
+                        className={`flex items-start p-2 rounded-md bg-white border ${event.hideOnMap ? 'border-dashed border-gray-300' : 'border-gray-200'}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleEditEvent(event);
+                          editEvent(event);
                         }}
                       >
                         <div className="mr-2 flex items-center">
                           <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{backgroundColor: event.color || '#3B82F6'}}
+                            className={`w-3 h-3 rounded-full ${event.hideOnMap ? 'opacity-50' : ''}`}
+                            style={{backgroundColor: event.color || '#3788d8'}}
                           ></div>
                           <div className="ml-2">
                             {getEventTypeIcon(event.eventType)}
                           </div>
                         </div>
                         <div className="flex-1">
-                          <div className="font-medium">{event.title}</div>
+                          <div className={`font-medium ${event.hideOnMap ? 'text-gray-500' : ''}`}>
+                            {event.title}
+                            {event.hideOnMap && (
+                              <span className="ml-2 text-xs bg-gray-200 px-1 py-0.5 rounded text-gray-500">
+                                masqué sur la carte
+                              </span>
+                            )}
+                          </div>
                           <div className="text-sm text-gray-600">
                             {formatTimeRange(event)}
                             {event.location && <div>{event.location}</div>}
                           </div>
                         </div>
-                        {event.coordinates && (
+                        <div className="flex space-x-1">
+                          {event.coordinates && (
+                            <div 
+                              className={`p-1 rounded-full ${event.hideOnMap ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 hover:bg-blue-200 text-blue-600'} cursor-pointer`}
+                              title={event.hideOnMap ? "Masqué sur la carte" : "Voir sur la carte"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (linkedMapRef?.current?.panTo && event.coordinates) {
+                                  linkedMapRef.current.panTo(event.coordinates.lat, event.coordinates.lng);
+                                }
+                              }}
+                            >
+                              <MapPin size={14} />
+                            </div>
+                          )}
                           <div 
-                            className="ml-2 p-1 rounded-full bg-blue-100 hover:bg-blue-200 cursor-pointer"
-                            title="Voir sur la carte"
+                            className="p-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 cursor-pointer"
+                            title="Supprimer l'événement"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteEvent(event.id);
+                            }}
                           >
-                            <MapPin size={14} className="text-blue-600" />
+                            <Trash size={14} />
                           </div>
-                        )}
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -489,21 +893,37 @@ export default function TravelCalendar({
                     {hourEvents.map(event => (
                       <div 
                         key={event.id}
-                        className="absolute rounded-md p-1 overflow-hidden text-sm"
+                        className={`absolute rounded-md p-1 overflow-hidden text-sm ${event.hideOnMap ? 'opacity-50' : 'opacity-90'}`}
                         style={{
-                          backgroundColor: event.color || '#3B82F6',
+                          backgroundColor: event.color || '#3788d8',
                           color: 'white',
                           top: '4px',
                           left: '8px',
                           right: '8px',
-                          height: 'calc(100% - 8px)',
-                          opacity: 0.9
+                          height: 'calc(100% - 8px)'
                         }}
-                        onClick={() => handleEditEvent(event)}
+                        onClick={() => editEvent(event)}
                       >
                         <div className="font-medium flex items-center gap-1">
                           {getEventTypeIcon(event.eventType)}
-                          <span>{event.title}</span>
+                          <span className={event.hideOnMap ? 'text-gray-500' : ''}>{event.title}</span>
+                          {event.hideOnMap && (
+                            <span className="ml-auto text-xs bg-white/20 px-1 rounded">
+                              masqué
+                            </span>
+                          )}
+                          <div className="ml-auto flex space-x-1">
+                            <button
+                              className="p-1 rounded-full bg-white/30 hover:bg-white/50 text-white"
+                              title="Supprimer l'événement"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteEvent(event.id);
+                              }}
+                            >
+                              <Trash size={12} />
+                            </button>
+                          </div>
                         </div>
                         <div>{format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}</div>
                         {event.location && <div className="text-white/80 text-xs">{event.location}</div>}
@@ -524,16 +944,21 @@ export default function TravelCalendar({
                 .map(event => (
                   <div 
                     key={event.id}
-                    className="p-3 rounded-md border"
+                    className={`p-3 rounded-md border ${event.hideOnMap ? 'border-dashed' : ''}`}
                     style={{
-                      borderLeftColor: event.color || '#3B82F6',
+                      borderLeftColor: event.color || '#3788d8',
                       borderLeftWidth: '4px'
                     }}
-                    onClick={() => handleEditEvent(event)}
+                    onClick={() => editEvent(event)}
                   >
                     <div className="font-medium flex items-center gap-1">
                       {getEventTypeIcon(event.eventType)}
-                      <span>{event.title}</span>
+                      <span className={event.hideOnMap ? 'text-gray-500' : ''}>{event.title}</span>
+                      {event.hideOnMap && (
+                        <span className="ml-2 text-xs bg-gray-200 px-1 py-0.5 rounded text-gray-500">
+                          masqué sur la carte
+                        </span>
+                      )}
                     </div>
                     {event.location && <div className="text-sm text-gray-600">{event.location}</div>}
                     {event.description && <div className="text-sm mt-1">{event.description}</div>}
@@ -549,387 +974,130 @@ export default function TravelCalendar({
       )}
       
       {/* Formulaire d'ajout/modification d'événement */}
-      {showEventForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium mb-4">
-              {editingEvent ? 'Modifier l\'événement' : 'Ajouter un événement'}
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Titre</label>
-                <input
-                  type="text"
-                  className="w-full p-2 border rounded-md"
-                  value={editingEvent?.title || newEvent.title}
-                  onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type d'événement</label>
-                <select
-                  className="w-full p-2 border rounded-md"
-                  value={editingEvent?.eventType || newEvent.eventType}
-                  onChange={(e) => setNewEvent({...newEvent, eventType: e.target.value as any})}
-                >
-                  <option value="visit">Visite</option>
-                  <option value="transport">Transport</option>
-                  <option value="accommodation">Hébergement</option>
-                  <option value="food">Restauration</option>
-                  <option value="activity">Activité</option>
-                  <option value="other">Autre</option>
-                </select>
-              </div>
-              
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="allDay"
-                  className="mr-2"
-                  checked={editingEvent?.allDay || newEvent.allDay}
-                  onChange={(e) => setNewEvent({...newEvent, allDay: e.target.checked})}
-                />
-                <label htmlFor="allDay" className="text-sm font-medium text-gray-700">Toute la journée</label>
-              </div>
-              
-              {!(editingEvent?.allDay || newEvent.allDay) && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
-                      <input
-                        type="date"
-                        className="w-full p-2 border rounded-md"
-                        value={format(editingEvent?.start || newEvent.start, 'yyyy-MM-dd')}
-                        onChange={(e) => {
-                          const date = new Date(e.target.value);
-                          const currentDate = editingEvent?.start || newEvent.start;
-                          date.setHours(currentDate.getHours(), currentDate.getMinutes());
-                          setNewEvent({...newEvent, start: date});
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Heure de début</label>
-                      <input
-                        type="time"
-                        className="w-full p-2 border rounded-md"
-                        value={format(editingEvent?.start || newEvent.start, 'HH:mm')}
-                        onChange={(e) => {
-                          const [hours, minutes] = e.target.value.split(':').map(Number);
-                          const date = new Date(editingEvent?.start || newEvent.start);
-                          date.setHours(hours, minutes);
-                          setNewEvent({...newEvent, start: date});
-                        }}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
-                      <input
-                        type="date"
-                        className="w-full p-2 border rounded-md"
-                        value={format(editingEvent?.end || newEvent.end, 'yyyy-MM-dd')}
-                        onChange={(e) => {
-                          const date = new Date(e.target.value);
-                          const currentDate = editingEvent?.end || newEvent.end;
-                          date.setHours(currentDate.getHours(), currentDate.getMinutes());
-                          setNewEvent({...newEvent, end: date});
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Heure de fin</label>
-                      <input
-                        type="time"
-                        className="w-full p-2 border rounded-md"
-                        value={format(editingEvent?.end || newEvent.end, 'HH:mm')}
-                        onChange={(e) => {
-                          const [hours, minutes] = e.target.value.split(':').map(Number);
-                          const date = new Date(editingEvent?.end || newEvent.end);
-                          date.setHours(hours, minutes);
-                          setNewEvent({...newEvent, end: date});
-                        }}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
-                <div className="flex flex-col">
-                  <div className="flex">
-                    <input
-                      type="text"
-                      className="w-full p-2 border rounded-l-md"
-                      value={editingEvent?.location || newEvent.location || ''}
-                      onChange={(e) => {
-                        const address = e.target.value;
-                        setNewEvent({...newEvent, location: address});
-                        
-                        if (address.length > 3) {
-                          setSearchingAddress(true);
-                          if (addressSearchTimeout.current) {
-                            clearTimeout(addressSearchTimeout.current);
-                          }
-                          addressSearchTimeout.current = setTimeout(() => {
-                            handleAddressSearch(address);
-                          }, 500);
-                        } else {
-                          setAddressSuggestions([]);
-                        }
-                      }}
-                      placeholder="Rechercher une adresse..."
-                    />
-                    <Button
-                      className="px-3 py-2 bg-blue-100 text-blue-600 border border-l-0 rounded-r-md hover:bg-blue-200"
-                      title="Définir la position sur la carte"
-                      onClick={() => handleShowLocationPicker()}
-                    >
-                      <MapPin size={16} />
-                    </Button>
-                  </div>
-
-                  {/* Affichage des suggestions d'adresses */}
-                  {addressSuggestions.length > 0 && (
-                    <div className="absolute mt-10 w-full max-w-md bg-white border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
-                      <ul>
-                        {addressSuggestions.map((suggestion, index) => (
-                          <li 
-                            key={index}
-                            className="p-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                            onClick={() => {
-                              setNewEvent({
-                                ...newEvent, 
-                                location: suggestion.address,
-                                coordinates: {
-                                  lat: suggestion.lat,
-                                  lng: suggestion.lng
-                                }
-                              });
-                              setAddressSuggestions([]);
-                            }}
-                          >
-                            <div className="flex items-center">
-                              <MapPin size={14} className="mr-2 text-gray-500" />
-                              <span>{suggestion.address}</span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Indicateur de recherche */}
-                  {searchingAddress && addressSuggestions.length === 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Recherche d'adresses...
-                    </div>
-                  )}
-                </div>
-                {(editingEvent?.coordinates || newEvent.coordinates) && (
-                  <div className="text-xs text-green-600 mt-1">
-                    Position définie sur la carte ✓
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  className="w-full p-2 border rounded-md"
-                  rows={3}
-                  value={editingEvent?.description || newEvent.description || ''}
-                  onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
-                ></textarea>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Couleur</label>
-                <input
-                  type="color"
-                  className="w-full p-1 border rounded-md h-10"
-                  value={editingEvent?.color || newEvent.color || '#3B82F6'}
-                  onChange={(e) => setNewEvent({...newEvent, color: e.target.value})}
-                />
-              </div>
-            </div>
-            
-            <div className="mt-6 flex justify-between">
-              {editingEvent && (
-                <button
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                  onClick={() => handleDeleteEvent(editingEvent.id)}
-                >
-                  Supprimer
-                </button>
-              )}
-              
-              <div className="flex gap-2 ml-auto">
-                <button
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-                  onClick={() => {
-                    setShowEventForm(false);
-                    setEditingEvent(null);
-                  }}
-                >
-                  Annuler
-                </button>
-                
-                <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  onClick={handleSaveEvent}
-                >
-                  {editingEvent ? 'Mettre à jour' : 'Ajouter'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {showEventForm && renderEventEditor()}
 
       {/* Sélecteur de position sur la carte */}
-      {showLocationPicker && linkedMapRef?.current && (
+      {showLocationPicker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl">
             <h3 className="text-lg font-medium mb-4">
-              Définir la position sur la carte
+              Sélectionner une position
             </h3>
             
-            <div className="h-96 mb-4">
-              <div className="relative h-full">
-                <div className="absolute top-0 left-0 right-0 z-10 bg-white p-2 rounded-t-lg shadow">
-                  <div className="flex">
-                    <input
-                      type="text"
-                      className="w-full p-2 border rounded-l-md"
-                      placeholder="Rechercher un lieu..."
-                      value={editingEvent?.location || newEvent.location || ''}
-                      onChange={(e) => {
-                        const address = e.target.value;
-                        setNewEvent({...newEvent, location: address});
-                        
-                        if (address.length > 3) {
-                          setSearchingAddress(true);
-                          if (addressSearchTimeout.current) {
-                            clearTimeout(addressSearchTimeout.current);
-                          }
-                          addressSearchTimeout.current = setTimeout(() => {
-                            handleAddressSearch(address);
-                          }, 500);
-                        } else {
-                          setAddressSuggestions([]);
-                        }
-                      }}
-                    />
-                    <button
-                      className="px-3 py-2 bg-blue-500 text-white rounded-r-md"
+            <div className="mb-4">
+              <div className="flex">
+                <input
+                  type="text"
+                  className="w-full p-2 border rounded-l-md"
+                  placeholder="Rechercher un lieu..."
+                  value={editing?.location || eventForm.location || ''}
+                  onChange={(e) => {
+                    const address = e.target.value;
+                    
+                    if (editing) {
+                      setEditing({...editing, location: address});
+                    } else {
+                      setEventForm({...eventForm, location: address});
+                    }
+                    
+                    if (address.length > 3) {
+                      // Rechercher l'adresse après un court délai
+                      if (addressSearchTimeout.current) {
+                        clearTimeout(addressSearchTimeout.current);
+                      }
+                      
+                      addressSearchTimeout.current = setTimeout(() => {
+                        handleAddressSearch(address);
+                      }, 500);
+                    }
+                  }}
+                />
+                <button 
+                  className="px-3 py-2 bg-blue-600 text-white border border-l-0 rounded-r-md hover:bg-blue-700"
+                  onClick={async () => {
+                    const address = editing?.location || eventForm.location;
+                    if (address) {
+                      await handleAddressSearch(address);
+                    }
+                  }}
+                >
+                  Rechercher
+                </button>
+              </div>
+              
+              {/* Afficher les suggestions d'adresses */}
+              {addressSuggestions.length > 0 && (
+                <div className="mt-2 border rounded-md max-h-40 overflow-y-auto">
+                  {addressSuggestions.map((suggestion, index) => (
+                    <div 
+                      key={index}
+                      className="p-2 hover:bg-blue-50 cursor-pointer border-b last:border-b-0"
                       onClick={() => {
-                        if (newEvent.location && newEvent.location.length > 0) {
-                          handleAddressSearch(newEvent.location);
-                        }
+                        setEventForm({
+                          ...eventForm,
+                          location: suggestion.address,
+                          coordinates: {
+                            lat: suggestion.lat,
+                            lng: suggestion.lng
+                          }
+                        });
+                        setAddressSuggestions([]);
                       }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    </button>
-                  </div>
-                  
-                  {addressSuggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-20 max-h-48 overflow-y-auto">
-                      <ul>
-                        {addressSuggestions.map((suggestion, index) => (
-                          <li 
-                            key={index} 
-                            className="p-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                            onClick={() => {
-                              setNewEvent({
-                                ...newEvent,
-                                location: suggestion.address,
-                                coordinates: {
-                                  lat: suggestion.lat,
-                                  lng: suggestion.lng
-                                }
-                              });
-                              setAddressSuggestions([]);
-                              
-                              // Centrer la carte sur cette position
-                              if (linkedMapRef?.current && linkedMapRef.current.panTo) {
-                                linkedMapRef.current.panTo(suggestion.lat, suggestion.lng);
-                              }
-                            }}
-                          >
-                            <div className="flex items-center">
-                              <MapPin size={14} className="mr-2 text-gray-500" />
-                              <span>{suggestion.address}</span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                      {suggestion.address}
                     </div>
-                  )}
+                  ))}
                 </div>
-                
-                <div className="border rounded-lg h-full relative">
-                  <p className="text-center text-gray-500 mt-14">Cliquez sur la carte pour définir la position</p>
-                  
-                  {/* Ici, idéalement, nous afficherions la carte réelle */}
-                  {/* Comme nous n'avons pas accès au composant de carte réel, nous utilisons une simulation */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    {newEvent.coordinates ? (
-                      <div className="text-center">
-                        <div className="mb-2">
-                          <MapPin size={32} className="text-red-500 inline-block" />
-                        </div>
-                        <div className="font-medium">{newEvent.location || "Position sélectionnée"}</div>
-                        <div className="text-sm text-gray-500">
-                          Lat: {newEvent.coordinates.lat.toFixed(6)}, Lng: {newEvent.coordinates.lng.toFixed(6)}
-                        </div>
-                        <button
-                          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md"
-                          onClick={() => handleSetLocation(newEvent.coordinates!)}
-                        >
-                          Confirmer cette position
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md"
-                        onClick={() => {
-                          // Utiliser des coordonnées pour le Stade Vélodrome si l'utilisateur recherche ça
-                          if (newEvent.location && newEvent.location.toLowerCase().includes("velodrome")) {
-                            handleSetLocation({ lat: 43.2696, lng: 5.3953 });
-                          } else {
-                            // Simulation - Dans une implémentation réelle, ces coordonnées viendraient de la carte
-                            const randomLat = 40 + Math.random() * 10;
-                            const randomLng = -74 + Math.random() * 10;
-                            handleSetLocation({ lat: randomLat, lng: randomLng });
-                          }
-                        }}
-                      >
-                        Simuler une sélection de position
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
             
-            <div className="flex justify-end">
+            <p className="text-sm text-gray-600 mb-4">
+              Utilisez le champ de recherche ci-dessus pour trouver un lieu ou cliquez directement sur le point dans la carte ci-dessous où se situe votre événement.
+            </p>
+            
+            <div className="h-64 border rounded-md mb-4 bg-gray-100 flex items-center justify-center">
+              <p className="text-gray-500">
+                Carte interactive (intégration à implémenter)
+              </p>
+            </div>
+            
+            <div className="mt-6 flex justify-end space-x-2">
               <button
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 mr-2"
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
                 onClick={() => setShowLocationPicker(false)}
               >
                 Annuler
+              </button>
+              
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                onClick={() => {
+                  if (editing) {
+                    handleSetLocation({
+                      lat: 48.8566, // Paris par défaut
+                      lng: 2.3522
+                    });
+                  } else {
+                    setEventForm({
+                      ...eventForm,
+                      coordinates: {
+                        lat: 48.8566, // Paris par défaut
+                        lng: 2.3522
+                      }
+                    });
+                  }
+                  setShowLocationPicker(false);
+                }}
+              >
+                Sélectionner (Paris par défaut)
               </button>
             </div>
           </div>
         </div>
       )}
+      
+      {/* Afficher l'éditeur d'événement si nécessaire */}
+      {editing && renderEventEditor()}
     </div>
   );
 } 

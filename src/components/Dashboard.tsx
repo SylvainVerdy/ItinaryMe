@@ -160,7 +160,7 @@ export function Dashboard() {
         
         // Attendre que toutes les promesses d'images soient résolues
         if (imagePromises.length > 0) {
-          await Promise.all(imagePromises);
+        await Promise.all(imagePromises);
         }
         
         // Trier les voyages par date de création (plus récent d'abord)
@@ -174,7 +174,7 @@ export function Dashboard() {
         setLoading(false);
       }
     };
-    
+
     fetchTravelPlans();
   }, [user]);
 

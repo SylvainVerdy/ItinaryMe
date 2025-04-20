@@ -31,10 +31,11 @@ export interface MapPoint {
   lng: number;
   title: string;
   description?: string;
-  type?: 'visit' | 'transport' | 'accommodation' | 'food' | 'activity' | 'other';
+  type?: 'activity' | 'transport' | 'accommodation' | 'food' | 'other' | 'visit';
   color?: string;
-  day?: number;
+  day?: number | string;
   order?: number;
+  hideOnMap?: boolean;
 }
 
 // Types pour les événements du calendrier
@@ -52,7 +53,9 @@ export interface TravelEvent {
     lng: number;
   };
   noteId?: string;
-  eventType?: 'visit' | 'transport' | 'accommodation' | 'food' | 'activity' | 'other';
+  eventType?: 'activity' | 'transport' | 'accommodation' | 'food' | 'other' | 'visit';
+  hideOnMap?: boolean;
+  day?: number; // Jour de l'événement par rapport au début du voyage
 }
 
 // Types pour les documents de voyage dans le style Notion
