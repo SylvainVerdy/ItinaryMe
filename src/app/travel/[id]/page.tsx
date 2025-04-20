@@ -19,10 +19,11 @@ import TravelNotes from '@/components/TravelNotes';
 import ItineraryMap, { ItineraryMapHandle } from '@/components/ItineraryMap';
 import * as React from 'react';
 import TravelCalendar from '@/components/TravelCalendar';
-import { calendarService, TravelEvent } from '@/services/calendarService';
+import { calendarService } from '@/services/calendarService';
 import { integrationService } from '@/services/integrationService';
 import { v4 as uuidv4 } from 'uuid';
 import { MapPoint, TravelEvent, Note } from '@/lib/types';
+import ClientOnly from '@/components/ClientOnly';
 
 export default function TravelDetailPage() {
   const { user, loading } = useAuth();
@@ -44,13 +45,18 @@ export default function TravelDetailPage() {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
   const mapRef = useRef<ItineraryMapHandle>(null);
+  const [shouldEditNotes, setShouldEditNotes] = useState(false);
   
-  // Vérifier le paramètre editNotes dans l'URL
+  // Vérifier le paramètre editNotes dans l'URL - sécurisé pour SSR
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shouldEditNotes = params.get('editNotes') === 'true';
-    if (shouldEditNotes) {
-      setShowEditNotes(true);
+    // Ne pas accéder à window lors du rendu côté serveur
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const editNotesParam = params.get('editNotes') === 'true';
+      if (editNotesParam) {
+        setShowEditNotes(true);
+      }
+      setShouldEditNotes(editNotesParam);
     }
   }, []);
 
@@ -733,11 +739,7 @@ export default function TravelDetailPage() {
                       </h3>
                     </div>
                     
-                    {loadingEvents ? (
-                      <div className="flex justify-center items-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                      </div>
-                    ) : (
+                    <ClientOnly>
                       <TravelCalendar
                         startDate={travel.dateDepart}
                         endDate={travel.dateRetour}
@@ -745,9 +747,8 @@ export default function TravelDetailPage() {
                         onEventAdd={handleAddCalendarEvent}
                         onEventUpdate={handleUpdateCalendarEvent}
                         onEventDelete={handleDeleteCalendarEvent}
-                        linkedMapRef={mapRef}
                       />
-                    )}
+                    </ClientOnly>
                   </div>
 
                   {/* Affichage de la carte d'itinéraire */}
@@ -798,22 +799,24 @@ export default function TravelDetailPage() {
                       </button>
                     </div>
                     
-                    <ItineraryMap 
-                      ref={mapRef}
-                      points={mapPoints}
-                      startDate={travel.dateDepart}
-                      endDate={travel.dateRetour}
-                      height="500px"
-                      onMapClick={handleMapClick}
-                      planningEvents={calendarEvents.map(event => ({
-                        ...event,
-                        start: event.start instanceof Date ? event.start : new Date(event.start),
-                        end: event.end instanceof Date ? event.end : new Date(event.end)
-                      }))}
-                      syncWithPlanning={true}
-                      showOnlyCalendarEvents={true}
-                      onEventDelete={handleDeleteCalendarEvent}
-                    />
+                    <ClientOnly>
+                      <ItineraryMap 
+                        ref={mapRef}
+                        points={mapPoints}
+                        startDate={travel.dateDepart}
+                        endDate={travel.dateRetour}
+                        height="500px"
+                        onMapClick={handleMapClick}
+                        planningEvents={calendarEvents.map(event => ({
+                          ...event,
+                          start: event.start instanceof Date ? event.start : new Date(event.start),
+                          end: event.end instanceof Date ? event.end : new Date(event.end)
+                        }))}
+                        syncWithPlanning={true}
+                        showOnlyCalendarEvents={true}
+                        onEventDelete={handleDeleteCalendarEvent}
+                      />
+                    </ClientOnly>
                   </div>
                 </div>
               </div>

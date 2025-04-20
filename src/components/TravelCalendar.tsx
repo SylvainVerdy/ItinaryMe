@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { addDays, format, isSameDay, startOfDay, endOfDay, differenceInDays, startOfHour, addHours, isWithinInterval, isToday, isBefore, isAfter, parseISO, differenceInMinutes } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { CalendarIcon, MapPin, Navigation, Bed, Utensils, Ticket, ExternalLink, ArrowLeft, ArrowRight, PlusCircle, X, Edit, Trash } from 'lucide-react';
+import { CalendarIcon, MapPin, Navigation, Bed, Utensils, Ticket, ExternalLink, ArrowLeft, ArrowRight, PlusCircle, X, Edit, Trash, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { GeoPoint } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
@@ -16,12 +16,23 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { MapPoint, TravelEvent } from '@/lib/types';
+import dynamic from 'next/dynamic';
+import { EventClickArg, EventDropArg, DateSelectArg } from '@fullcalendar/core';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
-// Type pour assurer la compatibilité entre les interfaces
-type Coordinates = {
-  lat: number;
-  lng: number;
-};
+// Importer ClientCalendar de manière dynamique avec ssr: false
+const ClientCalendar = dynamic(() => import('./ClientCalendar'), { 
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center items-center h-64 w-full bg-gray-50 rounded-md">
+      <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+      <span className="ml-3 text-gray-600">Chargement du calendrier...</span>
+    </div>
+  )
+});
+
+// Importer les plugins aussi avec dynamic pour éviter les problèmes de SSR
+const plugins = [];
 
 // Composant TimePicker temporaire
 function TimePicker({ date, setDate }: { date: Date, setDate: (date: Date) => void }) {
@@ -77,6 +88,20 @@ const formatEventTypeForUI = (type?: string): string => {
   return type || 'activity';
 };
 
+// Type pour assurer la compatibilité entre les interfaces
+type Coordinates = {
+  lat: number;
+  lng: number;
+};
+
+// Type pour EventResizeDoneArg qui n'est pas exporté directement par @fullcalendar/core
+interface EventResizeDoneArg {
+  event: any;
+  oldEvent?: any;
+  delta?: any;
+  revert: () => void;
+}
+
 interface TravelCalendarProps {
   startDate: string | Date;
   endDate: string | Date;
@@ -110,7 +135,7 @@ export default function TravelCalendar({
   const end = endDate instanceof Date ? endDate : new Date(endDate);
   
   const [selectedDate, setSelectedDate] = useState<Date>(externalSelectedDate || start);
-  const [displayMode, setDisplayMode] = useState<'day' | 'trip'>('trip');
+  const [displayMode, setDisplayMode] = useState<'day' | 'trip' | 'timeGridDay' | 'timeGridWeek' | 'dayGridMonth' | 'listWeek'>('dayGridMonth');
   const [showEventForm, setShowEventForm] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [eventForm, setEventForm] = useState<{
@@ -199,6 +224,7 @@ export default function TravelCalendar({
     };
   });
 
+  // Supprimer l'adaptateur et restaurer l'ancien handleDaySelect
   const handleDaySelect = (date: Date) => {
     setSelectedDate(date);
     
@@ -443,14 +469,24 @@ export default function TravelCalendar({
   // Rendu de l'interface d'édition d'événement
   const renderEventEditor = () => {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl border border-gray-200">
           <div className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">
-                {editing ? 'Modifier l\'événement' : 'Ajouter un événement'}
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
+                {editing ? (
+                  <>
+                    <Edit size={20} className="text-blue-500" />
+                    <span>Modifier l'événement</span>
+                  </>
+                ) : (
+                  <>
+                    <PlusCircle size={20} className="text-green-500" />
+                    <span>Ajouter un événement</span>
+                  </>
+                )}
               </h3>
-              <Button variant="ghost" size="icon" onClick={() => {
+              <Button variant="ghost" size="icon" className="hover:bg-gray-100 rounded-full" onClick={() => {
                 setShowEventForm(false);
                 setEditing(null);
               }}>
@@ -458,20 +494,21 @@ export default function TravelCalendar({
               </Button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <Label htmlFor="title">Titre</Label>
+                <Label htmlFor="title" className="text-gray-700 font-medium">Titre</Label>
                 <Input 
                   id="title" 
                   value={eventForm.title} 
                   onChange={(e) => setEventForm({...eventForm, title: e.target.value})}
                   placeholder="Nom de l'événement"
+                  className="mt-1.5 border-gray-300 focus:border-blue-400 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="eventType">Type</Label>
+                  <Label htmlFor="eventType" className="text-gray-700 font-medium">Type</Label>
                   <Select 
                     value={eventForm.eventType} 
                     onValueChange={(value) => setEventForm({
@@ -479,32 +516,62 @@ export default function TravelCalendar({
                       eventType: value as UIEventType
                     })}
                   >
-                    <SelectTrigger id="eventType">
+                    <SelectTrigger id="eventType" className="mt-1.5 border-gray-300 focus:border-blue-400 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
                       <SelectValue placeholder="Type d'événement" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="activity">Activité</SelectItem>
-                      <SelectItem value="transport">Transport</SelectItem>
-                      <SelectItem value="lodging">Hébergement</SelectItem>
-                      <SelectItem value="food">Restauration</SelectItem>
-                      <SelectItem value="other">Autre</SelectItem>
+                      <div className="p-1">
+                        <SelectItem value="activity" className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <Ticket size={16} className="text-pink-500" />
+                            <span>Activité</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="transport" className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <Navigation size={16} className="text-green-500" />
+                            <span>Transport</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="lodging" className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <Bed size={16} className="text-purple-500" />
+                            <span>Hébergement</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="food" className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <Utensils size={16} className="text-orange-500" />
+                            <span>Restauration</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="other" className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <ExternalLink size={16} className="text-gray-500" />
+                            <span>Autre</span>
+                          </div>
+                        </SelectItem>
+                      </div>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div>
-                  <Label htmlFor="color">Couleur</Label>
-                  <Input 
-                    id="color" 
-                    type="color" 
-                    value={eventForm.color} 
-                    onChange={(e) => setEventForm({...eventForm, color: e.target.value})}
-                    className="h-10"
-                  />
+                  <Label htmlFor="color" className="text-gray-700 font-medium">Couleur</Label>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <input 
+                      id="color" 
+                      type="color" 
+                      value={eventForm.color} 
+                      onChange={(e) => setEventForm({...eventForm, color: e.target.value})}
+                      className="h-10 w-full rounded-md border border-gray-300 cursor-pointer"
+                    />
+                    <div className="border rounded-md border-gray-300 w-10 h-10" style={{ backgroundColor: eventForm.color }}></div>
+                  </div>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-md border border-gray-200">
                 <Checkbox 
                   id="allDay" 
                   checked={eventForm.allDay}
@@ -512,52 +579,66 @@ export default function TravelCalendar({
                     ...eventForm, 
                     allDay: checked === true
                   })}
+                  className="border-gray-400 data-[state=checked]:bg-blue-500"
                 />
-                <Label htmlFor="allDay">Journée entière</Label>
+                <Label htmlFor="allDay" className="font-medium cursor-pointer">Journée entière</Label>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Date de début</Label>
-                  <CustomDatePicker value={eventForm.start} onChange={(date) => setEventForm({...eventForm, start: date})} />
+                  <Label className="text-gray-700 font-medium">Date de début</Label>
+                  <CustomDatePicker 
+                    value={eventForm.start} 
+                    onChange={(date) => setEventForm({...eventForm, start: date})} 
+                  />
                 </div>
                 
                 {!eventForm.allDay && (
                   <div>
-                    <Label>Heure de début</Label>
-                    <TimePicker date={eventForm.start} setDate={(date) => setEventForm({...eventForm, start: date})} />
+                    <Label className="text-gray-700 font-medium">Heure de début</Label>
+                    <TimePicker 
+                      date={eventForm.start} 
+                      setDate={(date) => setEventForm({...eventForm, start: date})}
+                    />
                   </div>
                 )}
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Date de fin</Label>
-                  <CustomDatePicker value={eventForm.end} onChange={(date) => setEventForm({...eventForm, end: date})} />
+                  <Label className="text-gray-700 font-medium">Date de fin</Label>
+                  <CustomDatePicker 
+                    value={eventForm.end} 
+                    onChange={(date) => setEventForm({...eventForm, end: date})}
+                  />
                 </div>
                 
                 {!eventForm.allDay && (
                   <div>
-                    <Label>Heure de fin</Label>
-                    <TimePicker date={eventForm.end} setDate={(date) => setEventForm({...eventForm, end: date})} />
+                    <Label className="text-gray-700 font-medium">Heure de fin</Label>
+                    <TimePicker 
+                      date={eventForm.end} 
+                      setDate={(date) => setEventForm({...eventForm, end: date})}
+                    />
                   </div>
                 )}
               </div>
               
               <div>
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description" className="text-gray-700 font-medium">Description</Label>
                 <Textarea 
                   id="description" 
                   value={eventForm.description} 
                   onChange={(e) => setEventForm({...eventForm, description: e.target.value})}
                   placeholder="Description de l'événement"
                   rows={3}
+                  className="mt-1.5 border-gray-300 focus:border-blue-400 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 />
               </div>
               
               <div>
-                <Label htmlFor="location">Lieu</Label>
-                <div className="flex gap-2">
+                <Label htmlFor="location" className="text-gray-700 font-medium">Lieu</Label>
+                <div className="flex gap-2 mt-1.5">
                   <Input 
                     id="location" 
                     value={eventForm.location} 
@@ -566,13 +647,14 @@ export default function TravelCalendar({
                       handleAddressSearch(e.target.value);
                     }}
                     placeholder="Adresse ou lieu"
-                    className="flex-1"
+                    className="flex-1 border-gray-300 focus:border-blue-400 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   />
                   <Button 
                     variant="outline" 
                     size="icon"
                     title="Sélectionner sur la carte"
                     onClick={handleShowLocationPicker}
+                    className="border-gray-300 hover:bg-blue-50 hover:text-blue-600"
                   >
                     <MapPin size={18} />
                   </Button>
@@ -583,7 +665,7 @@ export default function TravelCalendar({
                     {addressSuggestions.map((suggestion, index) => (
                       <div 
                         key={index}
-                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        className="p-2 hover:bg-blue-50 cursor-pointer text-sm transition-colors"
                         onClick={() => {
                           setEventForm({
                             ...eventForm,
@@ -596,20 +678,39 @@ export default function TravelCalendar({
                           setAddressSuggestions([]);
                         }}
                       >
-                        {suggestion.address}
+                        <div className="flex items-center gap-2">
+                          <MapPin size={14} className="text-gray-400 flex-shrink-0" />
+                          <span>{suggestion.address}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
                 
                 {searchingAddress && (
-                  <div className="mt-2 text-sm text-gray-500">
+                  <div className="mt-2 text-sm text-gray-500 flex items-center">
+                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                     Recherche en cours...
+                  </div>
+                )}
+                
+                {eventForm.coordinates && (
+                  <div className="mt-2 bg-blue-50 text-blue-700 text-sm p-2 rounded-md flex items-center">
+                    <MapPin size={14} className="mr-1.5" />
+                    <span className="flex-1">
+                      Lat: {eventForm.coordinates.lat.toFixed(6)}, Lng: {eventForm.coordinates.lng.toFixed(6)}
+                    </span>
+                    <button 
+                      className="text-red-500 hover:text-red-700 p-1"
+                      onClick={() => setEventForm({...eventForm, coordinates: undefined})}
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                 )}
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-md border border-gray-200">
                 <Checkbox 
                   id="hideOnMap" 
                   checked={eventForm.hideOnMap}
@@ -617,23 +718,26 @@ export default function TravelCalendar({
                     ...eventForm, 
                     hideOnMap: checked === true
                   })}
+                  className="border-gray-400 data-[state=checked]:bg-blue-500"
                 />
-                <Label htmlFor="hideOnMap">Ne pas afficher sur la carte</Label>
+                <Label htmlFor="hideOnMap" className="font-medium cursor-pointer">Ne pas afficher sur la carte</Label>
               </div>
               
-              <div className="flex gap-2 justify-end mt-4">
+              <div className="flex gap-3 justify-end mt-6 pt-4 border-t border-gray-200">
                 <Button 
                   variant="outline" 
                   onClick={() => {
                     setShowEventForm(false);
                     setEditing(null);
                   }}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
                 >
                   Annuler
                 </Button>
                 <Button 
                   onClick={handleSaveEvent}
                   disabled={!eventForm.title.trim()}
+                  className={editing ? "bg-blue-500 hover:bg-blue-600" : "bg-green-500 hover:bg-green-600"}
                 >
                   {editing ? 'Mettre à jour' : 'Ajouter'}
                 </Button>
@@ -698,283 +802,257 @@ export default function TravelCalendar({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">Calendrier du voyage</h3>
-        
-        <div className="flex gap-2">
-          <button
-            onClick={() => setDisplayMode('trip')}
-            className={`px-3 py-1 rounded-md text-sm ${
-              displayMode === 'trip' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Vue d'ensemble
-          </button>
-          <button
-            onClick={() => setDisplayMode('day')}
-            className={`px-3 py-1 rounded-md text-sm ${
-              displayMode === 'day' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Vue journalière
-          </button>
-          <button
-            onClick={handleAddEvent}
-            className="px-3 py-1 rounded-md text-sm bg-green-600 text-white hover:bg-green-700"
-          >
-            + Ajouter
-          </button>
+    <div className="w-full h-full p-4 bg-white rounded-lg shadow-md">
+      <div className="flex flex-col space-y-6">
+        {/* Barre d'outils du calendrier */}
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setDisplayMode('trip')}
+              variant="outline"
+              size="sm"
+              className="p-2 rounded-full"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={() => setDisplayMode('day')}
+              variant="outline"
+              size="sm"
+              className="p-2 rounded-full"
+            >
+              <ChevronRightIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={() => setSelectedDate(new Date())}
+              variant="outline"
+              size="sm"
+              className="ml-2 text-sm font-medium"
+            >
+              Aujourd'hui
+            </Button>
+            <h2 className="text-xl font-semibold text-gray-800 ml-4">
+              {displayMode === 'trip' ? 'Vue d\'ensemble' : format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })}
+            </h2>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setDisplayMode('timeGridDay')}
+              variant={displayMode === 'timeGridDay' ? 'default' : 'outline'}
+              size="sm"
+              className="text-sm font-medium"
+            >
+              Jour
+            </Button>
+            <Button
+              onClick={() => setDisplayMode('timeGridWeek')}
+              variant={displayMode === 'timeGridWeek' ? 'default' : 'outline'}
+              size="sm"
+              className="text-sm font-medium"
+            >
+              Semaine
+            </Button>
+            <Button
+              onClick={() => setDisplayMode('dayGridMonth')}
+              variant={displayMode === 'dayGridMonth' ? 'default' : 'outline'}
+              size="sm"
+              className="text-sm font-medium"
+            >
+              Mois
+            </Button>
+            <Button
+              onClick={() => setDisplayMode('listWeek')}
+              variant={displayMode === 'listWeek' ? 'default' : 'outline'}
+              size="sm"
+              className="text-sm font-medium"
+            >
+              Liste
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleAddEvent}
+              variant="default"
+              className="gap-1 items-center"
+              size="sm"
+            >
+              <PlusIcon className="h-4 w-4" />
+              <span>Ajouter un événement</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Calendrier */}
+        <div className="calendar-container flex-grow overflow-auto">
+          <ClientCalendar
+            events={events}
+            selectedDate={selectedDate}
+            displayMode={displayMode}
+            locale={fr}
+            onDateSelect={handleDaySelect}
+            onEventClick={editEvent}
+          />
         </div>
       </div>
-      
-      {displayMode === 'trip' ? (
-        /* Vue d'ensemble du voyage */
-        <div className="space-y-4">
-          {days.map((day) => (
-            <div 
-              key={day.dayNumber} 
-              className={`border rounded-lg overflow-hidden ${
-                isSameDay(day.date, selectedDate) 
-                  ? 'bg-blue-50 border-blue-300' 
-                  : 'bg-gray-50 hover:shadow-md transition-shadow'
-              } cursor-pointer`}
-              onClick={() => handleDaySelect(day.date)}
-            >
-              <div className={`px-4 py-2 border-b ${
-                isSameDay(day.date, selectedDate) ? 'bg-blue-100' : 'bg-blue-100'
-              }`}>
-                <div className="font-medium">Jour {day.dayNumber} - {day.formattedDate}</div>
-              </div>
-              
-              <div className="p-4">
-                {day.events.length === 0 ? (
-                  <p className="text-gray-500 text-sm italic">Aucun événement</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {day.events.map((event) => (
-                      <li 
-                        key={event.id} 
-                        className={`flex items-start p-2 rounded-md bg-white border ${event.hideOnMap ? 'border-dashed border-gray-300' : 'border-gray-200'}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          editEvent(event);
-                        }}
-                      >
-                        <div className="mr-2 flex items-center">
-                          <div 
-                            className={`w-3 h-3 rounded-full ${event.hideOnMap ? 'opacity-50' : ''}`}
-                            style={{backgroundColor: event.color || '#3788d8'}}
-                          ></div>
-                          <div className="ml-2">
-                            {getEventTypeIcon(event.eventType)}
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className={`font-medium ${event.hideOnMap ? 'text-gray-500' : ''}`}>
-                            {event.title}
-                            {event.hideOnMap && (
-                              <span className="ml-2 text-xs bg-gray-200 px-1 py-0.5 rounded text-gray-500">
-                                masqué sur la carte
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {formatTimeRange(event)}
-                            {event.location && <div>{event.location}</div>}
-                          </div>
-                        </div>
-                        <div className="flex space-x-1">
-                          {event.coordinates && (
-                            <div 
-                              className={`p-1 rounded-full ${event.hideOnMap ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 hover:bg-blue-200 text-blue-600'} cursor-pointer`}
-                              title={event.hideOnMap ? "Masqué sur la carte" : "Voir sur la carte"}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (linkedMapRef?.current?.panTo && event.coordinates) {
-                                  linkedMapRef.current.panTo(event.coordinates.lat, event.coordinates.lng);
-                                }
-                              }}
-                            >
-                              <MapPin size={14} />
-                            </div>
-                          )}
-                          <div 
-                            className="p-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 cursor-pointer"
-                            title="Supprimer l'événement"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteEvent(event.id);
-                            }}
-                          >
-                            <Trash size={14} />
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* Vue journalière */
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <button 
-              className="p-1 rounded-md hover:bg-gray-100"
-              onClick={() => {
-                const prevDay = addDays(selectedDate, -1);
-                if (prevDay >= start && prevDay <= end) {
-                  setSelectedDate(prevDay);
-                  if (onDateSelect) {
-                    onDateSelect(prevDay);
-                  }
-                }
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
-            
-            <h4 className="text-lg font-medium">
-              {format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })}
-            </h4>
-            
-            <button 
-              className="p-1 rounded-md hover:bg-gray-100"
-              onClick={() => {
-                const nextDay = addDays(selectedDate, 1);
-                if (nextDay >= start && nextDay <= end) {
-                  setSelectedDate(nextDay);
-                  if (onDateSelect) {
-                    onDateSelect(nextDay);
-                  }
-                }
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-          
-          <div className="bg-white rounded-lg border overflow-hidden">
-            <div className="grid grid-cols-[60px_1fr] border-b">
-              <div className="p-2 font-medium text-center border-r text-gray-500">Heure</div>
-              <div className="p-2 font-medium">Activité</div>
+
+      {/* Modal ajout/édition événement */}
+      <Dialog open={showEventForm} onOpenChange={setShowEventForm}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">
+              {editing ? "Modifier l'événement" : "Ajouter un événement"}
+            </DialogTitle>
+            <DialogDescription>
+              {editing 
+                ? 'Modifiez les détails de votre événement'
+                : 'Ajoutez les détails de votre nouvel événement'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-4 py-2" onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveEvent();
+          }}>
+            <div>
+              <Label htmlFor="title" className="text-gray-700 font-medium">Titre</Label>
+              <Input
+                id="title"
+                value={eventForm.title || ''}
+                onChange={(e) => setEventForm({...eventForm, title: e.target.value})}
+                placeholder="Titre de l'événement"
+                className="w-full mt-1.5"
+                required
+              />
             </div>
             
-            {hours.map(({ hour, formatted }) => {
-              const hourEvents = events.filter(event => {
-                if (event.allDay) return false;
-                
-                const eventStart = new Date(event.start);
-                const eventEnd = new Date(event.end);
-                const hourStart = new Date(selectedDate).setHours(hour, 0, 0, 0);
-                const hourEnd = new Date(selectedDate).setHours(hour, 59, 59, 999);
-                
-                return (
-                  (eventStart.getTime() <= hourEnd && eventEnd.getTime() >= hourStart) &&
-                  (isSameDay(eventStart, selectedDate) || isSameDay(eventEnd, selectedDate))
-                );
-              });
-              
-              return (
-                <div key={hour} className="grid grid-cols-[60px_1fr] border-b min-h-[60px] hover:bg-gray-50">
-                  <div className="p-2 text-center border-r text-sm text-gray-500">{formatted}</div>
-                  <div className="p-2 relative">
-                    {hourEvents.map(event => (
-                      <div 
-                        key={event.id}
-                        className={`absolute rounded-md p-1 overflow-hidden text-sm ${event.hideOnMap ? 'opacity-50' : 'opacity-90'}`}
-                        style={{
-                          backgroundColor: event.color || '#3788d8',
-                          color: 'white',
-                          top: '4px',
-                          left: '8px',
-                          right: '8px',
-                          height: 'calc(100% - 8px)'
-                        }}
-                        onClick={() => editEvent(event)}
-                      >
-                        <div className="font-medium flex items-center gap-1">
-                          {getEventTypeIcon(event.eventType)}
-                          <span className={event.hideOnMap ? 'text-gray-500' : ''}>{event.title}</span>
-                          {event.hideOnMap && (
-                            <span className="ml-auto text-xs bg-white/20 px-1 rounded">
-                              masqué
-                            </span>
-                          )}
-                          <div className="ml-auto flex space-x-1">
-                            <button
-                              className="p-1 rounded-full bg-white/30 hover:bg-white/50 text-white"
-                              title="Supprimer l'événement"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteEvent(event.id);
-                              }}
-                            >
-                              <Trash size={12} />
-                            </button>
-                          </div>
-                        </div>
-                        <div>{format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')}</div>
-                        {event.location && <div className="text-white/80 text-xs">{event.location}</div>}
-                      </div>
-                    ))}
+            <div className="flex items-center gap-2 my-3">
+              <Checkbox
+                id="allDay"
+                checked={eventForm.allDay || false}
+                onCheckedChange={(checked) => 
+                  setEventForm({...eventForm, allDay: checked === true})
+                }
+              />
+              <Label htmlFor="allDay" className="cursor-pointer">Journée entière</Label>
+            </div>
+            
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-700 font-medium">Date de début</Label>
+                    <CustomDatePicker 
+                      value={eventForm.start} 
+                      onChange={(date) => setEventForm({...eventForm, start: date})} 
+                    />
                   </div>
-                </div>
-              );
-            })}
-          </div>
-          
-          {/* Événements sur toute la journée */}
-          <div className="mt-4">
-            <h5 className="font-medium mb-2">Événements sur toute la journée</h5>
-            <div className="space-y-2">
-              {events
-                .filter(event => event.allDay && isSameDay(event.start, selectedDate))
-                .map(event => (
-                  <div 
-                    key={event.id}
-                    className={`p-3 rounded-md border ${event.hideOnMap ? 'border-dashed' : ''}`}
-                    style={{
-                      borderLeftColor: event.color || '#3788d8',
-                      borderLeftWidth: '4px'
-                    }}
-                    onClick={() => editEvent(event)}
-                  >
-                    <div className="font-medium flex items-center gap-1">
-                      {getEventTypeIcon(event.eventType)}
-                      <span className={event.hideOnMap ? 'text-gray-500' : ''}>{event.title}</span>
-                      {event.hideOnMap && (
-                        <span className="ml-2 text-xs bg-gray-200 px-1 py-0.5 rounded text-gray-500">
-                          masqué sur la carte
-                        </span>
-                      )}
+                  
+                  {!eventForm.allDay && (
+                    <div>
+                      <Label className="text-gray-700 font-medium">Heure de début</Label>
+                      <TimePicker 
+                        date={eventForm.start} 
+                        setDate={(date) => setEventForm({...eventForm, start: date})}
+                      />
                     </div>
-                    {event.location && <div className="text-sm text-gray-600">{event.location}</div>}
-                    {event.description && <div className="text-sm mt-1">{event.description}</div>}
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-700 font-medium">Date de fin</Label>
+                    <CustomDatePicker 
+                      value={eventForm.end} 
+                      onChange={(date) => setEventForm({...eventForm, end: date})}
+                    />
                   </div>
-                ))}
-              
-              {events.filter(event => event.allDay && isSameDay(event.start, selectedDate)).length === 0 && (
-                <p className="text-gray-500 text-sm italic">Aucun événement sur toute la journée</p>
-              )}
+                  
+                  {!eventForm.allDay && (
+                    <div>
+                      <Label className="text-gray-700 font-medium">Heure de fin</Label>
+                      <TimePicker 
+                        date={eventForm.end} 
+                        setDate={(date) => setEventForm({...eventForm, end: date})}
+                      />
+                    </div>
+                  )}
+                </div>
             </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Formulaire d'ajout/modification d'événement */}
-      {showEventForm && renderEventEditor()}
+
+            <div>
+              <Label htmlFor="description" className="text-gray-700 font-medium">Description</Label>
+              <Textarea
+                id="description"
+                value={eventForm.description || ''}
+                onChange={(e) => setEventForm({...eventForm, description: e.target.value})}
+                placeholder="Description de l'événement"
+                className="w-full mt-1.5 min-h-[100px]"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="location" className="text-gray-700 font-medium">Lieu</Label>
+              <Input
+                id="location"
+                value={eventForm.location || ''}
+                onChange={(e) => setEventForm({...eventForm, location: e.target.value})}
+                placeholder="Lieu de l'événement"
+                className="w-full mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="color" className="text-gray-700 font-medium">Couleur</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {['#3788d8', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setEventForm({...eventForm, color})}
+                    className={`w-6 h-6 rounded-full transition-all ${
+                      eventForm.color === color 
+                        ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' 
+                        : 'hover:scale-110'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-between items-center">
+              {editing && (
+                <Button 
+                  onClick={() => {
+                    handleDeleteEvent(editing.id);
+                    setShowEventForm(false);
+                  }} 
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1"
+                >
+                  <Trash size={16} />
+                  <span>Supprimer</span>
+                </Button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button 
+                  onClick={() => setShowEventForm(false)} 
+                  type="button"
+                  variant="outline"
+                >
+                  Annuler
+                </Button>
+                <Button type="submit">
+                  {editing ? 'Mettre à jour' : 'Ajouter'}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Sélecteur de position sur la carte */}
       {showLocationPicker && (
@@ -1095,9 +1173,6 @@ export default function TravelCalendar({
           </div>
         </div>
       )}
-      
-      {/* Afficher l'éditeur d'événement si nécessaire */}
-      {editing && renderEventEditor()}
     </div>
   );
 } 
