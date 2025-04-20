@@ -1,15 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+"use client";
+import React, { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MarkerIcon } from './icons';
-
-// Supprime l'icône par défaut pour éviter le problème de chemin d'accès
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-});
+import { extractPointsFromNotes } from '@/lib/extractItinerary';
+import { getDestinationCoordinates, generateSampleItinerary } from './geoHelper';
 
 // Interface pour une position géographique
 interface GeoPosition {
@@ -35,6 +29,7 @@ interface TripMapProps {
   defaultZoom?: number;
   interactive?: boolean;
   height?: string;
+  showTitle?: boolean;
 }
 
 const TripMap: React.FC<TripMapProps> = ({
@@ -43,10 +38,12 @@ const TripMap: React.FC<TripMapProps> = ({
   defaultCenter,
   defaultZoom = 10,
   interactive = true,
-  height = '500px'
+  height = '400px',
+  showTitle = true
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [itineraryPoints, setItineraryPoints] = useState([]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -88,11 +85,11 @@ const TripMap: React.FC<TripMapProps> = ({
       // Créer une ligne reliant les différentes étapes
       const pathPoints: L.LatLngExpression[] = locations.map(loc => [loc.position.lat, loc.position.lng]);
       if (pathPoints.length > 1) {
-        const polyline = L.polyline(pathPoints, { color: '#3B82F6', weight: 3, opacity: 0.7 }).addTo(map);
+        L.polyline(pathPoints, { color: '#3B82F6', weight: 3, opacity: 0.7 }).addTo(map);
       }
 
       // Ajouter les marqueurs
-      locations.forEach((location, index) => {
+      locations.forEach((location) => {
         const marker = L.marker([location.position.lat, location.position.lng], { 
           icon: markerIcon,
           title: location.name
@@ -100,9 +97,9 @@ const TripMap: React.FC<TripMapProps> = ({
         
         // Ajouter une popup avec les informations
         const popupContent = `
-          <div class="font-medium">${location.name}</div>
-          ${location.date ? `<div class="text-sm text-gray-600">${location.date}</div>` : ''}
-          ${location.description ? `<p class="text-sm mt-1">${location.description}</p>` : ''}
+          <div style="font-weight: 500;">${location.name}</div>
+          ${location.date ? `<div style="font-size: 0.875rem; color: #6B7280;">${location.date}</div>` : ''}
+          ${location.description ? `<p style="font-size: 0.875rem; margin-top: 0.25rem;">${location.description}</p>` : ''}
         `;
         marker.bindPopup(popupContent);
         
@@ -129,12 +126,22 @@ const TripMap: React.FC<TripMapProps> = ({
     };
   }, [locations, defaultCenter, defaultZoom, interactive, destination]);
 
+  useEffect(() => {
+    if (destination) {
+      // Générer des points d'itinéraire basés sur la destination
+      const points = generateSampleItinerary(destination, 5);
+      setItineraryPoints(points);
+    }
+  }, [destination]);
+
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="p-4 bg-gray-50 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">Itinéraire: {destination}</h2>
-        <p className="text-sm text-gray-500">{locations.length} étapes</p>
-      </div>
+    <div className="bg-white rounded-lg shadow-sm border border-[#e6e0d4] overflow-hidden">
+      {showTitle && (
+        <div className="p-4 bg-gray-50 border-b border-[#e6e0d4]">
+          <h2 className="text-lg font-medium text-gray-800">Itinéraire: {destination}</h2>
+          <p className="text-sm text-gray-500">{locations.length} étapes</p>
+        </div>
+      )}
       <div 
         ref={mapContainerRef} 
         style={{ height }}

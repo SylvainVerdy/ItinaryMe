@@ -15,12 +15,17 @@ export default function DestinationDetailPage() {
   const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
-  const destinationId = params.id as string;
+  const destinationId = Array.isArray(params.id) ? params.id[0] : params.id;
   
   const [destination, setDestination] = useState<DestinationCardProps | null>(null);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
+    if (!destinationId) {
+      router.push('/destinations');
+      return;
+    }
+    
     const fetchDestination = () => {
       const destData = destinationService.getDestinationById(destinationId);
       

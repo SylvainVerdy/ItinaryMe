@@ -16,18 +16,17 @@ import { Footer } from '@/components/Footer';
 import EditTravelImage from './edit-image';
 import { EditTripDates } from '@/components/EditTripDates';
 import TravelNotes from '@/components/TravelNotes';
+import ItineraryMap from '@/components/ItineraryMap';
+import * as React from 'react';
+import TravelCalendar from '@/components/TravelCalendar';
+import { calendarService, TravelEvent } from '@/services/calendarService';
+import { v4 as uuidv4 } from 'uuid';
 
-// Interface des propriétés
-interface TravelDetailPageProps {
-  params: {
-    id: string;
-  };
-}
-
-export default function TravelDetailPage({ params }: TravelDetailPageProps) {
+export default function TravelDetailPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const travelId = params.id as string;
+  const params = useParams();
+  const travelId = Array.isArray(params.id) ? params.id[0] : params.id;
   const { toast } = useToast();
   
   const [travel, setTravel] = useState<TravelPlan | null>(null);
@@ -39,6 +38,8 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
   const [notes, setNotes] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [imageData, setImageData] = useState<string | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<TravelEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
   
   // Vérifier le paramètre editNotes dans l'URL
   useEffect(() => {
@@ -55,9 +56,13 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
       return;
     }
     
+    if (!travelId) {
+      setError("ID de voyage non valide");
+      setLoadingTravel(false);
+      return;
+    }
+    
     const fetchTravelDetails = async () => {
-      if (!travelId || !user) return;
-      
       try {
         setLoadingTravel(true);
         const travelData = await travelService.getTravelById(travelId);
@@ -67,7 +72,7 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
           return;
         }
         
-        if (travelData.userId !== user.uid) {
+        if (travelData.userId !== user?.uid) {
           setError("Vous n'avez pas accès à ce voyage.");
           return;
         }
@@ -115,6 +120,27 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
     
     fetchTravelDetails();
   }, [travelId, user, loading, router]);
+  
+  useEffect(() => {
+    // Charger les événements du calendrier
+    const fetchCalendarEvents = async () => {
+      if (!travelId) return;
+      
+      try {
+        setLoadingEvents(true);
+        const events = await calendarService.getEventsForTrip(travelId);
+        setCalendarEvents(events);
+      } catch (error) {
+        console.error("Erreur lors du chargement des événements du calendrier:", error);
+      } finally {
+        setLoadingEvents(false);
+      }
+    };
+    
+    if (travel) {
+      fetchCalendarEvents();
+    }
+  }, [travelId, travel]);
   
   const handleDelete = async () => {
     if (!travel || !confirm("Êtes-vous sûr de vouloir supprimer ce voyage ?")) {
@@ -230,6 +256,88 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
       });
     } finally {
       setIsSavingNotes(false);
+    }
+  };
+  
+  // Gestionnaires d'événements du calendrier
+  const handleAddCalendarEvent = async (event: Omit<TravelEvent, 'id' | 'tripId'>) => {
+    if (!travelId) return;
+    
+    try {
+      const eventId = await calendarService.addEvent(travelId, event);
+      
+      if (eventId) {
+        // Ajouter l'événement à la liste locale
+        setCalendarEvents(prev => [
+          ...prev,
+          { id: eventId, tripId: travelId, ...event }
+        ]);
+        
+        toast({
+          title: "Événement ajouté",
+          description: "L'événement a été ajouté au calendrier.",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'ajout de l'événement:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de l'ajout de l'événement.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleUpdateCalendarEvent = async (event: TravelEvent) => {
+    try {
+      const success = await calendarService.updateEvent(event);
+      
+      if (success) {
+        // Mettre à jour l'événement dans la liste locale
+        setCalendarEvents(prev => 
+          prev.map(e => e.id === event.id ? event : e)
+        );
+        
+        toast({
+          title: "Événement mis à jour",
+          description: "L'événement a été mis à jour avec succès.",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de l'événement:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la mise à jour de l'événement.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleDeleteCalendarEvent = async (eventId: string) => {
+    try {
+      const success = await calendarService.deleteEvent(eventId);
+      
+      if (success) {
+        // Supprimer l'événement de la liste locale
+        setCalendarEvents(prev => 
+          prev.filter(e => e.id !== eventId)
+        );
+        
+        toast({
+          title: "Événement supprimé",
+          description: "L'événement a été supprimé avec succès.",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression de l'événement:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la suppression de l'événement.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -506,6 +614,42 @@ export default function TravelDetailPage({ params }: TravelDetailPageProps) {
                       }}
                     />
                   </div>
+
+                  {/* Après le composant TravelNotes, ajouter le calendrier */}
+                  <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
+                        <Calendar size={20} className="text-blue-500" />
+                        <span>Calendrier du voyage</span>
+                      </h3>
+                    </div>
+                    
+                    {loadingEvents ? (
+                      <div className="flex justify-center items-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                      </div>
+                    ) : (
+                      <TravelCalendar
+                        startDate={travel.dateDepart}
+                        endDate={travel.dateRetour}
+                        events={calendarEvents}
+                        onEventAdd={handleAddCalendarEvent}
+                        onEventUpdate={handleUpdateCalendarEvent}
+                        onEventDelete={handleDeleteCalendarEvent}
+                      />
+                    )}
+                  </div>
+
+                  {travel.notes && (
+                    <div className="mb-8">
+                      <h2 className="text-2xl font-semibold mb-4">Visualisation de l'itinéraire</h2>
+                      <ItineraryMap 
+                        notes={travel.notes} 
+                        destination={travel.destination} 
+                        height="500px" 
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               

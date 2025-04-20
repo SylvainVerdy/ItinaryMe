@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ChatHistory, ChatMessage } from '@/lib/types';
@@ -107,10 +107,11 @@ const extractPeople = (text: string): string | null => {
   return null;
 };
 
-export default function ChatPage({ params }: ChatPageProps) {
+export default function ChatPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [chatId] = useState<string>(params.id);
+  const params = useParams();
+  const chatId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [chatHistory, setChatHistory] = useState<ChatHistory | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
@@ -124,7 +125,7 @@ export default function ChatPage({ params }: ChatPageProps) {
   // Chargement de l'historique de conversation
   useEffect(() => {
     const fetchChatHistory = async () => {
-      if (!user) return;
+      if (!user || !chatId) return;
       
       try {
         setIsLoading(true);

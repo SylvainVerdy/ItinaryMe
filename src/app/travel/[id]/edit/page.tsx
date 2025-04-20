@@ -11,7 +11,7 @@ export default function EditTravelPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const params = useParams();
-  const travelId = params.id as string;
+  const travelId = Array.isArray(params.id) ? params.id[0] : params.id;
   
   const [travelData, setTravelData] = useState<TravelPlanInput | null>(null);
   const [loadingTravel, setLoadingTravel] = useState(true);
@@ -23,9 +23,13 @@ export default function EditTravelPage() {
       return;
     }
     
-    const fetchTravelDetails = async () => {
-      if (!travelId || !user) return;
-      
+    if (!travelId) {
+      setError("ID de voyage non valide");
+      setLoadingTravel(false);
+      return;
+    }
+    
+    const fetchTravelDetails = async () => {      
       try {
         setLoadingTravel(true);
         const travel = await travelService.getTravelById(travelId);
@@ -35,7 +39,7 @@ export default function EditTravelPage() {
           return;
         }
         
-        if (travel.userId !== user.uid) {
+        if (travel.userId !== user?.uid) {
           setError("Vous n'avez pas accès à ce voyage.");
           return;
         }

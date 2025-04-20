@@ -2,19 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { TravelDocumentEditor } from '@/components/TravelDocumentEditor';
 
-interface DocumentPageProps {
-  params: {
-    id: string;
-  };
-}
-
-export default function DocumentPage({ params }: DocumentPageProps) {
+export default function DocumentPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [documentId] = useState<string>(params.id);
+  const params = useParams();
+  const documentId = Array.isArray(params.id) ? params.id[0] : params.id;
   
   useEffect(() => {
     if (!loading && !user) {
@@ -31,7 +26,7 @@ export default function DocumentPage({ params }: DocumentPageProps) {
     );
   }
   
-  if (!user) {
+  if (!user || !documentId) {
     return null; // La redirection sera gérée par l'effet
   }
   

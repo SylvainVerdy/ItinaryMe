@@ -38,6 +38,8 @@ export const DestinationCard: FC<DestinationCardProps> = ({
           src={imageUrl}
           alt={`Image de ${name}`}
           fill
+          unoptimized={true}
+          loader={({ src }) => src}
           style={{objectFit: 'cover'}}
           className="transition-opacity group-hover:opacity-90"
         />
