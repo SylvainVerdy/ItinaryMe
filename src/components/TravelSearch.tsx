@@ -6,174 +6,366 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plane, Hotel, UtensilsCrossed } from "lucide-react";
+import ClientOnly from "./ClientOnly";
+import { doc, updateDoc, arrayUnion, Timestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
-import ClientOnly from './ClientOnly';
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { FlightSearchResult, HotelSearchResult, RestaurantSearchResult, SearchResult } from "@/types/search";
 
-// Type pour les résultats de recherche
-type SearchResult = {
-  success: boolean;
-  result: string;
-  error?: string;
-};
+interface TravelSearchProps {
+  travelId?: string;
+  destination?: string;
+}
 
-export default function TravelSearch() {
+// Composant DatePicker personnalisé pour éviter l'erreur de linter
+interface DatePickerProps {
+  date: Date | undefined;
+  setDate: (date: Date | undefined) => void;
+  placeholder?: string;
+}
+
+function DatePickerComponent({ date, setDate, placeholder = "Sélectionner une date" }: DatePickerProps) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            "w-full justify-start text-left font-normal",
+            !date && "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP") : placeholder}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={setDate}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export default function TravelSearch({ travelId, destination }: TravelSearchProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("flights");
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   
-  // États pour la recherche de vols
-  const [flightOrigin, setFlightOrigin] = useState("");
-  const [flightDestination, setFlightDestination] = useState("");
-  const [flightDate, setFlightDate] = useState("");
-  const [flightPassengers, setFlightPassengers] = useState("1");
+  // États pour les formulaires de recherche
+  const [flightOrigin, setFlightOrigin] = useState(destination ? "" : "Paris");
+  const [flightDestination, setFlightDestination] = useState(destination || "");
+  const [flightDate, setFlightDate] = useState<Date | undefined>(undefined);
+  const [flightReturnDate, setFlightReturnDate] = useState<Date | undefined>(undefined);
+  const [flightPassengers, setFlightPassengers] = useState(1);
   
-  // États pour la recherche d'hôtels
-  const [hotelLocation, setHotelLocation] = useState("");
-  const [hotelCheckIn, setHotelCheckIn] = useState("");
-  const [hotelCheckOut, setHotelCheckOut] = useState("");
-  const [hotelPersons, setHotelPersons] = useState("2");
-  const [hotelPriceRange, setHotelPriceRange] = useState("");
+  const [hotelLocation, setHotelLocation] = useState(destination || "");
+  const [hotelCheckIn, setHotelCheckIn] = useState<Date | undefined>(undefined);
+  const [hotelCheckOut, setHotelCheckOut] = useState<Date | undefined>(undefined);
+  const [hotelGuests, setHotelGuests] = useState(2);
+  const [hotelRooms, setHotelRooms] = useState(1);
   
-  // États pour la recherche de restaurants
-  const [restaurantLocation, setRestaurantLocation] = useState("");
+  const [restaurantLocation, setRestaurantLocation] = useState(destination || "");
   const [restaurantCuisine, setRestaurantCuisine] = useState("");
   const [restaurantPriceRange, setRestaurantPriceRange] = useState("");
-  const [restaurantRating, setRestaurantRating] = useState("");
   
-  // Fonction pour effectuer la recherche
+  // État pour les résultats de recherche
+  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fonction de recherche générique
   const handleSearch = async () => {
     setIsLoading(true);
-    setSearchResult(null);
+    setError(null);
     
     try {
-      let searchType = activeTab;
-      let params = {};
+      let params: any = {};
+      let searchType = '';
       
-      // Préparation des paramètres selon le type de recherche
-      switch (activeTab) {
-        case "flights":
-          if (!flightOrigin || !flightDestination) {
-            toast({
-              title: "Champs requis",
-              description: "Veuillez renseigner l'origine et la destination",
-              variant: "destructive",
-            });
-            setIsLoading(false);
-            return;
-          }
-          params = {
-            origin: flightOrigin,
-            destination: flightDestination,
-            date: flightDate || undefined,
-            passengers: parseInt(flightPassengers) || 1
-          };
-          break;
-          
-        case "hotels":
-          if (!hotelLocation) {
-            toast({
-              title: "Champ requis",
-              description: "Veuillez renseigner la destination",
-              variant: "destructive",
-            });
-            setIsLoading(false);
-            return;
-          }
-          params = {
-            location: hotelLocation,
-            checkIn: hotelCheckIn || undefined,
-            checkOut: hotelCheckOut || undefined,
-            persons: parseInt(hotelPersons) || 2,
-            priceRange: hotelPriceRange || undefined
-          };
-          break;
-          
-        case "restaurants":
-          if (!restaurantLocation) {
-            toast({
-              title: "Champ requis",
-              description: "Veuillez renseigner la localisation",
-              variant: "destructive",
-            });
-            setIsLoading(false);
-            return;
-          }
-          params = {
-            location: restaurantLocation,
-            cuisine: restaurantCuisine || undefined,
-            priceRange: restaurantPriceRange || undefined,
-            rating: restaurantRating ? parseFloat(restaurantRating) : undefined
-          };
-          break;
+      if (activeTab === "flights") {
+        if (!flightOrigin || !flightDestination) {
+          setError("Veuillez spécifier l'origine et la destination.");
+          setIsLoading(false);
+          return;
+        }
+        
+        searchType = "flights";
+        params = {
+          origin: flightOrigin,
+          destination: flightDestination,
+          date: flightDate ? flightDate.toISOString().split('T')[0] : undefined,
+          returnDate: flightReturnDate ? flightReturnDate.toISOString().split('T')[0] : undefined,
+          passengers: flightPassengers
+        };
+      } else if (activeTab === "hotels") {
+        if (!hotelLocation) {
+          setError("Veuillez spécifier une destination.");
+          setIsLoading(false);
+          return;
+        }
+        
+        searchType = "hotels";
+        params = {
+          location: hotelLocation,
+          checkIn: hotelCheckIn ? hotelCheckIn.toISOString().split('T')[0] : undefined,
+          checkOut: hotelCheckOut ? hotelCheckOut.toISOString().split('T')[0] : undefined,
+          persons: hotelGuests,
+          rooms: hotelRooms
+        };
+      } else if (activeTab === "restaurants") {
+        if (!restaurantLocation) {
+          setError("Veuillez spécifier une localisation.");
+          setIsLoading(false);
+          return;
+        }
+        
+        searchType = "restaurants";
+        params = {
+          location: restaurantLocation,
+          cuisine: restaurantCuisine || undefined,
+          priceRange: restaurantPriceRange || undefined
+        };
       }
       
-      // Appel à l'API de recherche
-      const response = await fetch('/api/travel-search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          searchType,
-          params
-        }),
-      });
+      const requestData = { searchType, params };
+      console.log("Envoi de la requête:", requestData);
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Une erreur est survenue lors de la recherche');
+      try {
+        const response = await fetch('/api/travel-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData)
+        });
+        
+        console.log("Statut de la réponse:", response.status);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Impossible de lire l'erreur" }));
+          console.error("Erreur détaillée:", errorData);
+          throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Données reçues:", data);
+        
+        setSearchResult(data.result);
+        
+        // Si un ID de voyage est fourni, sauvegardez les résultats comme liens
+        if (travelId && data.result) {
+          await saveSearchResultToTravel(travelId, searchType, data.result);
+        }
+      } catch (fetchError) {
+        console.error("Erreur pendant le fetch:", fetchError);
+        throw fetchError;
       }
-      
-      setSearchResult(data);
-    } catch (error) {
-      console.error('Erreur lors de la recherche:', error);
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Une erreur est survenue",
-        variant: "destructive",
-      });
+    } catch (err) {
+      console.error('Erreur lors de la recherche:', err);
+      setError("Une erreur s'est produite lors de la recherche. Veuillez réessayer.");
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Formater le texte du résultat pour l'affichage avec mise en forme
-  const formatResultText = (text: string) => {
-    // Divise le texte en paragraphes
-    const paragraphs = text.split('\n\n');
+  // Fonction pour sauvegarder les résultats de recherche comme liens pour le voyage
+  const saveSearchResultToTravel = async (travelId: string, type: string, result: SearchResult) => {
+    try {
+      let linkTitle = '';
+      let linkDescription = '';
+      
+      if (type === 'flights') {
+        const flightResult = result as FlightSearchResult;
+        linkTitle = `Vol: ${flightResult.origin} → ${flightResult.destination}`;
+        linkDescription = `Options de vol pour ${flightResult.origin} vers ${flightResult.destination}${flightResult.date ? ` le ${flightResult.date}` : ''}`;
+      } else if (type === 'hotels') {
+        const hotelResult = result as HotelSearchResult;
+        linkTitle = `Hôtels à ${hotelResult.location}`;
+        linkDescription = `Options d'hébergement à ${hotelResult.location}${hotelResult.dates?.checkIn ? ` du ${hotelResult.dates.checkIn}` : ''}${hotelResult.dates?.checkOut ? ` au ${hotelResult.dates.checkOut}` : ''}`;
+      } else if (type === 'restaurants') {
+        const restaurantResult = result as RestaurantSearchResult;
+        linkTitle = `Restaurants à ${restaurantResult.location}`;
+        linkDescription = `Options de restauration à ${restaurantResult.location}${restaurantCuisine ? ` (${restaurantCuisine})` : ''}`;
+      }
+      
+      // Créer un lien dans le document de voyage
+      const travelRef = doc(db, 'travels', travelId);
+      await updateDoc(travelRef, {
+        links: arrayUnion({
+          title: linkTitle,
+          description: linkDescription,
+          url: '#', // URL interne
+          type: type,
+          data: result,
+          createdAt: Timestamp.now()
+        })
+      });
+      
+      toast({
+        title: "Recherche sauvegardée",
+        description: "Les résultats de recherche ont été ajoutés aux liens de votre voyage.",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde des résultats:", error);
+    }
+  };
+  
+  // Formatage des résultats de recherche
+  const formatSearchResults = () => {
+    if (!searchResult) return null;
+
+    if (activeTab === "flights") {
+      const flightResult = searchResult as FlightSearchResult;
+      return (
+        <div className="space-y-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h3 className="font-medium text-blue-700">
+              Vols de {flightResult.origin} à {flightResult.destination}
+              {flightResult.date && ` - ${flightResult.date}`}
+            </h3>
+          </div>
+          
+          {flightResult.options.length === 0 ? (
+            <p className="text-gray-500 italic">Aucun vol trouvé pour cette recherche.</p>
+          ) : (
+            <div className="space-y-3">
+              {flightResult.options.map((flight, index) => (
+                <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium">{flight.airline}</span>
+                    <span className="text-green-600 font-medium">{flight.price}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <div>
+                      <div className="text-gray-600">Départ: {flight.departureTime || 'N/A'}</div>
+                      <div className="text-gray-600">Arrivée: {flight.arrivalTime || 'N/A'}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-gray-600">Durée: {flight.duration || 'N/A'}</div>
+                      {flight.stops !== undefined && (
+                        <div className="text-gray-600">
+                          {flight.stops === 0 ? "Direct" : `${flight.stops} escale${flight.stops > 1 ? 's' : ''}`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
     
+    if (activeTab === "hotels") {
+      const hotelResult = searchResult as HotelSearchResult;
+      return (
+        <div className="space-y-4">
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h3 className="font-medium text-green-700">
+              Hôtels à {hotelResult.location}
+              {hotelResult.dates?.checkIn && hotelResult.dates?.checkOut && 
+                ` - Du ${hotelResult.dates.checkIn} au ${hotelResult.dates.checkOut}`}
+            </h3>
+          </div>
+          
+          {hotelResult.options.length === 0 ? (
+            <p className="text-gray-500 italic">Aucun hôtel trouvé pour cette recherche.</p>
+          ) : (
+            <div className="space-y-3">
+              {hotelResult.options.map((hotel, index) => (
+                <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-medium">{hotel.name}</h4>
+                      {hotel.address && <p className="text-sm text-gray-600">{hotel.address}</p>}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-green-600 font-medium">{hotel.price}</div>
+                      {hotel.rating && <div className="text-yellow-500">{hotel.rating}</div>}
+                    </div>
+                  </div>
+                  {hotel.amenities && hotel.amenities.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-500 mb-1">Équipements:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {hotel.amenities.slice(0, 5).map((amenity, i) => (
+                          <span key={i} className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                            {amenity}
+                          </span>
+                        ))}
+                        {hotel.amenities.length > 5 && (
+                          <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                            +{hotel.amenities.length - 5} autres
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    if (activeTab === "restaurants") {
+      const restaurantResult = searchResult as RestaurantSearchResult;
+      return (
+        <div className="space-y-4">
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <h3 className="font-medium text-purple-700">
+              Restaurants à {restaurantResult.location}
+              {restaurantResult.cuisine && ` - Cuisine ${restaurantResult.cuisine}`}
+            </h3>
+          </div>
+          
+          {restaurantResult.options.length === 0 ? (
+            <p className="text-gray-500 italic">Aucun restaurant trouvé pour cette recherche.</p>
+          ) : (
+            <div className="space-y-3">
+              {restaurantResult.options.map((restaurant, index) => (
+                <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-medium">{restaurant.name}</h4>
+                      {restaurant.cuisine && <p className="text-sm text-gray-600">Cuisine: {restaurant.cuisine}</p>}
+                      {restaurant.address && <p className="text-sm text-gray-600">{restaurant.address}</p>}
+                    </div>
+                    <div className="text-right">
+                      {restaurant.priceRange && <div className="text-gray-600">{restaurant.priceRange}</div>}
+                      {restaurant.rating && <div className="text-yellow-500">{restaurant.rating}</div>}
+                    </div>
+                  </div>
+                  {restaurant.openingHours && (
+                    <div className="mt-2 text-sm text-gray-500">
+                      Horaires: {restaurant.openingHours}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // Si le type n'est pas reconnu, on affiche les données brutes
     return (
-      <>
-        {paragraphs.map((paragraph, i) => {
-          // Vérifie s'il s'agit d'un titre (commence par un chiffre suivi d'un point)
-          if (/^\d+\./.test(paragraph.trim())) {
-            return <h3 key={i} className="font-medium text-lg mt-4 mb-2">{paragraph}</h3>;
-          }
-          
-          // Vérifie s'il s'agit d'une liste (lignes commençant par - ou *)
-          if (paragraph.includes('\n') && (paragraph.includes('- ') || paragraph.includes('* '))) {
-            const lines = paragraph.split('\n');
-            return (
-              <ul key={i} className="list-disc pl-5 my-2">
-                {lines.map((line, j) => {
-                  if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-                    return <li key={j}>{line.replace(/^[- *]+\s/, '')}</li>;
-                  }
-                  return <p key={j} className="my-1">{line}</p>;
-                })}
-              </ul>
-            );
-          }
-          
-          // Paragraphe normal
-          return <p key={i} className="my-2">{paragraph}</p>;
-        })}
-      </>
+      <pre className="bg-gray-100 p-4 rounded overflow-auto text-sm">
+        {JSON.stringify(searchResult, null, 2)}
+      </pre>
     );
   };
   
@@ -182,218 +374,168 @@ export default function TravelSearch() {
       <div className="w-full max-w-4xl mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-3 mb-4">
-            <TabsTrigger value="flights" className="flex items-center gap-2">
-              <Plane size={16} /> Vols
-            </TabsTrigger>
-            <TabsTrigger value="hotels" className="flex items-center gap-2">
-              <Hotel size={16} /> Hôtels
-            </TabsTrigger>
-            <TabsTrigger value="restaurants" className="flex items-center gap-2">
-              <UtensilsCrossed size={16} /> Restaurants
-            </TabsTrigger>
+            <TabsTrigger value="flights">Vols</TabsTrigger>
+            <TabsTrigger value="hotels">Hôtels</TabsTrigger>
+            <TabsTrigger value="restaurants">Restaurants</TabsTrigger>
           </TabsList>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {activeTab === "flights" && "Recherche de vols"}
-                {activeTab === "hotels" && "Recherche d'hôtels"}
-                {activeTab === "restaurants" && "Recherche de restaurants"}
-              </CardTitle>
-              <CardDescription>
-                {activeTab === "flights" && "Trouvez les meilleurs prix pour vos billets d'avion"}
-                {activeTab === "hotels" && "Découvrez les hébergements disponibles à votre destination"}
-                {activeTab === "restaurants" && "Explorez les restaurants à votre destination"}
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent>
-              <TabsContent value="flights" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+          <TabsContent value="flights" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recherche de vols</CardTitle>
+                <CardDescription>Trouvez les meilleurs vols pour votre voyage.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="origin">Ville de départ</Label>
-                    <Input 
-                      id="origin" 
-                      placeholder="Paris" 
-                      value={flightOrigin}
-                      onChange={(e) => setFlightOrigin(e.target.value)}
-                    />
+                    <Label htmlFor="flightOrigin">Départ de</Label>
+                    <Input id="flightOrigin" value={flightOrigin} onChange={(e) => setFlightOrigin(e.target.value)} placeholder="Ville ou aéroport" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="destination">Ville d'arrivée</Label>
-                    <Input 
-                      id="destination" 
-                      placeholder="New York" 
-                      value={flightDestination}
-                      onChange={(e) => setFlightDestination(e.target.value)}
-                    />
+                    <Label htmlFor="flightDestination">Destination</Label>
+                    <Input id="flightDestination" value={flightDestination} onChange={(e) => setFlightDestination(e.target.value)} placeholder="Ville ou aéroport" />
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="date">Date du vol</Label>
-                    <Input 
-                      id="date" 
-                      type="date"
-                      value={flightDate}
-                      onChange={(e) => setFlightDate(e.target.value)}
-                    />
+                    <Label>Date de départ</Label>
+                    <DatePickerComponent date={flightDate} setDate={setFlightDate} placeholder="Sélectionner date de départ" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="passengers">Nombre de passagers</Label>
-                    <Select value={flightPassengers} onValueChange={setFlightPassengers}>
-                      <SelectTrigger id="passengers">
-                        <SelectValue placeholder="Nombre de passagers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6].map((num) => (
-                          <SelectItem key={num} value={num.toString()}>
-                            {num} {num > 1 ? 'passagers' : 'passager'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Date de retour (optionnel)</Label>
+                    <DatePickerComponent date={flightReturnDate} setDate={setFlightReturnDate} placeholder="Sélectionner date de retour" />
                   </div>
                 </div>
-              </TabsContent>
-              
-              <TabsContent value="hotels" className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="hotel-location">Destination</Label>
-                  <Input 
-                    id="hotel-location" 
-                    placeholder="Paris" 
-                    value={hotelLocation}
-                    onChange={(e) => setHotelLocation(e.target.value)}
+                  <Label>Nombre de passagers: {flightPassengers}</Label>
+                  <Slider
+                    defaultValue={[flightPassengers]}
+                    min={1}
+                    max={10}
+                    step={1}
+                    onValueChange={(value) => setFlightPassengers(value[0])}
                   />
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="check-in">Date d'arrivée</Label>
-                    <Input 
-                      id="check-in" 
-                      type="date"
-                      value={hotelCheckIn}
-                      onChange={(e) => setHotelCheckIn(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="check-out">Date de départ</Label>
-                    <Input 
-                      id="check-out" 
-                      type="date"
-                      value={hotelCheckOut}
-                      onChange={(e) => setHotelCheckOut(e.target.value)}
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="hotel-persons">Nombre de personnes</Label>
-                    <Select value={hotelPersons} onValueChange={setHotelPersons}>
-                      <SelectTrigger id="hotel-persons">
-                        <SelectValue placeholder="Nombre de personnes" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6].map((num) => (
-                          <SelectItem key={num} value={num.toString()}>
-                            {num} {num > 1 ? 'personnes' : 'personne'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="price-range">Gamme de prix</Label>
-                    <Select value={hotelPriceRange} onValueChange={setHotelPriceRange}>
-                      <SelectTrigger id="price-range">
-                        <SelectValue placeholder="Sélectionnez une gamme" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="économique">Économique</SelectItem>
-                        <SelectItem value="modéré">Modéré</SelectItem>
-                        <SelectItem value="luxe">Luxe</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="restaurants" className="space-y-4">
+              </CardContent>
+              <CardFooter>
+                <Button onClick={handleSearch} disabled={isLoading}>
+                  {isLoading ? 'Recherche en cours...' : 'Rechercher'}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="hotels" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recherche d'hôtels</CardTitle>
+                <CardDescription>Trouvez l'hébergement idéal pour votre séjour.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="restaurant-location">Ville ou quartier</Label>
-                  <Input 
-                    id="restaurant-location" 
-                    placeholder="Paris" 
-                    value={restaurantLocation}
-                    onChange={(e) => setRestaurantLocation(e.target.value)}
-                  />
+                  <Label htmlFor="hotelLocation">Destination</Label>
+                  <Input id="hotelLocation" value={hotelLocation} onChange={(e) => setHotelLocation(e.target.value)} placeholder="Ville ou région" />
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cuisine">Type de cuisine</Label>
-                    <Input 
-                      id="cuisine" 
-                      placeholder="Italienne, Japonaise, etc." 
-                      value={restaurantCuisine}
-                      onChange={(e) => setRestaurantCuisine(e.target.value)}
+                    <Label>Date d'arrivée</Label>
+                    <DatePickerComponent date={hotelCheckIn} setDate={setHotelCheckIn} placeholder="Sélectionner date d'arrivée" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date de départ</Label>
+                    <DatePickerComponent date={hotelCheckOut} setDate={setHotelCheckOut} placeholder="Sélectionner date de départ" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nombre de voyageurs: {hotelGuests}</Label>
+                    <Slider
+                      defaultValue={[hotelGuests]}
+                      min={1}
+                      max={10}
+                      step={1}
+                      onValueChange={(value) => setHotelGuests(value[0])}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="restaurant-price">Gamme de prix</Label>
-                    <Select value={restaurantPriceRange} onValueChange={setRestaurantPriceRange}>
-                      <SelectTrigger id="restaurant-price">
-                        <SelectValue placeholder="Sélectionnez une gamme" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="économique">Économique</SelectItem>
-                        <SelectItem value="modéré">Modéré</SelectItem>
-                        <SelectItem value="luxe">Luxe</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Nombre de chambres: {hotelRooms}</Label>
+                    <Slider
+                      defaultValue={[hotelRooms]}
+                      min={1}
+                      max={5}
+                      step={1}
+                      onValueChange={(value) => setHotelRooms(value[0])}
+                    />
                   </div>
                 </div>
-                
+              </CardContent>
+              <CardFooter>
+                <Button onClick={handleSearch} disabled={isLoading}>
+                  {isLoading ? 'Recherche en cours...' : 'Rechercher'}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="restaurants" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recherche de restaurants</CardTitle>
+                <CardDescription>Découvrez les meilleurs endroits où manger.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="rating">Note minimale (sur 5)</Label>
-                  <Select value={restaurantRating} onValueChange={setRestaurantRating}>
-                    <SelectTrigger id="rating">
-                      <SelectValue placeholder="Toutes les notes" />
+                  <Label htmlFor="restaurantLocation">Localisation</Label>
+                  <Input id="restaurantLocation" value={restaurantLocation} onChange={(e) => setRestaurantLocation(e.target.value)} placeholder="Ville ou quartier" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="restaurantCuisine">Type de cuisine (optionnel)</Label>
+                  <Select value={restaurantCuisine} onValueChange={setRestaurantCuisine}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un type de cuisine" />
                     </SelectTrigger>
                     <SelectContent>
-                      {[3, 3.5, 4, 4.5].map((rating) => (
-                        <SelectItem key={rating} value={rating.toString()}>
-                          {rating} étoiles et plus
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="">Toutes les cuisines</SelectItem>
+                      <SelectItem value="française">Française</SelectItem>
+                      <SelectItem value="italienne">Italienne</SelectItem>
+                      <SelectItem value="japonaise">Japonaise</SelectItem>
+                      <SelectItem value="indienne">Indienne</SelectItem>
+                      <SelectItem value="mexicaine">Mexicaine</SelectItem>
+                      <SelectItem value="chinoise">Chinoise</SelectItem>
+                      <SelectItem value="végétarienne">Végétarienne</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </TabsContent>
-            </CardContent>
-            
-            <CardFooter className="flex justify-end">
-              <Button 
-                onClick={handleSearch} 
-                disabled={isLoading}
-                className="w-full md:w-auto"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Recherche en cours...
-                  </>
-                ) : (
-                  "Rechercher"
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
+                <div className="space-y-2">
+                  <Label htmlFor="restaurantPriceRange">Gamme de prix (optionnel)</Label>
+                  <Select value={restaurantPriceRange} onValueChange={setRestaurantPriceRange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez une gamme de prix" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Tous les prix</SelectItem>
+                      <SelectItem value="€">€ (Économique)</SelectItem>
+                      <SelectItem value="€€">€€ (Modéré)</SelectItem>
+                      <SelectItem value="€€€">€€€ (Cher)</SelectItem>
+                      <SelectItem value="€€€€">€€€€ (Très cher)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button onClick={handleSearch} disabled={isLoading}>
+                  {isLoading ? 'Recherche en cours...' : 'Rechercher'}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
         </Tabs>
+        
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-md border border-red-200">
+            {error}
+          </div>
+        )}
         
         {searchResult && (
           <div className="mt-8">
@@ -407,14 +549,22 @@ export default function TravelSearch() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-sm max-w-none">
-                  {searchResult.result ? (
-                    formatResultText(searchResult.result)
-                  ) : (
-                    <p className="text-gray-500">Aucun résultat trouvé</p>
-                  )}
-                </div>
+                {formatSearchResults()}
               </CardContent>
+              {travelId && (
+                <CardFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => toast({
+                      title: "Déjà sauvegardé",
+                      description: "Ces résultats de recherche ont déjà été ajoutés aux liens de votre voyage.",
+                      variant: "default",
+                    })}
+                  >
+                    Sauvegardé dans les liens
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           </div>
         )}

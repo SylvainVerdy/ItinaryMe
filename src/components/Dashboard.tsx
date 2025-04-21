@@ -556,146 +556,124 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-[#f8f5ec] overflow-hidden">
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       {sidebar && (
-        <div className="w-60 bg-white border-r border-[#e6e0d4] flex flex-col h-full shadow-sm">
-          <div className="p-4 border-b border-[#e6e0d4] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Globe size={18} className="text-white" />
-              </div>
-              <h1 className="font-medium text-lg tracking-tight">ItinaryMe</h1>
-            </div>
-            <button 
-              onClick={() => setSidebar(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X size={18} />
-            </button>
+        <div className="w-64 border-r border-[#e6e0d4] bg-white h-screen flex flex-col">
+          {/* Logo */}
+          <div className="h-14 border-b border-[#e6e0d4] px-4 flex items-center">
+            <span className="text-xl font-medium text-blue-600">ItinaryMe</span>
           </div>
           
-          <div className="px-2 py-4">
-            <div className="relative mb-4">
+          {/* Search */}
+          <div className="px-3 py-3">
+            <div className="px-2 py-1.5 bg-[#f5f2e9] rounded-md flex items-center gap-2 text-gray-500">
+              <Search size={16} />
               <input 
                 type="text" 
                 placeholder="Rechercher..." 
-                className="w-full py-1.5 pl-8 pr-3 rounded-md bg-[#f8f5ec] text-sm border border-transparent focus:border-[#e6e0d4] focus:outline-none transition-colors"
+                className="bg-transparent border-none outline-none text-sm w-full text-gray-700 placeholder-gray-500"
               />
-              <Search size={14} className="absolute left-2.5 top-2 text-gray-400" />
             </div>
-            
-            <button 
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
-                currentView === 'dashboard' 
-                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
-                  : 'text-gray-600 hover:bg-[#f8f5ec]'
-              }`}
+          </div>
+          
+          {/* Navigation */}
+          <nav className="flex-1 px-2 py-2 space-y-1">
+            <button
               onClick={() => setCurrentView('dashboard')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
+                currentView === 'dashboard' 
+                  ? 'text-blue-600 bg-blue-50' 
+                  : 'text-gray-700 hover:bg-[#f0ece3]'
+              }`}
             >
-              <FolderOpen size={16} />
-              <span>{t('dashboard')}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="9" />
+                <rect x="14" y="3" width="7" height="5" />
+                <rect x="14" y="12" width="7" height="9" />
+                <rect x="3" y="16" width="7" height="5" />
+              </svg>
+              <span>Tableau de bord</span>
             </button>
             
-            <button 
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
-                currentView === 'chat' 
-                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
-                  : 'text-gray-600 hover:bg-[#f8f5ec]'
-              }`}
+            <button
               onClick={() => setCurrentView('chat')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
+                currentView === 'chat' 
+                  ? 'text-blue-600 bg-blue-50' 
+                  : 'text-gray-700 hover:bg-[#f0ece3]'
+              }`}
             >
-              <Sparkles size={16} />
+              <MessageSquare size={18} />
               <span>Assistant IA</span>
             </button>
-
-            <button 
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
-                currentView === 'documents' 
-                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
-                  : 'text-gray-600 hover:bg-[#f8f5ec]'
-              }`}
-              onClick={() => setCurrentView('documents')}
+            
+            <Link
+              href="/chat"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-[#f0ece3]"
             >
-              <FileText size={16} />
-              <span>Documents</span>
-            </button>
-
-            <button 
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
-                currentView === 'chat-history' 
-                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
-                  : 'text-gray-600 hover:bg-[#f8f5ec]'
-              }`}
+              <Globe size={18} />
+              <span>Chat Web</span>
+            </Link>
+            
+            <button
               onClick={() => setCurrentView('chat-history')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
+                currentView === 'chat-history' 
+                  ? 'text-blue-600 bg-blue-50' 
+                  : 'text-gray-700 hover:bg-[#f0ece3]'
+              }`}
             >
-              <MessageSquare size={16} />
+              <MessageSquare size={18} className="rotate-90" />
               <span>Historique des conversations</span>
             </button>
-          </div>
-          
-          <div className="px-3 mt-2">
-            <div className="flex items-center justify-between px-2 py-1">
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Mes Voyages</h3>
-              <Link href="/travel/new">
-                <PlusCircle size={14} className="text-gray-400 hover:text-gray-600 transition-colors" />
-              </Link>
-            </div>
             
-            <div className="mt-1 space-y-0.5">
-              {travelPlans.length > 0 ? (
-                travelPlans.map(travel => (
-                  <Link 
-                    key={travel.id}
-                    href={`/travel/${travel.id}`}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors group"
-                  >
-                    <div className="flex-shrink-0 h-4 w-4 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 opacity-80"></div>
-                    <span className="truncate group-hover:text-gray-900">{travel.destination}</span>
-                  </Link>
-                ))
-              ) : (
-                <div className="text-xs text-gray-400 px-2 py-2">Aucun voyage planifié</div>
-              )}
-            </div>
-          </div>
+            <button
+              onClick={() => setCurrentView('documents')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
+                currentView === 'documents' 
+                  ? 'text-blue-600 bg-blue-50' 
+                  : 'text-gray-700 hover:bg-[#f0ece3]'
+              }`}
+            >
+              <FileText size={18} />
+              <span>Documents</span>
+            </button>
+          </nav>
           
-          <div className="mt-auto p-3">
-            <div className="px-2 py-1 mb-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+          {/* Raccourcis */}
+          <div className="px-2 py-2 border-t border-[#e6e0d4] mt-2">
+            <div className="px-3 py-1 text-xs font-medium text-gray-500 uppercase">
               Raccourcis
             </div>
-            <div className="space-y-1">
+            <div className="mt-1 space-y-1">
+              <Link 
+                href="/travel/new" 
+                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-[#f0ece3]"
+              >
+                <PlusCircle size={18} />
+                <span>Nouveau voyage</span>
+              </Link>
               <Link 
                 href="/calendar" 
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
+                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-[#f0ece3]"
               >
-                <Calendar size={14} className="text-gray-500" />
+                <Calendar size={18} />
                 <span>Calendrier</span>
-              </Link>
-              <Link 
-                href="/destinations" 
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
-              >
-                <Globe size={14} className="text-gray-500" />
-                <span>Destinations</span>
-              </Link>
-              <Link 
-                href="/favorites" 
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
-              >
-                <Bookmark size={14} className="text-gray-500" />
-                <span>Favoris</span>
               </Link>
             </div>
           </div>
           
-          <div className="mt-2 p-3 border-t border-[#e6e0d4]">
-            <div className="flex items-center justify-between py-1 px-1">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-200 to-purple-300 flex items-center justify-center text-purple-800 font-medium overflow-hidden">
-                  {user.email?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="text-sm font-medium">{user.email?.split('@')[0]}</div>
+          {/* User */}
+          <div className="border-t border-[#e6e0d4] p-3">
+            <div className="flex items-center gap-3 px-2 py-2">
+              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium">
+                {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-700 truncate">
+                  {user?.displayName || user?.email || 'Utilisateur'}
+                </p>
               </div>
               <LogoutButton 
                 variant="icon" 
@@ -762,7 +740,7 @@ export function Dashboard() {
         {/* Dashboard View */}
         {currentView === 'dashboard' && (
           <div className="flex-1 overflow-auto p-6">
-            <div className="max-w-5xl mx-auto">
+            <div className="w-full">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
                 <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 hover:shadow-md transition-shadow duration-300">
                   <div className="flex items-center gap-3 mb-4">

@@ -131,4 +131,33 @@ export interface ChatHistory {
   updatedAt: string;
   tags?: string[];
   isFavorite?: boolean;
+}
+
+// Types pour les itinéraires de voyage générés
+export interface TravelItinerary {
+  title?: string;
+  description?: string;
+  days?: TravelItineraryDay[];
+  totalBudget?: string;
+  recommendations?: string[];
+  links?: Array<{ title: string; url: string }>;
+}
+
+export interface TravelItineraryDay {
+  dayNumber?: number;
+  day?: number;
+  date?: string;
+  activities?: TravelItineraryActivity[];
+  accommodation?: {
+    name?: string;
+    cost?: string;
+    location?: string;
+  };
+}
+
+export interface TravelItineraryActivity {
+  time?: string;
+  description?: string;
+  location?: string;
+  cost?: string;
 } 

@@ -1,0 +1,62 @@
+const fetchTravelContext = async (travelId: string) => {
+  if (!travelId || !user) return null;
+  
+  try {
+    // Récupérer les notes
+    const notesRef = collection(db, 'notes');
+    const notesQuery = query(notesRef, where('tripId', '==', travelId));
+    const notesSnapshot = await getDocs(notesQuery);
+    const notes = notesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Récupérer les événements du calendrier
+    const eventsRef = collection(db, 'events');
+    const eventsQuery = query(eventsRef, where('tripId', '==', travelId));
+    const eventsSnapshot = await getDocs(eventsQuery);
+    const events = eventsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Récupérer les liens
+    const tripDoc = await getDoc(doc(db, 'travels', travelId));
+    const tripData = tripDoc.data();
+    const links = tripData?.links || [];
+
+    // Récupérer les points de carte
+    const mapPointsRef = collection(db, 'mapPoints');
+    const mapPointsQuery = query(mapPointsRef, where('tripId', '==', travelId));
+    const mapPointsSnapshot = await getDocs(mapPointsQuery);
+    const mapPoints = mapPointsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    return {
+      notes,
+      events,
+      links,
+      mapPoints,
+      tripData
+    };
+  } catch (error) {
+    console.error("Erreur lors de la récupération du contexte voyage:", error);
+    return null;
+  }
+};
+
+// Fonction pour déterminer si une recherche web est nécessaire
+const needsSearchForQuestion = (question: string): boolean => {
+  const webSearchPhrases = [
+    "recherche", "quoi voir", "que faire", "où aller", "meilleur", "prix", 
+    "météo", "comment se rendre", "transport", "vol", "hôtel", "restaurant",
+    "activité", "visite", "attraction", "horaire", "ouvert", "tarif",
+    "2024", "actuel", "récent", "nouveau", "avis", "review"
+  ];
+  
+  return webSearchPhrases.some(phrase => 
+    question.toLowerCase().includes(phrase.toLowerCase())
+  );
+}; 

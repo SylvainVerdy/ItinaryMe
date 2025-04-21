@@ -12,12 +12,12 @@ import { useToast } from '@/hooks/use-toast';
 
 interface EditTripDatesProps {
   tripId: string;
-  currentStartDate: string | Date;
-  currentEndDate: string | Date;
-  onUpdate?: () => void;
+  startDate: string | Date;
+  endDate: string | Date;
+  onUpdate?: (startDate: string, endDate: string) => void;
 }
 
-export function EditTripDates({ tripId, currentStartDate, currentEndDate, onUpdate }: EditTripDatesProps) {
+export function EditTripDates({ tripId, startDate: currentStartDate, endDate: currentEndDate, onUpdate }: EditTripDatesProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [startDate, setStartDate] = useState(formatDateForInput(currentStartDate));
   const [endDate, setEndDate] = useState(formatDateForInput(currentEndDate));
@@ -89,9 +89,9 @@ export function EditTripDates({ tripId, currentStartDate, currentEndDate, onUpda
       // Fermer la boîte de dialogue
       setIsOpen(false);
 
-      // Callback pour rafraîchir les données parentes
+      // Callback pour rafraîchir les données parentes avec les nouvelles dates
       if (onUpdate) {
-        onUpdate();
+        onUpdate(startDate, endDate);
       }
     } catch (error) {
       console.error("Erreur lors de la mise à jour des dates:", error);

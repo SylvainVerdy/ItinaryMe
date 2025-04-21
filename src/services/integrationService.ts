@@ -76,7 +76,7 @@ class IntegrationService {
   }
 
   // Extraire les points de carte depuis les événements
-  async extractMapPointsFromEvents(tripId: string, events: TravelEvent[]): Promise<MapPoint[]> {
+  async extractMapPointsFromEvents(events: TravelEvent[]): Promise<MapPoint[]> {
     const mapPoints: MapPoint[] = [];
     
     events.forEach(event => {

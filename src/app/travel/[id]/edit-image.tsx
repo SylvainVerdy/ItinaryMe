@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { doc, updateDoc, addDoc, collection, deleteDoc, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, deleteDoc, query, where, getDocs, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -131,12 +131,25 @@ export default function EditTravelImage({ travelId, currentImageUrl, currentLink
           const base64Image = event.target.result;
           console.log("Image encodée en base64, longueur:", base64Image.length);
           
-          // Mettre à jour directement dans Firestore avec l'image en base64
-          console.log("Mise à jour de Firestore avec l'image encodée...");
-          await updateDoc(doc(db, 'travels', travelId), {
-            imageUrl: base64Image
+          // 1. Créer d'abord une entrée dans la collection 'images'
+          const imageRef = await addDoc(collection(db, 'images'), {
+            base64Data: base64Image,
+            fileName: file.name,
+            contentType: file.type,
+            createdAt: serverTimestamp(),
+            travelId: travelId
           });
-          console.log("Firestore mis à jour avec succès");
+          
+          console.log("Image sauvegardée dans la collection 'images' avec ID:", imageRef.id);
+          
+          // 2. Mettre à jour le document du voyage avec la référence à l'image
+          console.log("Mise à jour du voyage avec l'ID de l'image...");
+          await updateDoc(doc(db, 'travels', travelId), {
+            imageId: imageRef.id,
+            imageUrl: base64Image, // Garder l'URL pour la compatibilité avec le code existant
+            updatedAt: serverTimestamp()
+          });
+          console.log("Voyage mis à jour avec l'ID de l'image:", imageRef.id);
           
           // Mettre à jour l'état local
           setImageUrl(base64Image);

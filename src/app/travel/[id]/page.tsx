@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { travelService, TravelPlan } from '@/services/travelService';
 import { LogoutButton } from '@/components/LogoutButton';
 import Link from 'next/link';
-import { Star, Image, Calendar, Users, LinkIcon, FileText, FileEdit, CheckCircle, Loader2, MessageSquare } from 'lucide-react';
+import { Star, Image, Calendar, Users, LinkIcon, FileText, FileEdit, CheckCircle, Loader2, MessageSquare, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -74,57 +74,46 @@ export default function TravelDetailPage() {
     
     const fetchTravelDetails = async () => {
       try {
-        setLoadingTravel(true);
-        const travelData = await travelService.getTravelById(travelId);
+        console.log("Récupération des détails du voyage...");
+        const response = await travelService.getTravelById(travelId);
+        console.log("Détails du voyage récupérés:", response);
         
-        if (!travelData) {
-          setError("Ce voyage n'existe pas.");
-          return;
-        }
-        
-        if (travelData.userId !== user?.uid) {
-          setError("Vous n'avez pas accès à ce voyage.");
-          return;
-        }
-        
-        setTravel(travelData);
-        setIsFavorite(travelData.isFavorite || false);
-        
-        // Initialiser les notes
-        if (travelData.notes) {
-          setNotes(travelData.notes);
-        }
-        
-        // Tenter de récupérer l'image depuis la collection 'images'
-        try {
-          if (travelData.imageId) {
-            console.log("Récupération de l'image depuis la collection 'images'...");
-            const imageDoc = await getDoc(doc(db, 'images', travelData.imageId));
-            
-            if (imageDoc.exists()) {
-              console.log("Image trouvée dans la collection 'images'");
-              const imageData = imageDoc.data();
-              setImageData(imageData.base64Data);
-            } else {
-              console.log("L'image n'existe pas dans la collection 'images'");
-              // Fallback vers l'URL si disponible
-              setImageData(travelData.imageUrl || null);
+        if (response) {
+          setTravel(response);
+          setIsFavorite(response.isFavorite || false);
+          
+          // Récupérer l'image si un imageId est disponible
+          if (response.imageId) {
+            try {
+              console.log("Récupération de l'image avec ID:", response.imageId);
+              const imageDoc = await getDoc(doc(db, 'images', response.imageId));
+              
+              if (imageDoc.exists()) {
+                console.log("Image trouvée dans la collection 'images'");
+                const imageData = imageDoc.data();
+                setImageData(imageData.base64Data || null);
+              } else {
+                console.log("Image non trouvée, utilisation de l'URL directe");
+                setImageData(response.imageUrl || null);
+              }
+            } catch (imgError) {
+              console.error("Erreur lors de la récupération de l'image:", imgError);
+              // Fallback sur imageUrl si disponible
+              setImageData(response.imageUrl || null);
             }
-          } else {
-            // Aucun ID d'image, utiliser l'URL si disponible
-            setImageData(travelData.imageUrl || null);
+          } else if (response.imageUrl) {
+            // Si pas d'imageId mais imageUrl existe, utiliser imageUrl
+            console.log("Aucun imageId trouvé, utilisation de imageUrl directement");
+            setImageData(response.imageUrl || null);
           }
-        } catch (imgError) {
-          console.error("Erreur lors de la récupération de l'image:", imgError);
-          // Fallback vers l'URL si disponible
-          setImageData(travelData.imageUrl || null);
         }
         
-      } catch (error) {
-        console.error("Erreur lors de la récupération du voyage:", error);
-        setError("Une erreur est survenue lors du chargement du voyage.");
-      } finally {
+        // Mettre fin au chargement après avoir récupéré les données
         setLoadingTravel(false);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des détails du voyage:", error);
+        setLoadingTravel(false);
+        setError("Erreur lors du chargement des détails du voyage");
       }
     };
     
@@ -134,13 +123,21 @@ export default function TravelDetailPage() {
   useEffect(() => {
     // Charger les événements du calendrier
     const fetchCalendarEvents = async () => {
-      if (!travelId) return;
+      if (!travelId || !travel) return;
       
       try {
         setLoadingEvents(true);
         const events = await calendarService.getEventsForTrip(travelId);
         console.log("Événements du calendrier chargés:", events);
-        setCalendarEvents(events);
+        
+        // Convertir les événements au format attendu
+        const formattedEvents = events.map(event => ({
+          ...event,
+          start: new Date(event.start),
+          end: new Date(event.end)
+        })) as TravelEvent[];
+        
+        setCalendarEvents(formattedEvents);
       } catch (error) {
         console.error("Erreur lors du chargement des événements du calendrier:", error);
       } finally {
@@ -160,13 +157,7 @@ export default function TravelDetailPage() {
       
       try {
         // Extraire les points de la carte à partir des événements du calendrier
-        const points = await integrationService.extractMapPointsFromEvents(
-          calendarEvents.map(event => ({
-            ...event,
-            start: new Date(event.start),
-            end: new Date(event.end)
-          })) as TravelEvent[]
-        );
+        const points = await integrationService.extractMapPointsFromEvents(calendarEvents);
         setMapPoints(points);
       } catch (error) {
         console.error("Erreur lors du chargement des points sur la carte:", error);
@@ -180,7 +171,7 @@ export default function TravelDetailPage() {
   
   // Synchroniser les notes avec le calendrier et la carte lors de l'initialisation
   useEffect(() => {
-    const syncNotesWithComponents = async () => {
+    const loadNotesData = async () => {
       if (!travelId || loadingTravel || !user) return;
       
       try {
@@ -198,19 +189,28 @@ export default function TravelDetailPage() {
         } as Note));
         
         if (notesData.length > 0) {
-          // Synchroniser les notes avec le calendrier et la carte
-          await integrationService.syncNotesWithCalendarAndMap(travelId, notesData);
-          
           // Rafraîchir les événements du calendrier
-          const updatedEvents = await calendarService.getEventsForTrip(travelId);
-          setCalendarEvents(updatedEvents);
+          try {
+            const updatedEvents = await calendarService.getEventsForTrip(travelId);
+            
+            // Convertir les événements au format attendu
+            const formattedEvents = updatedEvents.map(event => ({
+              ...event,
+              start: new Date(event.start),
+              end: new Date(event.end)
+            })) as TravelEvent[];
+            
+            setCalendarEvents(formattedEvents);
+          } catch (error) {
+            console.error("Erreur lors du rafraîchissement des événements:", error);
+          }
         }
       } catch (error) {
-        console.error("Erreur lors de la synchronisation des notes:", error);
+        console.error("Erreur lors du chargement des notes:", error);
       }
     };
     
-    syncNotesWithComponents();
+    loadNotesData();
   }, [travelId, loadingTravel, user]);
   
   const handleDelete = async () => {
@@ -228,6 +228,8 @@ export default function TravelDetailPage() {
   };
   
   const toggleFavorite = async () => {
+    if (!travelId) return;
+    
     try {
       const newStatus = !isFavorite;
       
@@ -256,6 +258,8 @@ export default function TravelDetailPage() {
   
   // Rafraîchir les données du voyage
   const refreshTravelData = async () => {
+    if (!travelId) return;
+    
     try {
       const docRef = doc(db, 'travels', travelId);
       const docSnap = await getDoc(docRef);
@@ -264,7 +268,8 @@ export default function TravelDetailPage() {
         const travelData = { 
           id: docSnap.id, 
           ...docSnap.data() 
-        };
+        } as TravelPlan;
+        
         setTravel(travelData);
         setIsFavorite(travelData.isFavorite || false);
         
@@ -272,7 +277,7 @@ export default function TravelDetailPage() {
         if (travelData.imageId) {
           const imageDoc = await getDoc(doc(db, 'images', travelData.imageId));
           if (imageDoc.exists()) {
-            setImageData(imageDoc.data().base64Data);
+            setImageData(imageDoc.data().base64Data || null);
           } else {
             setImageData(travelData.imageUrl || null);
           }
@@ -287,7 +292,7 @@ export default function TravelDetailPage() {
   
   // Sauvegarder les notes
   const saveNotes = async () => {
-    if (isSavingNotes) return;
+    if (isSavingNotes || !travelId) return;
     
     try {
       setIsSavingNotes(true);
@@ -339,7 +344,14 @@ export default function TravelDetailPage() {
       
       if (eventId) {
         // Ajouter l'événement à la liste locale
-        const newEvent = { id: eventId, tripId: travelId, ...event };
+        const newEvent = { 
+          id: eventId, 
+          tripId: travelId, 
+          ...event,
+          start: new Date(event.start),
+          end: new Date(event.end)
+        } as TravelEvent;
+        
         setCalendarEvents(prev => [...prev, newEvent]);
         
         // Si l'événement a des coordonnées, ajouter un point sur la carte
@@ -376,7 +388,13 @@ export default function TravelDetailPage() {
   
   const handleUpdateCalendarEvent = async (event: TravelEvent) => {
     try {
-      const success = await calendarService.updateEvent(event);
+      // Ajouter le tripId si manquant
+      const completeEvent = {
+        ...event,
+        tripId: travelId
+      };
+      
+      const success = await calendarService.updateEvent(completeEvent as any);
       
       if (success) {
         // Mettre à jour l'événement dans la liste locale
@@ -498,181 +516,179 @@ export default function TravelDetailPage() {
             <span className="text-sm text-gray-700">Voyage</span>
           </div>
           
-          {loading || loadingTravel ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold">{travel.destination}</h1>
+            <div className="flex space-x-2">
+              <button
+                onClick={toggleFavorite}
+                className="text-yellow-500 hover:text-yellow-600"
+              >
+                <Star className={isFavorite ? "fill-current" : ""} />
+              </button>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded-md"
+              >
+                Retour
+              </button>
+              <button
+                onClick={handleDelete}
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md"
+              >
+                Supprimer
+              </button>
             </div>
-          ) : travel ? (
-            <>
-              <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold">{travel.destination}</h1>
-                <div className="flex space-x-2">
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="md:col-span-2">
+              <div className="bg-white rounded-lg shadow p-6 mb-6 relative">
+                <div className="absolute top-4 right-4 flex space-x-2">
                   <button
-                    onClick={toggleFavorite}
-                    className="text-yellow-500 hover:text-yellow-600"
+                    onClick={() => setShowEditImage(true)}
+                    className="bg-gray-100 p-2 rounded-full hover:bg-gray-200"
+                    title="Modifier l'image"
                   >
-                    <Star className={isFavorite ? "fill-current" : ""} />
+                    <FileEdit className="h-4 w-4" />
                   </button>
-                  <button
-                    onClick={() => router.push('/travels')}
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded-md"
-                  >
-                    Retour
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md"
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="md:col-span-2">
-                  <div className="bg-white rounded-lg shadow p-6 mb-6 relative">
-                    <div className="absolute top-4 right-4 flex space-x-2">
-                      <button
-                        onClick={() => setShowEditImage(true)}
-                        className="bg-gray-100 p-2 rounded-full hover:bg-gray-200"
-                        title="Modifier l'image"
-                      >
-                        <FileEdit className="h-4 w-4" />
-                      </button>
-                    </div>
-                    
-                    <div className="h-64 bg-gray-100 mb-4 rounded-lg overflow-hidden flex items-center justify-center">
-                      {imageData ? (
-                        <img
-                          src={imageData}
-                          alt={travel.destination}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-gray-400">
-                          <Image className="h-12 w-12 mb-2" />
-                          <p>Aucune image disponible</p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="mb-4">
-                      <EditTripDates 
-                        tripId={travelId} 
-                        startDate={travel.dateDepart} 
-                        endDate={travel.dateRetour}
-                        onUpdate={(startDate, endDate) => {
-                          if (travel) {
-                            setTravel({
-                              ...travel,
-                              dateDepart: startDate,
-                              dateRetour: endDate
-                            });
-                          }
-                        }}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center mb-4">
-                      <Users className="mr-2 h-5 w-5 text-gray-500" />
-                      <span>{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</span>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 mt-4">
-                      <Link
-                        href={`/travel/${travelId}/calendar`}
-                        className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200"
-                      >
-                        <Calendar className="mr-1 h-4 w-4" />
-                        Calendrier
-                      </Link>
-                      
-                      <Link
-                        href={`/travel/${travelId}/map`}
-                        className="flex items-center bg-green-100 text-green-800 px-3 py-1 rounded-full hover:bg-green-200"
-                      >
-                        <MapPin className="mr-1 h-4 w-4" />
-                        Carte
-                      </Link>
-                      
-                      <Link
-                        href={`/chat?travelId=${travelId}`}
-                        className="flex items-center bg-purple-100 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-200"
-                      >
-                        <MessageSquare className="mr-1 h-4 w-4" />
-                        Assistant IA
-                      </Link>
-                      
-                      <Link
-                        href={`/travel/${travelId}/budget`}
-                        className="flex items-center bg-amber-100 text-amber-800 px-3 py-1 rounded-full hover:bg-amber-200"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 h-4 w-4">
-                          <circle cx="12" cy="12" r="10"/>
-                          <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
-                          <path d="M12 18V6"/>
-                        </svg>
-                        Budget
-                      </Link>
-                      
-                      <Link
-                        href={`/travel/${travelId}/notes`}
-                        className="flex items-center bg-teal-100 text-teal-800 px-3 py-1 rounded-full hover:bg-teal-200"
-                      >
-                        <FileText className="mr-1 h-4 w-4" />
-                        Notes
-                      </Link>
-                      
-                      <Link
-                        href={`/travel/${travelId}/links`}
-                        className="flex items-center bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full hover:bg-indigo-200"
-                      >
-                        <LinkIcon className="mr-1 h-4 w-4" />
-                        Liens
-                      </Link>
-                    </div>
-                  </div>
                 </div>
                 
-                <div className="md:col-span-1">
-                  <div className="bg-white rounded-lg shadow p-6 mb-6">
-                    <h2 className="text-xl font-bold mb-4">Détails du voyage</h2>
-                    <div className="flex flex-wrap gap-6">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="text-blue-500" size={20} />
-                        <div>
-                          <div className="text-sm text-gray-500">Dates</div>
-                          <div className="font-medium">
-                            {new Date(travel.dateDepart).toLocaleDateString('fr-FR')} - {new Date(travel.dateRetour).toLocaleDateString('fr-FR')}
-                          </div>
-                        </div>
+                <div className="h-64 bg-gray-100 mb-4 rounded-lg overflow-hidden flex items-center justify-center">
+                  {imageData ? (
+                    <img
+                      src={imageData}
+                      alt={travel.destination}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-gray-400">
+                      <Image className="h-12 w-12 mb-2" />
+                      <p>Aucune image disponible</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mb-4">
+                  {travelId && (
+                    <EditTripDates 
+                      tripId={travelId}
+                      startDate={travel.dateDepart}
+                      endDate={travel.dateRetour}
+                      onUpdate={(startDate, endDate) => {
+                        if (travel) {
+                          setTravel({
+                            ...travel,
+                            dateDepart: startDate,
+                            dateRetour: endDate
+                          });
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+                
+                <div className="flex items-center mb-4">
+                  <Users className="mr-2 h-5 w-5 text-gray-500" />
+                  <span>{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</span>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Link
+                    href={`/travel/${travelId}/calendar`}
+                    className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200"
+                  >
+                    <Calendar className="mr-1 h-4 w-4" />
+                    Calendrier
+                  </Link>
+                  
+                  <Link
+                    href={`/travel/${travelId}/map`}
+                    className="flex items-center bg-green-100 text-green-800 px-3 py-1 rounded-full hover:bg-green-200"
+                  >
+                    <MapPin className="mr-1 h-4 w-4" />
+                    Carte
+                  </Link>
+                  
+                  <Link
+                    href={`/chat?travelId=${travelId}`}
+                    className="flex items-center bg-purple-100 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-200"
+                  >
+                    <MessageSquare className="mr-1 h-4 w-4" />
+                    Assistant IA
+                  </Link>
+                  
+                  <Link
+                    href={`/travel/${travelId}/budget`}
+                    className="flex items-center bg-amber-100 text-amber-800 px-3 py-1 rounded-full hover:bg-amber-200"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 h-4 w-4">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
+                      <path d="M12 18V6"/>
+                    </svg>
+                    Budget
+                  </Link>
+                  
+                  <Link
+                    href={`/travel/${travelId}/search`}
+                    className="flex items-center bg-rose-100 text-rose-800 px-3 py-1 rounded-full hover:bg-rose-200"
+                  >
+                    <Search className="mr-1 h-4 w-4" />
+                    Recherche
+                  </Link>
+                  
+                  <Link
+                    href={`/travel/${travelId}/notes`}
+                    className="flex items-center bg-teal-100 text-teal-800 px-3 py-1 rounded-full hover:bg-teal-200"
+                  >
+                    <FileText className="mr-1 h-4 w-4" />
+                    Notes
+                  </Link>
+                  
+                  <Link
+                    href={`/travel/${travelId}/links`}
+                    className="flex items-center bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full hover:bg-indigo-200"
+                  >
+                    <LinkIcon className="mr-1 h-4 w-4" />
+                    Liens
+                  </Link>
+                </div>
+              </div>
+            </div>
+            
+            <div className="md:col-span-1">
+              <div className="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 className="text-xl font-bold mb-4">Détails du voyage</h2>
+                <div className="flex flex-wrap gap-6">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="text-blue-500" size={20} />
+                    <div>
+                      <div className="text-sm text-gray-500">Dates</div>
+                      <div className="font-medium">
+                        {new Date(travel.dateDepart).toLocaleDateString('fr-FR')} - {new Date(travel.dateRetour).toLocaleDateString('fr-FR')}
                       </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Users className="text-blue-500" size={20} />
-                        <div>
-                          <div className="text-sm text-gray-500">Voyageurs</div>
-                          <div className="font-medium">{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</div>
-                        </div>
-                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Users className="text-blue-500" size={20} />
+                    <div>
+                      <div className="text-sm text-gray-500">Voyageurs</div>
+                      <div className="font-medium">{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</div>
                     </div>
                   </div>
                 </div>
               </div>
-              
-              {showEditImage && (
-                <EditTravelImage 
-                  travelId={travelId} 
-                  currentImageUrl={imageData || undefined} 
-                  currentLinks={travel.links || []}
-                  onUpdate={refreshTravelData} 
-                />
-              )}
-            </>
-          ) : (
-            <div className="bg-red-50 p-4 rounded-lg text-red-700">
-              Voyage non trouvé ou vous n'avez pas les permissions pour y accéder.
             </div>
+          </div>
+          
+          {showEditImage && travelId && (
+            <EditTravelImage 
+              travelId={travelId}
+              currentImageUrl={imageData || undefined}
+              currentLinks={travel.links || []}
+              onUpdate={refreshTravelData}
+            />
           )}
         </div>
       </main>

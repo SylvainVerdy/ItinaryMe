@@ -30,8 +30,7 @@ export default function DashboardPage() {
   }
   
   return (
-    <div>
-      {/* Afficher le Dashboard existant */}
+    <div className="min-h-screen bg-[#f8f5ec]">
       <Dashboard />
     </div>
   );

@@ -166,7 +166,7 @@ const BrowserAgentResults = ({ result }: { result: BrowserAgentResult }) => {
   );
 };
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ onDeleteTravel, tripContext }) => {
+export const ChatInterface: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -1290,12 +1290,12 @@ CONTEXTE DU VOYAGE À ${tripData.destination} (${formatDate(tripData.startDate)}
 
 NOTES:
 ${travelContext.notes.length > 0 
-  ? travelContext.notes.map((note: any) => `- ${note.title}: ${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}`).join('\n')
+  ? travelContext.notes.map((note: Note) => `- ${note.title}: ${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}`).join('\n')
   : 'Aucune note'}
 
 ÉVÉNEMENTS:
 ${travelContext.events.length > 0
-  ? travelContext.events.map((event: any) => `- ${event.title}: ${formatDate(event.start)} - ${formatDate(event.end)}, ${event.location || 'Lieu non spécifié'}`).join('\n')
+  ? travelContext.events.map((event: TravelEvent) => `- ${event.title}: ${formatDate(event.start)} - ${formatDate(event.end)}, ${event.location || 'Lieu non spécifié'}`).join('\n')
   : 'Aucun événement'}
 
 LIENS IMPORTANTS:
@@ -1305,7 +1305,7 @@ ${travelContext.links && travelContext.links.length > 0
 
 POINTS D'INTÉRÊT:
 ${travelContext.mapPoints.length > 0
-  ? travelContext.mapPoints.map((point: any) => `- ${point.title}: ${point.lat}, ${point.lng}, ${point.description || ''}`).join('\n')
+  ? travelContext.mapPoints.map((point: MapPoint) => `- ${point.title}: ${point.lat}, ${point.lng}, ${point.description || ''}`).join('\n')
   : 'Aucun point sur la carte'}
 `;
         }
@@ -1666,7 +1666,7 @@ ${travelContext.mapPoints.length > 0
       {browserAgent.result && <BrowserAgentResults result={browserAgent.result} />}
       
       {/* Indicateur de chargement pour l'agent */}
-      {browserAgent.loading && (
+      {browserAgent.isLoading && (
         <div className="flex items-center justify-center py-4">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
           <span className="ml-2 text-sm text-gray-600">Exécution de l'action dans le navigateur...</span>
