@@ -4,6 +4,7 @@ export interface FlightSearchResult {
   destination: string;
   date?: string;
   options: Array<{
+    id?: string;
     airline: string;
     price: string;
     departureTime?: string;
@@ -30,6 +31,7 @@ export interface FlightSearchResult {
   bestOption?: {
     airline: string;
     price: string;
+    id?: string;
   };
 }
 
@@ -41,6 +43,7 @@ export interface HotelSearchResult {
     checkOut: string;
   };
   options: Array<{
+    id?: string;
     name: string;
     price: string;
     rating?: string;
@@ -53,6 +56,7 @@ export interface HotelSearchResult {
     name: string;
     price: string;
     rating?: string;
+    id?: string;
   };
 }
 

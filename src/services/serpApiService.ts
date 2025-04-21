@@ -1,4 +1,4 @@
-import { HotelSearchResult, FlightSearchResult } from '@/types/search';
+import { HotelSearchResult, FlightSearchResult, RestaurantSearchResult } from '@/types/search';
 
 const SERPAPI_KEY = process.env.SERPAPI_API_KEY || '';
 
@@ -17,35 +17,32 @@ export class SerpApiService {
     currency: string = 'EUR'
   ): Promise<HotelSearchResult> {
     try {
-      // Construction des paramètres pour SerpAPI
-      const params = new URLSearchParams({
+      // Construire un objet de paramètres pour l'API
+      const params: Record<string, any> = {
         engine: 'google_hotels',
         q: location,
-        api_key: SERPAPI_KEY,
         currency,
         adults: guests.toString(),
         hl: 'fr',
         gl: 'fr'
-      });
+      };
 
       // Ajout des dates si présentes
-      if (checkIn) params.append('check_in_date', checkIn);
-      if (checkOut) params.append('check_out_date', checkOut);
+      if (checkIn) params.check_in_date = checkIn;
+      if (checkOut) params.check_out_date = checkOut;
 
-      const apiUrl = `https://serpapi.com/search?${params.toString()}`;
-      console.log("SerpAPI URL:", apiUrl);
-      console.log("API Key utilisée:", SERPAPI_KEY?.substring(0, 5) + "..." + SERPAPI_KEY?.substring(SERPAPI_KEY.length - 5));
-
-      const response = await fetch(apiUrl);
+      const response = await fetch('/api/serpapi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: 'search', params })
+      });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Erreur SerpAPI:", response.status, errorText);
-        throw new Error(`Erreur API SerpAPI: ${response.status} - ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur API');
       }
       
-      const data = await response.json();
-      console.log("Réponse SerpAPI:", JSON.stringify(data).substring(0, 500) + "...");
+      const { data } = await response.json();
       
       // Transformation des données pour correspondre à notre format interne
       return this.formatHotelResults(data, location, checkIn, checkOut);
@@ -68,49 +65,46 @@ export class SerpApiService {
   ): Promise<FlightSearchResult> {
     try {
       // Obtenir les codes IATA pour l'origine et la destination
-      const originCode = await this.getCityAirportCode(origin);
-      const destinationCode = await this.getCityAirportCode(destination);
+      const departureId = await this.getCityAirportCode(origin);
+      const arrivalId = await this.getCityAirportCode(destination);
       
-      // Construction des paramètres pour SerpAPI
-      const params = new URLSearchParams({
+      console.log(`Codes aéroport: ${origin} → ${departureId}, ${destination} → ${arrivalId}`);
+      
+      // Construire un objet de paramètres pour l'API
+      const params: Record<string, any> = {
         engine: 'google_flights',
-        api_key: SERPAPI_KEY,
-        departure_id: originCode,
-        arrival_id: destinationCode,
+        departure_id: departureId,
+        arrival_id: arrivalId,
         currency,
         hl: 'fr',
         gl: 'fr',
-        stops: '0' // "0" = any number of stops (default) pour inclure tous les types de vols
-      });
+        stops: '0'
+      };
 
       // Ajout des dates si présentes
-      if (date) params.append('outbound_date', date);
-      if (returnDate) params.append('return_date', returnDate);
-      if (passengers > 1) params.append('adults', passengers.toString());
+      if (date) params.outbound_date = date;
+      if (returnDate) params.return_date = returnDate;
+      if (passengers > 1) params.adults = passengers.toString();
 
-      const apiUrl = `https://serpapi.com/search?${params.toString()}`;
-      console.log("SerpAPI URL de recherche de vols:", apiUrl);
-      console.log("API Key utilisée:", SERPAPI_KEY?.substring(0, 5) + "..." + SERPAPI_KEY?.substring(SERPAPI_KEY.length - 5));
-      console.log("Origine:", origin, "→", originCode);
-      console.log("Destination:", destination, "→", destinationCode);
-
-      const response = await fetch(apiUrl);
+      const response = await fetch('/api/serpapi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: 'search', params })
+      });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Erreur SerpAPI Flights:", response.status, errorText);
-        throw new Error(`Erreur API SerpAPI: ${response.status} - ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur API');
       }
       
-      const data = await response.json();
-      console.log("Réponse SerpAPI Flights (début):", JSON.stringify(data).substring(0, 500) + "...");
+      const { data } = await response.json();
       
       // Vérifier si l'API a retourné une erreur
       if (data.error) {
         throw new Error(`Erreur SerpAPI: ${data.error}`);
       }
       
-      // Vérifier la structure de la réponse pour être sûr qu'elle contient des résultats de vols
+      // Vérifier la structure de la réponse
       if (!data.best_flights && !data.other_flights) {
         console.error("Structure de réponse inattendue:", JSON.stringify(data).substring(0, 1000));
         throw new Error("Aucun résultat de vol trouvé dans la réponse de l'API");
@@ -120,6 +114,55 @@ export class SerpApiService {
       return this.formatFlightResults(data, origin, destination, date);
     } catch (error) {
       console.error('Erreur lors de la recherche de vols via SerpAPI:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Recherche de restaurants via Google Maps API de SerpAPI
+   */
+  static async searchRestaurants(
+    location: string,
+    cuisine?: string,
+    priceRange?: string
+  ): Promise<RestaurantSearchResult> {
+    try {
+      // Construire un objet de paramètres pour l'API
+      const params: Record<string, any> = {
+        engine: 'google_maps',
+        q: cuisine ? `${cuisine} restaurants in ${location}` : `restaurants in ${location}`,
+        type: 'restaurants',
+        hl: 'fr',
+        gl: 'fr'
+      };
+
+      // Ajout du filtre de prix si présent
+      if (priceRange) {
+        params.price = priceRange.length.toString();
+      }
+
+      const response = await fetch('/api/serpapi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: 'search', params })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur API');
+      }
+      
+      const { data } = await response.json();
+      
+      // Vérifier si l'API a retourné une erreur
+      if (data.error) {
+        throw new Error(`Erreur SerpAPI: ${data.error}`);
+      }
+      
+      // Transformation des données pour correspondre à notre format interne
+      return this.formatRestaurantResults(data, location, cuisine);
+    } catch (error) {
+      console.error('Erreur lors de la recherche de restaurants via SerpAPI:', error);
       throw error;
     }
   }
@@ -142,16 +185,22 @@ export class SerpApiService {
         checkOut: checkOut || "Non spécifié"
       },
       options: hotels.map((hotel: any) => ({
+        id: `hotel-${hotel.property_token || Math.random().toString(36).substring(2, 15)}`,
         name: hotel.name || "Hôtel inconnu",
         price: hotel.rate_per_night?.lowest || "Prix non disponible",
         rating: hotel.overall_rating ? `${hotel.overall_rating}/5` : "Note non disponible",
         amenities: hotel.amenities || [],
-        link: hotel.link || "#"
+        address: hotel.address,
+        imageUrl: hotel.images?.[0]?.original_image || hotel.images?.[0]?.thumbnail,
+        link: hotel.link || (hotel.property_token ? 
+          `https://www.google.com/travel/hotels/${location}/entity/${hotel.property_token}` : 
+          "#")
       })),
       bestOption: hotels.length > 0 ? {
         name: hotels[0].name || "Hôtel inconnu",
         price: hotels[0].rate_per_night?.lowest || "Prix non disponible",
-        rating: hotels[0].overall_rating ? `${hotels[0].overall_rating}/5` : "Note non disponible"
+        rating: hotels[0].overall_rating ? `${hotels[0].overall_rating}/5` : "Note non disponible",
+        id: `hotel-${hotels[0].property_token || Math.random().toString(36).substring(2, 15)}`
       } : undefined
     };
   }
@@ -187,6 +236,12 @@ export class SerpApiService {
       // Déterminer le type de vol (direct ou avec correspondance)
       const flightType = numStops === 0 ? 'direct' : `${numStops} escale${numStops > 1 ? 's' : ''}`;
       
+      // Récupérer l'URL de réservation du vol si disponible
+      // SerpAPI fournit un booking_token que nous pouvons utiliser pour construire un lien de réservation
+      const bookingUrl = flight.booking_token 
+        ? `https://www.google.com/travel/flights/booking?${flight.booking_token}`
+        : flight.link || "#";
+      
       return {
         airline: flight.flights[0].airline || "Compagnie inconnue",
         price: flight.price ? `${flight.price} ${data.search_parameters?.currency || 'EUR'}` : "Prix non disponible",
@@ -196,7 +251,7 @@ export class SerpApiService {
         stops: numStops,
         layovers: layovers,
         flightType: flightType,
-        link: "#",
+        link: bookingUrl,
         flightDetails: flight.flights.map((segment: any) => ({
           airline: segment.airline || "Compagnie inconnue",
           flightNumber: segment.flight_number || "Numéro inconnu",
@@ -205,7 +260,8 @@ export class SerpApiService {
           arrivalAirport: segment.arrival_airport?.name || "Aéroport inconnu",
           arrivalTime: segment.arrival_airport?.time || "Heure inconnue",
           duration: this.formatDuration(segment.duration) || "Durée inconnue"
-        }))
+        })),
+        id: `flight-${flight.booking_token || Math.random().toString(36).substring(2, 15)}` // Identifiant unique pour la sauvegarde
       };
     });
     
@@ -219,7 +275,8 @@ export class SerpApiService {
     // Trouver la meilleure option (généralement la moins chère)
     const bestOption = sortedFlights.length > 0 ? {
       airline: sortedFlights[0].airline,
-      price: sortedFlights[0].price
+      price: sortedFlights[0].price,
+      id: sortedFlights[0].id
     } : undefined;
     
     return {
@@ -353,5 +410,39 @@ export class SerpApiService {
     const fallbackCode = normalizedName.substring(0, 3).toUpperCase();
     console.warn(`Code IATA non trouvé pour ${cityName}, utilisation du code de substitution ${fallbackCode}`);
     return fallbackCode;
+  }
+
+  /**
+   * Formate les résultats de la recherche de restaurants
+   */
+  private static formatRestaurantResults(
+    data: any,
+    location: string,
+    cuisine?: string
+  ): RestaurantSearchResult {
+    const restaurants = data.local_results?.places || [];
+    
+    return {
+      location,
+      cuisine,
+      options: restaurants.map((restaurant: any) => ({
+        name: restaurant.name || "Restaurant inconnu",
+        priceRange: restaurant.price_level || "Prix non disponible",
+        rating: restaurant.rating ? `${restaurant.rating}/5` : undefined,
+        cuisine: restaurant.type || cuisine,
+        address: restaurant.address,
+        openingHours: restaurant.hours,
+        phoneNumber: restaurant.phone,
+        website: restaurant.website,
+        link: restaurant.website || (restaurant.place_id ? 
+          `https://www.google.com/maps/place/?q=place_id:${restaurant.place_id}` : 
+          "#")
+      })),
+      bestOption: restaurants.length > 0 ? {
+        name: restaurants[0].name || "Restaurant inconnu",
+        rating: restaurants[0].rating ? `${restaurants[0].rating}/5` : undefined,
+        priceRange: restaurants[0].price_level
+      } : undefined
+    };
   }
 } 
