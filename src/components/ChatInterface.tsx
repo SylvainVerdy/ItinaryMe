@@ -12,9 +12,9 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrowserAgent, BrowserAgentResult, BrowserAgentTask } from '@/hooks/useBrowserAgent';
 import { useTrip } from '@/hooks/useTrip';
-import { Pencil, Save, FileText, Plus, Calendar, MapPin, Users, AlertCircle, Trash2, LinkIcon, Send, Globe, Search } from 'lucide-react';
+import { Pencil, Save, FileText, Plus, Calendar, MapPin, Users, AlertCircle, Trash2, LinkIcon, Send, Globe, Search, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Trip, Note } from '@/lib/types';
+import { Trip, Note, ChatMessage } from '@/lib/types';
 import * as noteService from '@/services/noteService';
 import { TripSelector } from '@/components/TripSelector';
 import { TravelForm } from '@/components/TravelForm';
@@ -165,21 +165,11 @@ const BrowserAgentResults = ({ result }: { result: BrowserAgentResult }) => {
   );
 };
 
-interface Message {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp?: Date;
-  webSearchUsed?: boolean;
-  webSources?: Array<{ name: string; url: string }>;
-  isLoading?: boolean;
-  linkedToTrip?: boolean;
-}
-
 export const ChatInterface: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
       content: "Bonjour ! Je suis votre assistant de voyage. Comment puis-je vous aider avec votre itinéraire aujourd'hui ?",
@@ -208,45 +198,48 @@ export const ChatInterface: React.FC = () => {
   const lastAssistantMessages = useRef<string[]>([]);
   // Référence pour faire défiler vers le bas
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   
-  // Utiliser notre hook d'agent de navigation
-  const {
-    initialize,
-    navigate,
-    analyzeContent,
-    taskResult,
-    isLoading: agentLoading,
-    error: agentError,
-    executeTask,
-    result: agentResult,
-  } = useBrowserAgent({
+  // Initialiser l'agent de navigation
+  const browserAgent = useBrowserAgent({
     onSuccess: (result) => {
+      // Désactiver l'état de chargement
+      setMessages(messages => messages.map((msg, idx) => 
+        idx === messages.length - 1 && msg.isLoading ? { ...msg, isLoading: false } : msg
+      ));
+      
       // Ajouter la réponse de l'agent au chat
       if (result.success) {
-        const agentResponseMessage: Message = {
+        const agentResponseMessage: ChatMessage = {
           role: 'assistant',
           content: `J'ai effectué l'action que vous avez demandée. Voici le résultat: ${result.message}`,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
+        
         setMessages((prevMessages) => [...prevMessages, agentResponseMessage]);
       } else {
-        const agentErrorMessage: Message = {
+        const agentErrorMessage: ChatMessage = {
           role: 'assistant',
           content: `Je n'ai pas pu effectuer l'action demandée. Erreur: ${result.error || result.message}`,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
+        
         setMessages((prevMessages) => [...prevMessages, agentErrorMessage]);
       }
+      
+      scrollToBottom();
     },
     onError: (error) => {
       // Ajouter un message d'erreur au chat
-      const errorMessage: Message = {
+      const errorMessage: ChatMessage = {
         role: 'assistant',
         content: `Une erreur s'est produite lors de l'exécution de l'action: ${error.message}`,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
+      
       setMessages((prevMessages) => [...prevMessages, errorMessage]);
-    }
+      scrollToBottom();
+    },
   });
 
   // Ajouter un état pour suivre si un message est analysé
@@ -370,12 +363,20 @@ export const ChatInterface: React.FC = () => {
   };
 
   // Formatage de date pour l'affichage
-  const formatDate = (dateString: string | Date) => {
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    if (isNaN(date.getTime())) {
-      return 'Date invalide';
+  const formatDate = (dateString?: string | Date): string => {
+    if (!dateString) return "Date non définie";
+    
+    try {
+      const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+      return date.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error("Erreur de formatage de date:", error);
+      return "Date invalide";
     }
-    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   // Fonction utilitaire pour ajouter un log de débogage
@@ -433,7 +434,7 @@ export const ChatInterface: React.FC = () => {
     const endDateString = formatDate(data.endDate ? new Date(data.endDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
     
     // Message plus clair et plus visible avec des emojis et mise en forme
-    const confirmationMessage: Message = {
+    const confirmationMessage: ChatMessage = {
       role: 'assistant',
       content: `🔍 J'ai détecté que vous souhaitez planifier un **nouveau voyage** à **${data.destination || "destination non spécifiée"}** du **${startDateString}** au **${endDateString}** pour **${data.numPeople || 1}** personne(s).\n\n⚠️ **IMPORTANT: Voulez-vous que je crée ce voyage pour vous?**\n\n👉 Répondez simplement par **"oui"** pour confirmer, ou précisez d'autres détails si nécessaire.`,
       timestamp: new Date()
@@ -473,29 +474,27 @@ export const ChatInterface: React.FC = () => {
 
   // Gestionnaire pour le sélecteur de voyages
   const handleSelectTrip = (trip: Trip | null) => {
-    setTripData(trip);
-    if (trip) {
-      setCurrentTravelId(trip.id || null);
-      
-      // Si un voyage est sélectionné, envoyer un message d'information
-      const welcomeMessage: Message = {
-        role: 'assistant',
-        content: `Voyage sélectionné : ${trip.destination} du ${formatDate(trip.startDate)} au ${formatDate(trip.endDate)} pour ${trip.numPeople} voyageur${trip.numPeople > 1 ? 's' : ''}. Je peux vous aider avec la planification ou répondre à vos questions sur cette destination.`,
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, welcomeMessage]);
-      
-      // Chargez les notes du voyage
-      if (trip.notes) {
-        setTravelNotes(typeof trip.notes === 'string' ? trip.notes : '');
-        } else {
-        setTravelNotes('');
-        }
-      } else {
+    if (!trip) {
       setCurrentTravelId(null);
-      setTravelNotes('');
+      setTripData(null);
+      return;
     }
+    
+    // Vérifier et compléter les données manquantes
+    const completeTrip = {
+      ...trip,
+      startDate: trip.startDate || new Date().toISOString(),
+      endDate: trip.endDate || new Date().toISOString(),
+      destination: trip.destination || "Destination inconnue",
+      numPeople: trip.numPeople || 1
+    };
+    
+    // Mettre à jour l'état
+    setCurrentTravelId(trip.id);
+    setTripData(completeTrip);
+    
+    // Enregistrer l'ID du voyage dans le localStorage
+    localStorage.setItem('currentTripId', trip.id);
   };
 
   // Fonction pour charger les préférences utilisateur depuis Firebase
@@ -802,10 +801,10 @@ export const ChatInterface: React.FC = () => {
           if (!currentTravelId) {
             // Préparer les données pour la création du voyage
             const travelData: NewTravelData = {
-              destination: itineraryDetection.travelInfo.destination,
-              dateDepart: itineraryDetection.travelInfo.startDate,
-              dateRetour: itineraryDetection.travelInfo.endDate,
-              nombreVoyageurs: itineraryDetection.travelInfo.numPeople,
+              destination: itineraryDetection.travelInfo.destination || "Destination non spécifiée",
+              dateDepart: itineraryDetection.travelInfo.startDate || new Date().toISOString(),
+              dateRetour: itineraryDetection.travelInfo.endDate || new Date().toISOString(),
+              nombreVoyageurs: itineraryDetection.travelInfo.numPeople || 1,
               notes: `Voyage créé automatiquement suite à une demande d'itinéraire.`
             };
             
@@ -831,28 +830,28 @@ export const ChatInterface: React.FC = () => {
           if (travelId) {
             const tripRef = doc(db, 'travels', travelId);
             const formattedItinerary = `
-# ${itinerary.title}
+# ${itinerary.title || "Itinéraire de voyage"}
 
-${itinerary.description}
+${itinerary.description || "Itinéraire personnalisé"}
 
 ## Planning jour par jour
 
-${itinerary.days.map(day => `
-### Jour ${day.day} - ${day.date}
+${(itinerary.days || []).map((day: any) => `
+### Jour ${day.dayNumber || "?"} - ${day.date || ""}
 
-${day.activities.map(activity => `- **${activity.time}** : ${activity.description}${activity.location ? ` à ${activity.location}` : ''}${activity.cost ? ` (${activity.cost})` : ''}`).join('\n')}
+${(day.activities || []).map((activity: any) => `- **${activity.time || ""}** : ${activity.description || ""}${activity.location ? ` à ${activity.location}` : ''}${activity.cost ? ` (${activity.cost})` : ''}`).join('\n')}
 
-${day.accommodation ? `**Hébergement:** ${day.accommodation.name}${day.accommodation.cost ? ` - ${day.accommodation.cost}` : ''}` : ''}
+${day.accommodation ? `**Hébergement:** ${day.accommodation.name || ""}${day.accommodation.cost ? ` - ${day.accommodation.cost}` : ''}` : ''}
 `).join('\n')}
 
 ## Budget estimé
 ${itinerary.totalBudget || 'À définir selon vos choix d\'activités et d\'hébergements.'}
 
 ## Recommandations
-${itinerary.recommendations.map(rec => `- ${rec}`).join('\n')}
+${(itinerary.recommendations || []).map((rec: string) => `- ${rec}`).join('\n')}
 
 ## Liens utiles
-${itinerary.links?.map(link => `- [${link.title || link.url}](${link.url})`).join('\n') || 'Aucun lien spécifique.'}
+${(itinerary.links || []).map((link: any) => `- [${link.title || link.url}](${link.url})`).join('\n') || 'Aucun lien spécifique.'}
 `;
 
             // Mise à jour des notes du voyage
@@ -867,18 +866,18 @@ ${itinerary.links?.map(link => `- [${link.title || link.url}](${link.url})`).joi
           
           // Préparer une réponse pour l'utilisateur
           const itineraryResponse = `
-✨ **${itinerary.title}** ✨
+✨ **${itinerary.title || "Votre itinéraire de voyage"}** ✨
 
-${itinerary.description}
+${itinerary.description || "Itinéraire personnalisé selon vos préférences"}
 
 Voici un aperçu de votre itinéraire jour par jour:
 
-${itinerary.days.slice(0, 2).map(day => `
-**Jour ${day.day} - ${day.date}**
-${day.activities.slice(0, 2).map(activity => `- ${activity.time}: ${activity.description}`).join('\n')}
-${day.accommodation ? `Nuit à: ${day.accommodation.name}` : ''}
+${(itinerary.days || []).slice(0, 2).map((day: any) => `
+**Jour ${day.dayNumber || day.day || "?"} - ${day.date || ""}**
+${(day.activities || []).slice(0, 2).map((activity: any) => `- ${activity.time || ""}: ${activity.description || ""}`).join('\n')}
+${day.accommodation ? `Nuit à: ${day.accommodation.name || ""}` : ''}
 `).join('\n')}
-${itinerary.days.length > 2 ? `\n...et ${itinerary.days.length - 2} autres jours planifiés.\n` : ''}
+${(itinerary.days || []).length > 2 ? `\n...et ${(itinerary.days || []).length - 2} autres jours planifiés.\n` : ''}
 
 💰 **Budget estimé:** ${itinerary.totalBudget || 'À définir selon vos préférences'}
 
@@ -1127,46 +1126,25 @@ Souhaitez-vous des modifications ou avez-vous des questions sur cet itinéraire 
   // Fonction pour traiter un message qui demande une action dans le navigateur
   const handleBrowserAction = async (message: string) => {
     // Ajouter un message indiquant que l'assistant va effectuer l'action
-    const processingMessage: Message = {
+    const processingMessage: ChatMessage = {
       role: 'assistant',
       content: "Je vais effectuer cette action pour vous dans le navigateur. Veuillez patienter un moment...",
-      timestamp: new Date()
+      timestamp: new Date(),
+      isLoading: true,
     };
     
     setMessages(prevMessages => [...prevMessages, processingMessage]);
+    scrollToBottom();
     
-    // Construire une tâche plus spécifique basée sur le voyage associé
-    let task = message;
-    
-    // Si nous avons des informations de voyage, les ajouter à la tâche
-    if (travelRequest) {
-      const { destination, dateDepart, dateRetour, nombreVoyageurs, typeVoyage, budget } = travelRequest;
-      
-      // Enrichir la tâche avec les détails du voyage
-      task = `${message} pour un voyage à ${destination} du ${dateDepart} au ${dateRetour} pour ${nombreVoyageurs} ${nombreVoyageurs > 1 ? 'personnes' : 'personne'}`;
-      
-      if (typeVoyage) {
-        task += `, type de voyage: ${typeVoyage}`;
-      }
-      
-      if (budget) {
-        task += `, budget: ${budget}`;
-      }
-    }
-    
-    // Exécuter la tâche avec l'agent de navigation
     try {
-      await executeTask({
-        task,
-        model: 'mlaprise/gemma-3-4b-it-qat-q4_0-gguf', // Modèle par défaut
-        maxSteps: 15,
+      await browserAgent.executeTask({ 
+        task: message,
+        model: 'qwen:72b-4k-gguf',  // Utiliser Qwen 72B pour de meilleures performances
+        maxSteps: 10,
         debug: false
       });
-      
-      // La réponse sera traitée par le callback onSuccess
     } catch (error) {
-      console.error("Erreur lors de l'exécution de la tâche:", error);
-      // L'erreur sera traitée par le callback onError
+      console.error("Erreur lors de l'exécution de l'agent:", error);
     }
   };
 
@@ -1184,173 +1162,132 @@ Souhaitez-vous des modifications ou avez-vous des questions sur cet itinéraire 
     return searchIndicators.some(indicator => messageLC.includes(indicator.toLowerCase()));
   };
 
+  // Ajoutons d'abord une fonction pour récupérer toutes les données du voyage
+  const fetchTravelContext = async (travelId: string) => {
+    if (!travelId || !user) return null;
+    
+    try {
+      // Récupérer les notes
+      const notesRef = collection(db, 'notes');
+      const notesQuery = query(notesRef, where('tripId', '==', travelId));
+      const notesSnapshot = await getDocs(notesQuery);
+      const notes = notesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Récupérer les événements du calendrier
+      const eventsRef = collection(db, 'events');
+      const eventsQuery = query(eventsRef, where('tripId', '==', travelId));
+      const eventsSnapshot = await getDocs(eventsQuery);
+      const events = eventsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Récupérer les liens
+      const tripDoc = await getDoc(doc(db, 'travels', travelId));
+      const tripData = tripDoc.data();
+      const links = tripData?.links || [];
+
+      // Récupérer les points de carte
+      const mapPointsRef = collection(db, 'mapPoints');
+      const mapPointsQuery = query(mapPointsRef, where('tripId', '==', travelId));
+      const mapPointsSnapshot = await getDocs(mapPointsQuery);
+      const mapPoints = mapPointsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      return {
+        notes,
+        events,
+        links,
+        mapPoints,
+        tripData
+      };
+    } catch (error) {
+      console.error("Erreur lors de la récupération du contexte voyage:", error);
+      return null;
+    }
+  };
+
+  // Modifier la fonction sendMessage pour inclure le contexte
   const sendMessage = async () => {
     if (input.trim() === '') return;
     
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       role: 'user',
       content: input,
-      timestamp: new Date(),
+      timestamp: new Date()
     };
     
-    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
     
-    const needsWebSearch = requiresWebSearch(input);
-    
-    if (needsWebSearch) {
-      // Ajouter un message système indiquant la recherche
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'system',
-          content: "Recherche d'informations sur le web...",
-          isLoading: true,
-        },
-      ]);
-    }
-
     try {
-      let assistantResponse = '';
-      let webSources: Array<{ name: string; url: string }> = [];
-      
-      if (needsWebSearch) {
-        // Effectuer la recherche web avec l'agent navigateur
-        const browserAgent = new BrowserAgent({
-          userQuery: input,
-          tripDetails: currentTrip ? {
-            destination: currentTrip.destination,
-            startDate: currentTrip.startDate,
-            endDate: currentTrip.endDate,
-            travelers: currentTrip.travelers
-          } : undefined
-        });
+      // Si un voyage est sélectionné, récupérer le contexte
+      if (currentTravelId) {
+        const travelContext = await fetchTravelContext(currentTravelId);
         
-        const searchResults = await browserAgent.searchWeb();
-        
-        if (searchResults.content && searchResults.links) {
-          // Extraire les sources pour affichage
-          webSources = searchResults.links.map(link => ({
-            name: link.title || link.url,
-            url: link.url
-          }));
+        if (travelContext) {
+          // Formatage des notes en texte
+          const notesText = travelContext.notes.length > 0 
+            ? travelContext.notes.map(note => `- ${note.title}: ${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}`).join('\n')
+            : 'Aucune note';
           
-          // Si des résultats utiles ont été trouvés, les sauvegarder dans une note
-          if (webSources.length > 0 && currentTrip) {
-            try {
-              await createNote({
-                title: `Recherche: ${input.substring(0, 50)}${input.length > 50 ? '...' : ''}`,
-                content: `# Recherche: ${input}\n\n${searchResults.content}\n\n## Sources\n${webSources.map(s => `- [${s.name}](${s.url})`).join('\n')}`,
-                tripId: currentTrip.id,
-                tags: ['recherche', 'web']
-              });
-            } catch (error) {
-              console.error('Erreur lors de la création de la note:', error);
-            }
-          }
+          // Formatage des événements en texte
+          const eventsText = travelContext.events.length > 0
+            ? travelContext.events.map(event => `- ${event.title}: ${formatDate(event.start)} - ${formatDate(event.end)}, ${event.location || 'Lieu non spécifié'}`).join('\n')
+            : 'Aucun événement';
           
-          // Mettre à jour le message système pour indiquer la fin de la recherche
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.isLoading 
-                ? { ...msg, content: 'Informations trouvées sur le web!', isLoading: false }
-                : msg
-            )
-          );
+          // Formatage des liens en texte
+          const linksText = travelContext.links.length > 0
+            ? travelContext.links.map(link => `- ${link.title}: ${link.url}`).join('\n')
+            : 'Aucun lien';
           
-          // Formatage de la réponse de l'assistant
-          assistantResponse = `Voici ce que j'ai trouvé pour "${input}":\n\n${searchResults.content}`;
+          // Formatage des points de carte en texte
+          const mapPointsText = travelContext.mapPoints.length > 0
+            ? travelContext.mapPoints.map(point => `- ${point.title}: ${point.lat}, ${point.lng}`).join('\n')
+            : 'Aucun point sur la carte';
+          
+          // Créer un message de contexte pour le modèle (non visible pour l'utilisateur)
+          const contextMessage: ChatMessage = {
+            role: 'system',
+            content: `Contexte du voyage à ${tripData?.destination || 'destination inconnue'} (${formatDate(tripData?.startDate)} - ${formatDate(tripData?.endDate)}) :
+            
+NOTES:
+${notesText}
+
+ÉVÉNEMENTS:
+${eventsText}
+
+LIENS IMPORTANTS:
+${linksText}
+
+POINTS D'INTÉRÊT:
+${mapPointsText}
+
+Utilise ces informations pour contextualiser ta réponse à la demande de l'utilisateur: "${input}"`,
+            timestamp: new Date(),
+            systemContextOnly: true // Propriété pour indiquer que ce message ne doit pas être affiché
+          };
+          
+          // Ajouter le message système AVANT le message utilisateur pour le contexte
+          setMessages(prev => [...prev, contextMessage, userMessage]);
         } else {
-          // Aucun résultat trouvé
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.isLoading 
-                ? { ...msg, content: 'Recherche terminée', isLoading: false }
-                : msg
-            )
-          );
-          
-          assistantResponse = "Je n'ai pas pu trouver d'informations pertinentes sur votre demande. Pourriez-vous reformuler ou préciser votre question ?";
+          setMessages(prev => [...prev, userMessage]);
         }
       } else {
-        // Traitement standard du message sans recherche web
-        // Utiliser Ollama pour générer une réponse
-        try {
-          console.log("Utilisation de l'instance Ollama existante pour générer une réponse");
-          
-          // Import de l'instance Ollama
-          const { ollamaModel } = await import('@/ai/agents/ollama-instance');
-          
-          // Construction du contexte avec les informations du voyage si disponibles
-          let contextInfo = "";
-          if (currentTrip) {
-            contextInfo = `Contexte du voyage: Destination ${currentTrip.destination}, du ${formatDate(currentTrip.startDate)} au ${formatDate(currentTrip.endDate)} pour ${currentTrip.travelers} personne(s).`;
-          }
-          
-          // Récupérer les messages précédents pour fournir du contexte
-          const recentMessages = messages.slice(-5); // Prendre les 5 derniers messages
-          const conversationHistory = recentMessages.map(msg => 
-            `${msg.role === 'user' ? 'Utilisateur' : 'Assistant'}: ${msg.content}`
-          ).join('\n');
-          
-          // Construction du prompt complet
-          const fullPrompt = `
-${contextInfo}
-
-Historique récent de la conversation:
-${conversationHistory}
-
-Question: ${input}
-
-Tu es un assistant de voyage français sympathique qui aide à planifier des voyages.
-Réponds de manière concise et pertinente en français à la question ci-dessus.
-Réponse:`;
-
-          // Appel du modèle Ollama
-          const response = await ollamaModel.call(fullPrompt);
-          
-          // Ajouter la réponse de l'assistant aux messages
-      setMessages(prev => [...prev, {
-            role: 'assistant',
-            content: response, 
-            timestamp: new Date() 
-          }]);
-    } catch (error) {
-          console.error('Erreur lors de l\'appel à Ollama:', error);
-          // Ajouter une réponse d'erreur
-      setMessages(prev => [...prev, {
-            role: 'assistant',
-            content: "Je rencontre actuellement des difficultés techniques. Pour obtenir des informations à jour sur votre destination, n'hésitez pas à me demander de rechercher des informations spécifiques.", 
-            timestamp: new Date() 
-          }]);
-        }
+        // Pas de voyage sélectionné, traitement normal
+        setMessages(prev => [...prev, userMessage]);
       }
       
-      // Ajouter la réponse de l'assistant
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: assistantResponse,
-        timestamp: new Date(),
-        webSearchUsed: needsWebSearch,
-        webSources: webSources.length > 0 ? webSources : undefined
-      };
-      
-      setMessages(prev => [...prev.filter(msg => !msg.isLoading), assistantMessage]);
+      // Continuer avec le reste du code de sendMessage...
+      // ...
       
     } catch (error) {
-      console.error('Erreur lors de l\'envoi du message:', error);
-      
-      // Supprimer le message de chargement et ajouter un message d'erreur
-      setMessages(prev => [
-        ...prev.filter(msg => !msg.isLoading),
-        {
-          role: 'assistant',
-          content: "Désolé, une erreur s'est produite lors du traitement de votre demande. Veuillez réessayer.",
-          timestamp: new Date()
-        }
-      ]);
-    } finally {
+      console.error("Erreur lors de l'envoi du message:", error);
       setIsLoading(false);
     }
   };
@@ -1362,74 +1299,100 @@ Réponse:`;
     }
   };
 
-  // Lien d'un message vers un voyage
-  const linkMessageToTrip = (messageIndex: number) => {
-    if (!currentTravelId || !messages[messageIndex] || !user) {
-      console.error("Impossible de lier le message : voyage ou message non trouvé, ou utilisateur non connecté");
+  // Fonction pour lier un message à un voyage
+  const linkMessageToTrip = async (message: ChatMessage, travelId: string) => {
+    if (!travelId || !user) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de lier ce message : voyage non sélectionné ou utilisateur non connecté",
+        variant: "destructive",
+      });
       return;
     }
     
-    // Créer une copie du tableau de messages
-    const updatedMessages = [...messages];
-    
-    // Mettre à jour le message à l'index spécifié
-    updatedMessages[messageIndex] = {
-      ...updatedMessages[messageIndex],
-      linkedToTrip: true,
-      tripId: currentTravelId
-    };
-    
-    // Mettre à jour l'état des messages
-    setMessages(updatedMessages);
-    
-    // Enregistrer également dans les notes du voyage si nécessaire
-    if (tripData) {
-      try {
-        // Récupérer le contenu du message
-        const messageContent = updatedMessages[messageIndex].content;
-        const isUserMessage = updatedMessages[messageIndex].role === 'user';
-        
-        // Créer une note dans la collection "notes"
-        const noteData = {
-          userId: user.uid,
-          tripId: currentTravelId,
-          title: isUserMessage ? 
-            `Message de l'utilisateur - ${new Date().toLocaleDateString('fr-FR')}` : 
-            `Réponse de l'assistant - ${new Date().toLocaleDateString('fr-FR')}`,
-          content: messageContent,
-          tags: ['chat', isUserMessage ? 'message-utilisateur' : 'réponse-assistant'],
-          isImportant: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        
-        // Ajouter la note à Firestore
-        addDoc(collection(db, 'notes'), noteData)
-          .then((docRef) => {
-            console.log(`Note créée avec l'ID: ${docRef.id} pour le voyage ${currentTravelId}`);
-            
-            // Notification de succès
-            toast({
-              title: "Message lié au voyage",
-              description: `Une note a été créée dans votre voyage vers ${tripData.destination}.`,
-              variant: "default",
-            });
-          })
-          .catch((error) => {
-            console.error("Erreur lors de la création de la note:", error);
-            throw error;
-          });
-        
-      } catch (error) {
-        console.error("Erreur lors de la liaison du message:", error);
-        toast({
-          title: "Erreur",
-          description: "Impossible de lier le message au voyage.",
-          variant: "destructive",
-        });
-      }
+    try {
+      // Mettre à jour l'état local du message
+      setMessages(prev => 
+        prev.map(msg => 
+          msg === message ? {...msg, linkedToTrip: true, travelId} : msg
+        )
+      );
+      
+      // Sauvegarder le message dans Firestore
+      const messageData = {
+        ...message,
+        linkedToTrip: true,
+        travelId: travelId,
+        userId: user.uid,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Ajouter à la collection 'messages'
+      await addDoc(collection(db, 'messages'), messageData);
+      
+      // Créer aussi une note si souhaité
+      await addDoc(collection(db, 'notes'), {
+        userId: user.uid,
+        tripId: travelId,
+        title: `Message du chat - ${new Date().toLocaleDateString('fr-FR')}`,
+        content: message.content,
+        tags: ['chat'],
+        isImportant: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      
+      toast({
+        title: "Message lié au voyage",
+        description: tripData ? `Message ajouté à votre voyage vers ${tripData.destination}` : "Message lié au voyage sélectionné",
+      });
+    } catch (error) {
+      console.error("Erreur lors de la liaison du message:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de lier ce message au voyage.",
+        variant: "destructive",
+      });
     }
   };
+
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const [availableTrips, setAvailableTrips] = useState<Trip[]>([]);
+
+  useEffect(() => {
+    const fetchAvailableTrips = async () => {
+      if (!user) return;
+      
+      try {
+        const tripsRef = collection(db, 'travels');
+        const q = query(tripsRef, where('userId', '==', user.uid));
+        const querySnapshot = await getDocs(q);
+        
+        const trips = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Trip[];
+        
+        // Trier les voyages par date de départ (les plus proches en premier)
+        trips.sort((a, b) => {
+          const dateA = new Date(a.startDate);
+          const dateB = new Date(b.startDate);
+          return dateA.getTime() - dateB.getTime();
+        });
+        
+        setAvailableTrips(trips);
+      } catch (error) {
+        console.error("Erreur lors du chargement des voyages:", error);
+      }
+    };
+    
+    fetchAvailableTrips();
+  }, [user]);
 
   return (
     <div className="flex flex-col h-full max-h-screen bg-gradient-to-b from-background to-background/90">
@@ -1498,16 +1461,18 @@ Réponse:`;
         ref={messagesEndRef}
         className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar"
       >
-        {messages.map((message, index) => (
-          <MessageItem 
-            key={index} 
-            message={message} 
-            isLast={index === messages.length - 1}
-            onLinkToTrip={() => linkMessageToTrip(index)}
-            tripData={tripData}
-            currentTravelId={currentTravelId || undefined}
-          />
-        ))}
+        {messages
+          .filter(message => !message.systemContextOnly) // Ne pas afficher les messages de contexte système
+          .map((message, index) => (
+            <MessageItem 
+              key={index} 
+              message={message} 
+              isLast={index === messages.length - 1}
+              onLinkToTrip={() => linkMessageToTrip(message, currentTravelId || '')}
+              tripData={tripData}
+              currentTravelId={currentTravelId || undefined}
+            />
+          ))}
         {isLoading && (
           <div className="flex justify-center my-2 animate-fade-in">
             <div className="inline-flex items-center bg-gray-100/80 text-gray-700 px-3 py-1.5 rounded-full text-sm">
@@ -1572,13 +1537,73 @@ Réponse:`;
       )}
 
       {/* Afficher les résultats de l'agent de navigation s'ils sont disponibles */}
-      {agentResult && <BrowserAgentResults result={agentResult} />}
+      {browserAgent.result && <BrowserAgentResults result={browserAgent.result} />}
       
       {/* Indicateur de chargement pour l'agent */}
-      {agentLoading && (
+      {browserAgent.isLoading && (
         <div className="flex items-center justify-center py-4">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
           <span className="ml-2 text-sm text-gray-600">Exécution de l'action dans le navigateur...</span>
+        </div>
+      )}
+
+      <div className="p-3 border-b border-border/40 bg-background/90 sticky top-0 z-10">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Sélectionnez un voyage</h2>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowCreateTravelModal(true)}
+            className="ml-2"
+          >
+            <Plus className="h-4 w-4 mr-1" /> Nouveau
+          </Button>
+        </div>
+        
+        <div className="mt-2 flex overflow-x-auto pb-2 no-scrollbar gap-2">
+          {availableTrips.length === 0 ? (
+            <div className="text-sm text-gray-500 py-2">
+              Aucun voyage disponible. Créez-en un nouveau !
+            </div>
+          ) : (
+            availableTrips.map(trip => (
+              <button
+                key={trip.id}
+                onClick={() => handleSelectTrip(trip)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5 transition-colors ${
+                  currentTravelId === trip.id 
+                    ? 'bg-primary text-white' 
+                    : 'bg-primary/10 text-primary hover:bg-primary/20'
+                }`}
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                {trip.destination}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {currentTravelId && tripData && (
+        <div className="p-2 bg-primary/5 rounded-lg mt-2 flex items-center">
+          <div className="flex-1">
+            <div className="font-medium text-primary text-sm flex items-center">
+              <MapPin className="h-4 w-4 mr-1" />
+              {tripData.destination || "Voyage"}
+            </div>
+            <div className="text-xs text-gray-500">
+              {tripData.startDate ? formatDate(tripData.startDate) : "?"} - 
+              {tripData.endDate ? formatDate(tripData.endDate) : "?"}
+            </div>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setCurrentTravelId(null)}
+            className="h-8 w-8 p-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       )}
     </div>

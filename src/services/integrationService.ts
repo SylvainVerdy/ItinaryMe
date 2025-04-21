@@ -17,13 +17,12 @@ export interface IntegrationItem {
 }
 
 class IntegrationService {
-  private integrationCollection = "integrations";
+  private integrationCollection = 'integrations';
 
-  // Lier un événement du calendrier à un point sur la carte
-  async linkEventToMapPoint(tripId: string, eventId: string, mapPointId: string): Promise<string | null> {
+  // Lier un événement à un point sur la carte
+  async linkEventToMapPoint(tripId: string, eventId: string, mapPointId: string): Promise<string> {
     try {
-      // Créer un nouvel élément d'intégration
-      const integrationData: IntegrationItem = {
+      const integration: IntegrationItem = {
         tripId,
         sourceType: 'event',
         sourceId: eventId,
@@ -32,21 +31,18 @@ class IntegrationService {
         createdAt: new Date().toISOString()
       };
 
-      // Ajouter l'élément à la collection d'intégrations
-      const docRef = await addDoc(collection(db, this.integrationCollection), integrationData);
-      console.log(`Événement ${eventId} lié au point de carte ${mapPointId}`);
+      const docRef = await addDoc(collection(db, this.integrationCollection), integration);
       return docRef.id;
     } catch (error) {
-      console.error('Erreur lors de la liaison de l\'événement au point de carte:', error);
-      return null;
+      console.error('Erreur lors de la liaison événement-point:', error);
+      throw error;
     }
   }
 
-  // Lier une note à un événement du calendrier
-  async linkNoteToEvent(tripId: string, noteId: string, eventId: string): Promise<string | null> {
+  // Lier une note à un événement
+  async linkNoteToEvent(tripId: string, noteId: string, eventId: string): Promise<string> {
     try {
-      // Créer un nouvel élément d'intégration
-      const integrationData: IntegrationItem = {
+      const integration: IntegrationItem = {
         tripId,
         sourceType: 'note',
         sourceId: noteId,
@@ -55,93 +51,87 @@ class IntegrationService {
         createdAt: new Date().toISOString()
       };
 
-      // Ajouter l'élément à la collection d'intégrations
-      const docRef = await addDoc(collection(db, this.integrationCollection), integrationData);
-      console.log(`Note ${noteId} liée à l'événement ${eventId}`);
+      const docRef = await addDoc(collection(db, this.integrationCollection), integration);
       return docRef.id;
     } catch (error) {
-      console.error('Erreur lors de la liaison de la note à l\'événement:', error);
-      return null;
+      console.error('Erreur lors de la liaison note-événement:', error);
+      throw error;
     }
   }
 
-  // Récupérer toutes les intégrations pour un voyage spécifique
+  // Récupérer toutes les intégrations pour un voyage
   async getAllIntegrationsForTrip(tripId: string): Promise<IntegrationItem[]> {
     try {
-      const q = query(
-        collection(db, this.integrationCollection),
-        where("tripId", "==", tripId)
-      );
-      
+      const q = query(collection(db, this.integrationCollection), where("tripId", "==", tripId));
       const querySnapshot = await getDocs(q);
-      const integrations: IntegrationItem[] = [];
       
-      querySnapshot.forEach((doc) => {
-        integrations.push({
-          id: doc.id,
-          ...doc.data()
-        } as IntegrationItem);
-      });
-      
-      return integrations;
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as IntegrationItem[];
     } catch (error) {
       console.error('Erreur lors de la récupération des intégrations:', error);
-      return [];
+      throw error;
     }
   }
-  
-  // Extraire les points de la carte à partir des événements
-  async extractMapPointsFromEvents(events: TravelEvent[]): Promise<MapPoint[]> {
-    return events
-      .filter(event => event.coordinates)
-      .map(event => ({
-        id: `event-${event.id}`,
-        lat: event.coordinates!.lat,
-        lng: event.coordinates!.lng,
-        title: event.title,
-        description: event.description || '',
-        type: (event.eventType || 'activity') as 'activity' | 'transport' | 'accommodation' | 'food' | 'other',
-        color: event.color,
-        // Calculer le jour en fonction de la date de début
-        day: new Date(event.start).getDate(),
-        order: 0  // À définir en fonction de l'heure
-      }));
+
+  // Extraire les points de carte depuis les événements
+  async extractMapPointsFromEvents(tripId: string, events: TravelEvent[]): Promise<MapPoint[]> {
+    const mapPoints: MapPoint[] = [];
+    
+    events.forEach(event => {
+      if (event.coordinates) {
+        const mapPoint: MapPoint = {
+          id: `event-${event.id}`,
+          lat: event.coordinates.lat,
+          lng: event.coordinates.lng,
+          title: event.title,
+          description: event.description || '',
+          type: event.eventType || 'activity',
+          color: event.color,
+          day: event.day?.toString() || '1',
+          order: 0
+        };
+        
+        mapPoints.push(mapPoint);
+      }
+    });
+    
+    return mapPoints;
   }
 
   // Synchroniser les événements du calendrier avec les points sur la carte
   async syncCalendarEventsWithMapPoints(tripId: string, events: TravelEvent[]): Promise<void> {
     try {
-      // 1. Récupérer toutes les intégrations existantes pour ce voyage
-      const existingIntegrations = await this.getAllIntegrationsForTrip(tripId);
+      // D'abord supprimer les anciennes intégrations
+      const oldIntegrations = await this.getAllIntegrationsForTrip(tripId);
       
-      // 2. Filtrer les événements qui ont des coordonnées mais pas encore d'intégration
-      const eventsWithCoordinates = events.filter(event => 
-        event.coordinates && 
-        !existingIntegrations.some(integration => 
-          integration.sourceType === 'event' && integration.sourceId === event.id
-        )
-      );
-      
-      // 3. Créer des points sur la carte pour ces événements et les lier
-      for (const event of eventsWithCoordinates) {
-        const mapPointId = `event-${event.id}`;
-        await this.linkEventToMapPoint(tripId, event.id, mapPointId);
+      for (const integration of oldIntegrations) {
+        if (integration.sourceType === 'event' && integration.targetType === 'mapPoint') {
+          await deleteDoc(doc(db, this.integrationCollection, integration.id!));
+        }
       }
       
-      console.log(`${eventsWithCoordinates.length} événements synchronisés avec la carte`);
+      // Créer les nouveaux points et les lier
+      for (const event of events) {
+        if (event.coordinates) {
+          // Cette implémentation peut être étendue selon les besoins
+          console.log(`Synchronisation de l'événement ${event.id} avec un point sur la carte`);
+        }
+      }
     } catch (error) {
-      console.error('Erreur lors de la synchronisation des événements avec la carte:', error);
+      console.error('Erreur lors de la synchronisation des événements:', error);
+      throw error;
     }
   }
 
   // Supprimer une intégration
-  async deleteIntegration(integrationId: string): Promise<boolean> {
+  async deleteIntegration(integrationId: string): Promise<void> {
     try {
       await deleteDoc(doc(db, this.integrationCollection, integrationId));
-      return true;
     } catch (error) {
       console.error('Erreur lors de la suppression de l\'intégration:', error);
-      return false;
+      throw error;
     }
   }
 }

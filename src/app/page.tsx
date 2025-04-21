@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Navbar } from "@/components/Navbar";
+import TravelSearch from '@/components/TravelSearch';
 
 // Icons (adjust if needed)
 import {
@@ -175,6 +176,22 @@ export default function Home() {
                 {t('seamlessExperienceDescription')}
               </p>
             </div>
+          </div>
+        </section>
+
+        <section className="max-w-screen-xl mx-auto px-4 mt-12">
+          <div className="max-w-5xl w-full mb-12 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 text-blue-600">ItinaryMe</h1>
+            <p className="text-lg md:text-xl text-gray-700 mb-8">
+              Planifiez vos voyages facilement avec notre assistant de voyage intelligent
+            </p>
+            <p className="text-sm text-gray-500 mb-12">
+              Recherchez des vols, des hôtels et des restaurants pour préparer votre prochain voyage
+            </p>
+          </div>
+          
+          <div className="w-full">
+            <TravelSearch />
           </div>
         </section>
       </main>

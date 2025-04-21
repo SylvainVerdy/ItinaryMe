@@ -3,18 +3,10 @@ import { formatRelative } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { User, Bot, Search, ExternalLink, Copy, LinkIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Trip } from '@/lib/types';
+import { Trip, ChatMessage } from '@/lib/types';
 
 export interface MessageProps {
-  message: {
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-    timestamp?: Date;
-    webSearchUsed?: boolean;
-    webSources?: Array<{ name: string; url: string }>;
-    isLoading?: boolean;
-    linkedToTrip?: boolean;
-  };
+  message: ChatMessage;
   isLast?: boolean;
   onLinkToTrip?: () => void;
   tripData?: Trip | null;

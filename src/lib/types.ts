@@ -11,6 +11,20 @@ export interface Note {
   isImportant?: boolean;
 }
 
+// Types pour les messages de chat
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp?: Date;
+  webSearchUsed?: boolean;
+  webSources?: Array<{ name: string; url: string }>;
+  isLoading?: boolean;
+  linkedToTrip?: boolean;
+  travelId?: string;
+  userId?: string;
+  systemContextOnly?: boolean;
+}
+
 // Types pour les voyages
 export interface Trip {
   id?: string;
@@ -117,11 +131,4 @@ export interface ChatHistory {
   updatedAt: string;
   tags?: string[];
   isFavorite?: boolean;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: string;
 } 

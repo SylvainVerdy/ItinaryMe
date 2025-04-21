@@ -504,319 +504,158 @@ export default function TravelDetailPage() {
             </div>
           ) : travel ? (
             <>
-              <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] overflow-hidden mb-8">
-                <div className="h-48 md:h-64 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-                  {imageData ? (
-                    <img 
-                      src={imageData} 
-                      alt={travel.destination} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-white">
-                      <MapPin size={48} />
+              <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">{travel.destination}</h1>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={toggleFavorite}
+                    className="text-yellow-500 hover:text-yellow-600"
+                  >
+                    <Star className={isFavorite ? "fill-current" : ""} />
+                  </button>
+                  <button
+                    onClick={() => router.push('/travels')}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded-md"
+                  >
+                    Retour
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="md:col-span-2">
+                  <div className="bg-white rounded-lg shadow p-6 mb-6 relative">
+                    <div className="absolute top-4 right-4 flex space-x-2">
+                      <button
+                        onClick={() => setShowEditImage(true)}
+                        className="bg-gray-100 p-2 rounded-full hover:bg-gray-200"
+                        title="Modifier l'image"
+                      >
+                        <FileEdit className="h-4 w-4" />
+                      </button>
                     </div>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                    <div className="flex items-center justify-between">
-                      <h1 className="text-2xl md:text-3xl font-medium text-white">
-                        {travel.destination}
-                      </h1>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => setShowEditImage(!showEditImage)}
-                          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                          title="Modifier l'image et les liens"
-                        >
-                          <Image size={20} className="text-white" />
-                        </button>
-                        <button 
-                          onClick={toggleFavorite}
-                          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                          title={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-                        >
-                          <Star 
-                            size={20} 
-                            className={`${isFavorite ? 'text-yellow-400 fill-yellow-400' : 'text-white'}`} 
-                          />
-                        </button>
-                      </div>
+                    
+                    <div className="h-64 bg-gray-100 mb-4 rounded-lg overflow-hidden flex items-center justify-center">
+                      {imageData ? (
+                        <img
+                          src={imageData}
+                          alt={travel.destination}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-gray-400">
+                          <Image className="h-12 w-12 mb-2" />
+                          <p>Aucune image disponible</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="mb-4">
+                      <EditTripDates 
+                        tripId={travelId} 
+                        startDate={travel.dateDepart} 
+                        endDate={travel.dateRetour}
+                        onUpdate={(startDate, endDate) => {
+                          if (travel) {
+                            setTravel({
+                              ...travel,
+                              dateDepart: startDate,
+                              dateRetour: endDate
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center mb-4">
+                      <Users className="mr-2 h-5 w-5 text-gray-500" />
+                      <span>{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</span>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <Link
+                        href={`/travel/${travelId}/calendar`}
+                        className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200"
+                      >
+                        <Calendar className="mr-1 h-4 w-4" />
+                        Calendrier
+                      </Link>
+                      
+                      <Link
+                        href={`/travel/${travelId}/map`}
+                        className="flex items-center bg-green-100 text-green-800 px-3 py-1 rounded-full hover:bg-green-200"
+                      >
+                        <MapPin className="mr-1 h-4 w-4" />
+                        Carte
+                      </Link>
+                      
+                      <Link
+                        href={`/chat?travelId=${travelId}`}
+                        className="flex items-center bg-purple-100 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-200"
+                      >
+                        <MessageSquare className="mr-1 h-4 w-4" />
+                        Assistant IA
+                      </Link>
+                      
+                      <Link
+                        href={`/travel/${travelId}/budget`}
+                        className="flex items-center bg-amber-100 text-amber-800 px-3 py-1 rounded-full hover:bg-amber-200"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 h-4 w-4">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
+                          <path d="M12 18V6"/>
+                        </svg>
+                        Budget
+                      </Link>
+                      
+                      <Link
+                        href={`/travel/${travelId}/notes`}
+                        className="flex items-center bg-teal-100 text-teal-800 px-3 py-1 rounded-full hover:bg-teal-200"
+                      >
+                        <FileText className="mr-1 h-4 w-4" />
+                        Notes
+                      </Link>
+                      
+                      <Link
+                        href={`/travel/${travelId}/links`}
+                        className="flex items-center bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full hover:bg-indigo-200"
+                      >
+                        <LinkIcon className="mr-1 h-4 w-4" />
+                        Liens
+                      </Link>
                     </div>
                   </div>
                 </div>
                 
-                <div className="p-6">
-                  <div className="flex flex-wrap gap-6 mb-6">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="text-blue-500" size={20} />
-                      <div>
-                        <div className="text-sm text-gray-500">Dates</div>
-                        <div className="font-medium">
-                          {new Date(travel.dateDepart).toLocaleDateString('fr-FR')} - {new Date(travel.dateRetour).toLocaleDateString('fr-FR')}
+                <div className="md:col-span-1">
+                  <div className="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 className="text-xl font-bold mb-4">Détails du voyage</h2>
+                    <div className="flex flex-wrap gap-6">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="text-blue-500" size={20} />
+                        <div>
+                          <div className="text-sm text-gray-500">Dates</div>
+                          <div className="font-medium">
+                            {new Date(travel.dateDepart).toLocaleDateString('fr-FR')} - {new Date(travel.dateRetour).toLocaleDateString('fr-FR')}
+                          </div>
                         </div>
                       </div>
                       
-                      <div className="ml-2">
-                        <EditTripDates 
-                          tripId={travel.id}
-                          currentStartDate={travel.dateDepart || travel.startDate}
-                          currentEndDate={travel.dateRetour || travel.endDate}
-                          onUpdate={() => refreshTravelData()}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Users className="text-blue-500" size={20} />
-                      <div>
-                        <div className="text-sm text-gray-500">Voyageurs</div>
-                        <div className="font-medium">{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Bouton de suppression du voyage */}
-                  <div className="flex justify-end mb-6">
-                    <button
-                      onClick={handleDelete}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
-                        <path d="M3 6h18"></path>
-                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                      </svg>
-                      <span>Supprimer ce voyage</span>
-                    </button>
-                  </div>
-                  
-                  {travel.links && travel.links.length > 0 && (
-                    <div className="mb-6">
-                      <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
-                        <LinkIcon size={18} className="text-blue-500" />
-                        <span>Liens utiles</span>
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {travel.links.map(link => (
-                          <a 
-                            key={link.id} 
-                            href={link.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 p-3 border border-[#e6e0d4] rounded-lg hover:bg-[#f8f5ec] transition-colors"
-                          >
-                            <LinkIcon size={16} className="text-blue-500 flex-shrink-0" />
-                            <div className="overflow-hidden">
-                              <div className="font-medium text-sm">{link.title}</div>
-                              <div className="text-xs text-gray-500 truncate">{link.url}</div>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Éditeur de notes */}
-                  {showEditNotes && (
-                    <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
-                      <h3 className="text-xl font-medium text-gray-800 mb-6 flex items-center gap-2">
-                        <FileText size={20} className="text-blue-500" />
-                        <span>Notes de voyage pour {travel.destination}</span>
-                      </h3>
-                      
-                      <p className="text-sm text-gray-600 mb-4">
-                        Ajoutez vos notes, idées et réflexions sur ce voyage. Ces notes seront également disponibles dans la section Documents.
-                      </p>
-                      
-                      <div className="border border-[#e6e0d4] rounded-lg overflow-hidden">
-                        <textarea
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
-                          className="w-full p-4 min-h-[300px] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                          placeholder="Écrivez vos notes ici..."
-                        />
-                      </div>
-                      
-                      <div className="mt-4 flex justify-between">
-                        <button
-                          onClick={() => {
-                            const params = new URLSearchParams(window.location.search);
-                            if (params.get('editNotes') === 'true') {
-                              router.push(`/travel/${travelId}`);
-                            } else {
-                              setShowEditNotes(false);
-                            }
-                          }}
-                          className="px-4 py-2 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
-                        >
-                          Annuler
-                        </button>
-                        
-                        <button 
-                          onClick={saveNotes}
-                          disabled={isSavingNotes}
-                          className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium flex items-center gap-2"
-                        >
-                          {isSavingNotes ? (
-                            <>
-                              <Loader2 size={14} className="animate-spin" />
-                              <span>Enregistrement...</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle size={14} />
-                              <span>Enregistrer les notes</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Affichage des notes si elles existent et que l'éditeur n'est pas ouvert */}
-                  {!showEditNotes && (
-                    <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
-                          <FileText size={20} className="text-blue-500" />
-                          <span>Notes de voyage</span>
-                        </h3>
-                        
-                        <button
-                          onClick={() => setShowEditNotes(true)}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium flex items-center gap-1"
-                        >
-                          <FileEdit size={14} />
-                          <span>Modifier</span>
-                        </button>
-                      </div>
-                      
-                      <div className="border-t border-[#e6e0d4] pt-4">
-                        <div className="prose max-w-none">
-                          <p className="whitespace-pre-wrap">{travel.notes}</p>
+                      <div className="flex items-center gap-2">
+                        <Users className="text-blue-500" size={20} />
+                        <div>
+                          <div className="text-sm text-gray-500">Voyageurs</div>
+                          <div className="font-medium">{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</div>
                         </div>
                       </div>
                     </div>
-                  )}
-
-                  {/* Affichage des notes stockées dans la collection "notes" */}
-                  <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
-                        <MessageSquare size={20} className="text-blue-500" />
-                        <span>Notes liées au voyage</span>
-                      </h3>
-                    </div>
-                    
-                    <TravelNotes 
-                      tripId={travelId} 
-                      onAddNote={(content) => {
-                        toast({
-                          title: "Note ajoutée",
-                          description: "Votre note a été ajoutée avec succès.",
-                          variant: "default",
-                        });
-                      }}
-                      onGenerateNote={(content) => {
-                        toast({
-                          title: "Note générée",
-                          description: "Une note a été générée par l'IA.",
-                          variant: "default",
-                        });
-                      }}
-                    />
-                  </div>
-
-                  {/* Après le composant TravelNotes, ajouter le calendrier */}
-                  <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
-                        <Calendar size={20} className="text-blue-500" />
-                        <span>Calendrier du voyage</span>
-                      </h3>
-                    </div>
-                    
-                    <ClientOnly>
-                      <TravelCalendar
-                        startDate={travel.dateDepart}
-                        endDate={travel.dateRetour}
-                        events={calendarEvents}
-                        onEventAdd={handleAddCalendarEvent}
-                        onEventUpdate={handleUpdateCalendarEvent}
-                        onEventDelete={handleDeleteCalendarEvent}
-                      />
-                    </ClientOnly>
-                  </div>
-
-                  {/* Affichage de la carte d'itinéraire */}
-                  <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-medium text-gray-800 flex items-center gap-2">
-                        <MapPin size={20} className="text-blue-500" />
-                        <span>Carte d'itinéraire</span>
-                      </h3>
-                      
-                      {/* Bouton temporaire pour ajouter un événement test */}
-                      <button 
-                        onClick={async () => {
-                          if (!travelId) return;
-                          
-                          // Créer un événement test avec des coordonnées
-                          const testEvent: Omit<TravelEvent, 'id' | 'tripId'> = {
-                            title: "Événement test " + new Date().toLocaleTimeString(),
-                            description: "Cet événement a été créé pour tester la synchronisation",
-                            start: new Date(),
-                            end: new Date(new Date().getTime() + 2 * 60 * 60 * 1000), // +2 heures
-                            allDay: false,
-                            coordinates: {
-                              lat: 48.856614,
-                              lng: 2.352222
-                            },
-                            location: "Paris, France",
-                            eventType: "visit",
-                            color: "#FF5252"
-                          };
-                          
-                          try {
-                            // Ajouter l'événement test
-                            await handleAddCalendarEvent(testEvent);
-                            
-                            toast({
-                              title: "Événement test créé",
-                              description: "Un événement test a été ajouté. Cliquez sur 'Sync Planning' pour le voir sur la carte.",
-                              variant: "default",
-                            });
-                          } catch (error) {
-                            console.error("Erreur lors de la création de l'événement test:", error);
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium flex items-center gap-1"
-                      >
-                        Ajouter événement test
-                      </button>
-                    </div>
-                    
-                    <ClientOnly>
-                      <ItineraryMap 
-                        ref={mapRef}
-                        points={mapPoints}
-                        startDate={travel.dateDepart}
-                        endDate={travel.dateRetour}
-                        height="500px"
-                        onMapClick={handleMapClick}
-                        planningEvents={calendarEvents.map(event => ({
-                          ...event,
-                          start: event.start instanceof Date ? event.start : new Date(event.start),
-                          end: event.end instanceof Date ? event.end : new Date(event.end)
-                        }))}
-                        syncWithPlanning={true}
-                        showOnlyCalendarEvents={true}
-                        onEventDelete={handleDeleteCalendarEvent}
-                      />
-                    </ClientOnly>
                   </div>
                 </div>
               </div>
