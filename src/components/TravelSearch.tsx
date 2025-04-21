@@ -562,7 +562,7 @@ export default function TravelSearch({ travelId, destination }: TravelSearchProp
                       <SelectValue placeholder="Sélectionnez un type de cuisine" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Toutes les cuisines</SelectItem>
+                      <SelectItem value="all">Toutes les cuisines</SelectItem>
                       <SelectItem value="française">Française</SelectItem>
                       <SelectItem value="italienne">Italienne</SelectItem>
                       <SelectItem value="japonaise">Japonaise</SelectItem>
@@ -580,7 +580,7 @@ export default function TravelSearch({ travelId, destination }: TravelSearchProp
                       <SelectValue placeholder="Sélectionnez une gamme de prix" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Tous les prix</SelectItem>
+                      <SelectItem value="all">Tous les prix</SelectItem>
                       <SelectItem value="€">€ (Économique)</SelectItem>
                       <SelectItem value="€€">€€ (Modéré)</SelectItem>
                       <SelectItem value="€€€">€€€ (Cher)</SelectItem>

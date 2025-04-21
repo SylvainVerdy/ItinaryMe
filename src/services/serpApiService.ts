@@ -119,7 +119,7 @@ export class SerpApiService {
   }
 
   /**
-   * Recherche de restaurants via Google Maps API de SerpAPI
+   * Recherche de restaurants via Google Local API de SerpAPI
    */
   static async searchRestaurants(
     location: string,
@@ -129,15 +129,15 @@ export class SerpApiService {
     try {
       // Construire un objet de paramètres pour l'API
       const params: Record<string, any> = {
-        engine: 'google_maps',
-        q: cuisine ? `${cuisine} restaurants in ${location}` : `restaurants in ${location}`,
-        type: 'restaurants',
+        engine: 'google_local',
+        q: cuisine && cuisine !== 'all' ? `${cuisine} restaurants ${location}` : `restaurants ${location}`,
         hl: 'fr',
         gl: 'fr'
       };
 
-      // Ajout du filtre de prix si présent
-      if (priceRange) {
+      // Ajout du filtre de prix si présent et n'est pas "all"
+      if (priceRange && priceRange !== 'all') {
+        // Convertir le nombre de symboles € en chiffre pour l'API
         params.price = priceRange.length.toString();
       }
 
@@ -420,15 +420,15 @@ export class SerpApiService {
     location: string,
     cuisine?: string
   ): RestaurantSearchResult {
-    const restaurants = data.local_results?.places || [];
+    const restaurants = data.local_results || [];
     
     return {
       location,
       cuisine,
       options: restaurants.map((restaurant: any) => ({
-        name: restaurant.name || "Restaurant inconnu",
-        priceRange: restaurant.price_level || "Prix non disponible",
-        rating: restaurant.rating ? `${restaurant.rating}/5` : undefined,
+        name: restaurant.title || restaurant.name || "Restaurant inconnu",
+        priceRange: restaurant.price || restaurant.price_level || "Prix non disponible",
+        rating: restaurant.rating ? `${restaurant.rating}` : undefined,
         cuisine: restaurant.type || cuisine,
         address: restaurant.address,
         openingHours: restaurant.hours,
@@ -439,9 +439,9 @@ export class SerpApiService {
           "#")
       })),
       bestOption: restaurants.length > 0 ? {
-        name: restaurants[0].name || "Restaurant inconnu",
-        rating: restaurants[0].rating ? `${restaurants[0].rating}/5` : undefined,
-        priceRange: restaurants[0].price_level
+        name: restaurants[0].title || restaurants[0].name || "Restaurant inconnu",
+        rating: restaurants[0].rating ? `${restaurants[0].rating}` : undefined,
+        priceRange: restaurants[0].price || restaurants[0].price_level
       } : undefined
     };
   }
