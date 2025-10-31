@@ -1,14 +1,5 @@
-# Agent d'Automatisation Web avec IA Locale
-
-Cette application permet de créer un agent d'automatisation web qui utilise un modèle LLM local via Ollama (comme DeepSeek) pour analyser et interagir avec des pages web.
-
-## Fonctionnalités
-
-- 🌐 Navigation web automatisée via Puppeteer
-- 🧠 Analyse de contenu avec modèles LLM locaux via Ollama
-- 📷 Capture d'écran et extraction de contenu
-- 🤖 Exécution de tâches complexes guidées par l'IA
-- 🔄 Interface utilisateur réactive et intuitive
+# Redéfinir l’expérience du voyage grâce à l’intelligence artificielle.
+Une application web intuitive, propulsée par un agent IA, qui planifie, réserve et organise vos voyages de bout en bout.
 
 ## Prérequis
 
@@ -48,21 +39,6 @@ Cette application permet de créer un agent d'automatisation web qui utilise un 
    ```bash
    npm run dev
    ```
-2. Accédez à l'interface d'automatisation : [http://localhost:9000/automation](http://localhost:9000/automation)
-
-## API d'Automatisation Web
-
-L'application expose une API REST à `/api/browser-agent` avec les actions suivantes :
-
-- `init` : Initialise le navigateur
-- `navigate` : Navigue vers une URL
-- `extract` : Extrait le contenu textuel de la page
-- `analyze` : Analyse la page avec le LLM
-- `screenshot` : Prend une capture d'écran
-- `executeTask` : Exécute une tâche complexe
-- `click` : Clique sur un élément
-- `fill` : Remplit un champ de formulaire
-- `close` : Ferme le navigateur
 
 ## Structure du Projet
 
