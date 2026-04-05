@@ -63,9 +63,13 @@ const TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          booking_token: { type: 'string', description: 'The booking_token from the flight search result' },
+          booking_token:  { type: 'string', description: 'The booking_token from the flight search result' },
+          departure_id:   { type: 'string', description: 'Origin airport IATA code (e.g. CDG)' },
+          arrival_id:     { type: 'string', description: 'Destination airport IATA code (e.g. NCE)' },
+          outbound_date:  { type: 'string', description: 'Departure date YYYY-MM-DD' },
+          return_date:    { type: 'string', description: 'Return date YYYY-MM-DD (optional)' },
         },
-        required: ['booking_token'],
+        required: ['booking_token', 'departure_id', 'arrival_id', 'outbound_date'],
       },
     },
   },
@@ -129,7 +133,13 @@ async function executeTool(name: string, args: Record<string, unknown>, ctx: Tri
     }
 
     case 'get_booking_options': {
-      const { text, sources } = await getFlightBookingOptions(String(args.booking_token ?? ''));
+      const { text, sources } = await getFlightBookingOptions(
+        String(args.booking_token ?? ''),
+        String(args.departure_id ?? ''),
+        String(args.arrival_id ?? ''),
+        String(args.outbound_date ?? ''),
+        args.return_date ? String(args.return_date) : '',
+      );
       result = { text, card: undefined, sources };
       break;
     }
@@ -153,7 +163,7 @@ async function executeTool(name: string, args: Record<string, unknown>, ctx: Tri
       const { text, sources } = await searchFlightsSerpApi(
         o.iata, d.iata,
         String(args.departure_date ?? ctx.startDate),
-        args.return_date ? String(args.return_date) : ctx.endDate,
+        args.return_date ? String(args.return_date) : undefined,
         Number(args.adults ?? ctx.travelers),
       );
       result = { text, card: undefined, sources };
@@ -231,32 +241,38 @@ interface ForcedCall {
 }
 
 function detectForcedToolCall(userText: string, ctx: TripContext): ForcedCall {
-  const dest = ctx.destination;
+  const dest     = ctx.destination;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+  // Resolve relative date hints in user text
+  const mentionsDemain   = /demain/i.test(userText);
+  const mentionsAujourdhui = /aujourd.?hui|ce soir|ce matin/i.test(userText);
+  const resolvedDate = mentionsDemain ? tomorrowStr : mentionsAujourdhui ? todayStr : (ctx.startDate || tomorrowStr);
 
   const isRestaurant = /restaurant|sushi|ramen|pizza|manger|dîner|déjeuner|café|bar|cuisine|food|eat|drink|boire|nourriture|plat|gastronomie/i.test(userText);
   const isFlight     = /vol|flight|avion|billet|partir|décoll|aller à|voyager vers|trajet/i.test(userText);
   const isHotel      = /hôtel|hotel|hébergement|dormir|nuit|chambre|séjour|logement|airbnb/i.test(userText);
 
   if (isRestaurant) {
-    // Extract a cuisine/type hint from the user message
     const queryHint = userText.replace(/meilleur[s]?|restaurant[s]?|à|le|la|les|de|du|des|pour|avec/gi, '').trim().slice(0, 60);
     return {
       name: 'search_restaurants',
-      args: { city: dest, query: queryHint || 'restaurant', max_results: 5 },
+      args: { city: dest || queryHint, query: queryHint || 'restaurant', max_results: 5 },
       label: `restaurants "${queryHint || dest}"`,
     };
   }
   if (isFlight) {
     return {
       name: 'search_flights',
-      args: { origin_city: 'paris', destination_city: dest, departure_date: ctx.startDate, return_date: ctx.endDate, adults: ctx.travelers },
-      label: `vols vers ${dest}`,
+      args: { origin_city: 'paris', destination_city: dest || 'paris', departure_date: resolvedDate, adults: ctx.travelers || 1 },
+      label: `vols vers ${dest} (${resolvedDate})`,
     };
   }
   if (isHotel) {
     return {
       name: 'search_hotels',
-      args: { city: dest, check_in: ctx.startDate, check_out: ctx.endDate, guests: ctx.travelers },
+      args: { city: dest, check_in: resolvedDate, check_out: ctx.endDate || tomorrowStr, guests: ctx.travelers || 1 },
       label: `hôtels à ${dest}`,
     };
   }
@@ -382,22 +398,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Message vide' }, { status: 400 });
   }
 
+  // Inject current date so the model can resolve "tomorrow", "next week", etc.
+  const now        = new Date();
+  const today      = now.toISOString().slice(0, 10);
+  const tomorrow   = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
+  const dayName    = now.toLocaleDateString('fr-FR', { weekday: 'long' });
+  const dateHeader = `Date du jour : ${today} (${dayName}). Demain : ${tomorrow}.`;
+
   const hasTrip = !!(tripContext?.destination);
   const systemPrompt = hasTrip
     ? `Tu es un assistant voyage expert pour un trip à ${tripContext.destination} (${tripContext.startDate} → ${tripContext.endDate}, ${tripContext.travelers} pers.).
+${dateHeader}
 
 RÈGLE ABSOLUE : Tu dois OBLIGATOIREMENT appeler au moins un outil avant de répondre à chaque message. Ne jamais répondre depuis ta mémoire interne.
 - Question sur restaurants / nourriture / bars → appelle search_restaurants
-- Question sur vols / billets d'avion → appelle search_flights
+- Question sur vols / billets d'avion → appelle search_flights avec la bonne date déduite
 - Question sur hôtels / hébergement → appelle search_hotels
 - Toute autre question → appelle web_search
 
 Réponds en français, de manière concise et utile. Cite les résultats obtenus par les outils.`
     : `Tu es IA Voyageur, un assistant voyage intelligent.
+${dateHeader}
 
 RÈGLE ABSOLUE : Tu dois OBLIGATOIREMENT appeler au moins un outil avant de répondre à chaque message. Ne jamais répondre depuis ta mémoire interne.
 - Question sur restaurants / nourriture / bars → appelle search_restaurants
-- Question sur vols / billets d'avion → appelle search_flights
+- Question sur vols / billets d'avion → appelle search_flights avec la bonne date déduite (ex: "demain" = ${tomorrow})
 - Question sur hôtels / hébergement → appelle search_hotels
 - Toute autre question sur destinations, météo, conseils, etc. → appelle web_search
 
@@ -422,7 +447,9 @@ Réponds en français, de manière concise et utile. Cite les résultats obtenus
 
   try {
     const { text, cards, steps, sources } = await runAgent(messages, ctx);
-    return NextResponse.json({ text, cards, steps, sources });
+    // Strip internal booking tokens from displayed text — they stay in agent memory but not shown to user
+    const cleanText = text.replace(/\n?\s*\[booking_token:[^\]]+\]/g, '').trim();
+    return NextResponse.json({ text: cleanText, cards, steps, sources });
   } catch (err) {
     console.error('[CHAT API] Unhandled error:', err);
     return NextResponse.json(

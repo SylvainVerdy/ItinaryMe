@@ -78,8 +78,10 @@ function MessageBubble({ msg, tripId }: { msg: TripChatMessage; tripId: string }
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Sources</p>
             <div className="flex flex-wrap gap-1.5">
               {msg.sources.map((src, i) => {
-                let hostname = src.url;
-                try { hostname = new URL(src.url).hostname.replace('www.', ''); } catch { /* keep raw */ }
+                const isBooking = src.title.startsWith('Réserver ·');
+                let label = src.url;
+                try { label = new URL(src.url).hostname.replace('www.', ''); } catch { /* keep raw */ }
+                if (isBooking) label = src.title.replace('Réserver · ', '');
                 return (
                   <a
                     key={i}
@@ -87,10 +89,14 @@ function MessageBubble({ msg, tripId }: { msg: TripChatMessage; tripId: string }
                     target="_blank"
                     rel="noopener noreferrer"
                     title={src.title}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-colors max-w-[200px] truncate"
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border transition-colors max-w-[240px] truncate ${
+                      isBooking
+                        ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 font-medium'
+                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300'
+                    }`}
                   >
                     <ExternalLink size={9} className="flex-shrink-0" />
-                    <span className="truncate">{hostname}</span>
+                    <span className="truncate">{label}</span>
                   </a>
                 );
               })}

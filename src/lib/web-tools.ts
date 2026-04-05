@@ -158,20 +158,28 @@ export async function searchFlightsSerpApi(
   if (!process.env.SERPAPI_KEY) return { text: 'SERPAPI_KEY manquante.', sources: [] };
 
   try {
-    console.log(`[FLIGHTS] SerpAPI Google Flights → ${originIata}→${destinationIata} ${departureDate}`);
+    // type=1 round-trip (needs return_date), type=2 one-way
+    const isRoundTrip = !!(returnDate && returnDate !== departureDate);
+    console.log(`[FLIGHTS] SerpAPI → ${originIata}→${destinationIata} ${departureDate}${isRoundTrip ? ` retour ${returnDate}` : ' aller simple'}`);
+
     const params: Record<string, string> = {
       engine: 'google_flights',
       departure_id: originIata,
       arrival_id: destinationIata,
       outbound_date: departureDate,
+      type: isRoundTrip ? '1' : '2',
       currency: 'EUR',
       hl: 'fr',
       adults: String(adults),
     };
-    if (returnDate) params.return_date = returnDate;
+    if (isRoundTrip && returnDate) params.return_date = returnDate;
 
     const res = await fetchWithTimeout(serpapiUrl(params));
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.error(`[FLIGHTS] SerpAPI ${res.status}: ${errBody.slice(0, 300)}`);
+      throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 100)}`);
+    }
     const data = await res.json();
 
     const allFlights = [
@@ -196,6 +204,8 @@ export async function searchFlightsSerpApi(
     const lines: string[] = [];
     const sources: WebSource[] = [];
 
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:9000';
+
     allFlights.slice(0, 5).forEach((f, i) => {
       const first = f.flights[0];
       const last  = f.flights[f.flights.length - 1];
@@ -205,6 +215,7 @@ export async function searchFlightsSerpApi(
         ? `${Math.floor(f.total_duration / 60)}h${String(f.total_duration % 60).padStart(2, '0')}`
         : '';
 
+      // Internal token kept in text for agent context (stripped before display)
       const tokenNote = f.booking_token
         ? `\n   [booking_token: ${f.booking_token}]`
         : '';
@@ -216,10 +227,18 @@ export async function searchFlightsSerpApi(
         `\n   💶 ${price}` +
         tokenNote
       );
+
+      // Booking redirect link via our proxy
+      if (f.booking_token) {
+        sources.push({
+          title: `Réserver · Vol ${i + 1} · ${first.airline} · ${price}`,
+          url: `${baseUrl}/api/flight-redirect?token=${encodeURIComponent(f.booking_token)}&from=${originIata}&to=${destinationIata}&date=${departureDate}${returnDate ? `&return=${returnDate}` : ''}`,
+        });
+      }
     });
 
     sources.push({
-      title: `Google Flights · ${originIata} → ${destinationIata}`,
+      title: `Tous les vols · ${originIata} → ${destinationIata}`,
       url: `https://www.google.com/travel/flights?q=vols+${originIata}+${destinationIata}`,
     });
 
@@ -235,15 +254,23 @@ export async function searchFlightsSerpApi(
  * Get booking options for a specific flight using its booking_token.
  * Returns direct booking URLs per vendor (airline, OTA, etc.)
  */
-export async function getFlightBookingOptions(bookingToken: string): Promise<WebResult> {
+export async function getFlightBookingOptions(bookingToken: string, departureId = '', arrivalId = '', outboundDate = '', returnDate = ''): Promise<WebResult> {
   if (!process.env.SERPAPI_KEY) return { text: 'SERPAPI_KEY manquante.', sources: [] };
 
   try {
-    console.log(`[BOOKING] SerpAPI booking options → token=${bookingToken.slice(0, 20)}...`);
-    const res = await fetchWithTimeout(
-      serpapiUrl({ engine: 'google_flights', booking_token: bookingToken, hl: 'fr', currency: 'EUR' })
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    console.log(`[BOOKING] SerpAPI booking options → ${departureId}→${arrivalId} ${outboundDate}, token=${bookingToken.slice(0, 20)}...`);
+    const bookingUrl = `${SERPAPI_BASE}?engine=google_flights&hl=fr&currency=EUR`
+      + `&departure_id=${departureId}&arrival_id=${arrivalId}`
+      + `&outbound_date=${outboundDate}`
+      + (returnDate ? `&return_date=${returnDate}&type=1` : `&type=2`)
+      + `&api_key=${process.env.SERPAPI_KEY}`
+      + `&booking_token=${encodeURIComponent(bookingToken)}`;
+    const res = await fetchWithTimeout(bookingUrl);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.error(`[BOOKING] SerpAPI ${res.status}: ${errBody.slice(0, 300)}`);
+      throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 100)}`);
+    }
     const data = await res.json();
 
     const options = (data.booking_options ?? []) as Array<{
