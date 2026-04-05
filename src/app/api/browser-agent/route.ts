@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Erreur de l'agent de navigation:', error);
+    console.error("Erreur de l'agent de navigation:", error);
     
     // Tenter de fermer le navigateur en cas d'erreur pour éviter les ressources zombies
     if (browserAgent) {

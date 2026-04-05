@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/hooks/useAuth'
 import { LanguageProvider } from '@/hooks/useLanguage';
 import { Toaster } from '@/components/ui/toaster';
+import { CartProvider } from '@/context/CartContext';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -25,10 +26,12 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans`}>
         <AuthProvider>
           <LanguageProvider>
-              {/* Note : Nous ne mettons pas le Navbar ici car certaines pages 
+            <CartProvider>
+              {/* Note : Nous ne mettons pas le Navbar ici car certaines pages
                   incluront le composant Navbar manuellement. */}
               {children}
               <Toaster />
+            </CartProvider>
           </LanguageProvider>
         </AuthProvider>
       </body>

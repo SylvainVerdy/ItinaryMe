@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { LogoutButton } from './LogoutButton';
 import { createPortal } from 'react-dom';
+import { CartDrawer } from './cart/CartDrawer';
 
 export function Navbar({ transparent = false }) {
   const { user } = useAuth();
@@ -172,6 +173,11 @@ export function Navbar({ transparent = false }) {
         
         {/* Contrôles à droite */}
         <div className="flex items-center space-x-2 md:space-x-5">
+          {/* Panier */}
+          <div className={`${textColorClass}`}>
+            <CartDrawer />
+          </div>
+
           {/* Sélecteur de langue */}
           <button 
             ref={languageButtonRef}

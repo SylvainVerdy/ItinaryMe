@@ -2,19 +2,13 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ChatHistory, ChatMessage } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Send, ArrowLeft, Loader, Sparkles, User } from 'lucide-react';
 import Link from 'next/link';
-
-interface ChatPageProps {
-  params: {
-    id: string;
-  };
-}
 
 // Fonctions d'extraction pour la génération de titres
 const extractDestination = (text: string): string | null => {
@@ -107,10 +101,11 @@ const extractPeople = (text: string): string | null => {
   return null;
 };
 
-export default function ChatPage({ params }: ChatPageProps) {
+export default function ChatPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [chatId] = useState<string>(params.id);
+  const params = useParams();
+  const [chatId] = useState<string>(params.id as string);
   const [chatHistory, setChatHistory] = useState<ChatHistory | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
@@ -208,57 +203,54 @@ export default function ChatPage({ params }: ChatPageProps) {
     }
   }, [messages]);
   
-  // Fonction pour envoyer un message au serveur Ollama
+  // Fonction pour envoyer un message
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isSendingMessage || !user || !chatHistory) return;
-    
-    // Ajouter message de l'utilisateur au chat
+
+    const currentInput = inputValue;
+
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
-      content: inputValue,
+      content: currentInput,
       timestamp: new Date().toISOString()
     };
-    
-    setMessages(prevMessages => [...prevMessages, userMessage]);
+
+    // Snapshot des messages AVANT d'ajouter le message utilisateur (pour history)
+    const historySnapshot = messages
+      .filter(msg => msg.role !== 'system')
+      .slice(-6)
+      .map(msg => ({ role: msg.role, text: msg.content }));
+
+    // Ajouter le message utilisateur à l'affichage
+    const messagesWithUser = [...messages, userMessage];
+    setMessages(messagesWithUser);
     setInputValue('');
     setIsSendingMessage(true);
-    
+
     try {
-      // Appel API à Ollama
-      const response = await fetch('http://localhost:11434/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'qwen2.5',
-          messages: [
-            { role: 'system', content: 'Tu es un assistant de voyage appelé IA Voyageur. Tu aides les utilisateurs à planifier leur voyage, à découvrir des destinations et à créer des itinéraires. Sois précis, utile et amical.' },
-            ...messages
-              .filter(msg => msg.role !== 'system' || msg.role === 'system' && msg === messages[0])
-              .map(msg => ({ role: msg.role, content: msg.content })),
-            { role: 'user', content: inputValue }
-          ],
-          stream: false
+          userMessage: currentInput,
+          tripContext: null,
+          history: historySnapshot,
         }),
       });
-      
-      if (!response.ok) {
-        throw new Error('Erreur de connexion à Ollama');
-      }
-      
+
+      if (!response.ok) throw new Error('Erreur de connexion');
+
       const data = await response.json();
-      
-      // Ajouter la réponse de l'assistant au chat
+
       const assistantMessage: ChatMessage = {
         id: uuidv4(),
         role: 'assistant',
-        content: data.message.content,
+        content: data.text || "Désolé, je n'ai pas pu répondre.",
         timestamp: new Date().toISOString()
       };
-      
-      const updatedMessages = [...messages, userMessage, assistantMessage];
+
+      const updatedMessages = [...messagesWithUser, assistantMessage];
       setMessages(updatedMessages);
       
       // Générer un titre automatique si c'est une nouvelle conversation ou après le premier message
@@ -274,41 +266,30 @@ export default function ChatPage({ params }: ChatPageProps) {
           userMessagesCount: updatedMessages.filter(m => m.role === 'user').length
         });
         
-        // Générer un titre avec Ollama (première tentative)
+        // Générer un titre avec Ollama
         try {
           console.log("GÉNÉRATION DE TITRE: Appel à Ollama pour le titre");
-          
-          const ollamaResponse = await fetch('http://localhost:11434/api/chat', {
+
+          const ollamaResponse = await fetch(`${process.env.NEXT_PUBLIC_OLLAMA_BASE_URL ?? 'http://localhost:11434'}/api/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: 'qwen2.5',
+              model: process.env.NEXT_PUBLIC_OLLAMA_MODEL ?? 'qwen3.5:9b',
               messages: [
-                { 
-                  role: 'system', 
-                  content: `Génère un titre court mais descriptif (4-7 mots) pour une conversation basée sur ce message.
-                  Le titre doit être accrocheur et résumer au mieux la conversation.
-                  Inclus les éléments clés comme:
-                  - La destination principale du voyage si mentionnée
-                  - La période ou les dates si mentionnées
-                  - Le type de voyage (affaires, vacances, etc.) si mentionné
-                  - Le budget si mentionné
-                  - Tout autre élément distinctif important
-                  
-                  Réponds uniquement avec le titre, sans ponctuation finale ni explications supplémentaires.` 
+                {
+                  role: 'system',
+                  content: 'Génère un titre court (4-7 mots) pour cette conversation de voyage. Réponds uniquement avec le titre, sans ponctuation finale ni explications.'
                 },
                 { role: 'user', content: firstUserMessage }
               ],
               stream: false,
-              options: {
-                temperature: 0.3 // Température basse pour des résultats plus cohérents
-              }
+              options: { temperature: 0.3 }
             }),
           });
-          
+
           if (ollamaResponse.ok) {
             const titleData = await ollamaResponse.json();
-            let title = titleData.message.content.trim();
+            let title = titleData.message?.content?.trim() ?? '';
             
             console.log("GÉNÉRATION DE TITRE: Titre brut généré par Ollama:", title);
             

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { interpretTravelRequest, detectBasicTravelInfo } from '@/ai/flows/interpret-travel-request';
+import { interpretTravelRequest } from '@/ai/flows/interpret-travel-request';
 import { analyzeBrowserContent } from '@/ai/flows/analyze-browser-content';
 import { doc, getDoc, updateDoc, getFirestore, serverTimestamp, addDoc, collection, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -18,8 +18,8 @@ import * as noteService from '@/services/noteService';
 
 // Configuration pour Ollama (réactivé)
 const OLLAMA_API_URL = 'http://localhost:11434/api';
-const USE_OLLAMA = true; // Réactiver Ollama
-const OLLAMA_MODEL = 'Qwen2.5-7B'; // Utiliser le modèle Qwen2.5 7B
+const USE_OLLAMA = true;
+const OLLAMA_MODEL = 'qwen3.5:9b';
 
 // Interface pour la demande de voyage
 interface TravelRequest {

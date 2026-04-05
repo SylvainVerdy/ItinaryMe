@@ -182,7 +182,7 @@ export function Dashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'qwen2.5',
+          model: 'qwen3.5:9b',
           messages: [
             { role: 'system', content: 'Tu es un assistant de voyage appelé IA Voyageur. Tu aides les utilisateurs à planifier leur voyage, à découvrir des destinations et à créer des itinéraires. Sois précis, utile et amical.' },
             ...chatMessages
@@ -234,7 +234,7 @@ export function Dashboard() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                model: 'qwen2.5',
+                model: 'qwen3.5:9b',
                 messages: [
                   { 
                     role: 'system', 

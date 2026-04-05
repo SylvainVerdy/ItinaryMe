@@ -7,9 +7,8 @@
  * - InterpretTravelRequestOutput - The return type for the interpretTravelRequest function.
  */
 
-import {ai} from '@/ai/ai-instance';
-import {z} from 'genkit';
-import { OpenAIModel } from '@/ai/openai-model';
+import { ai } from '@/ai/ai-instance';
+import { z } from 'genkit';
 
 const InterpretTravelRequestInputSchema = z.object({
   request: z.string().describe('The user travel request.'),
@@ -23,13 +22,11 @@ const InterpretTravelRequestOutputSchema = z.object({
 });
 export type InterpretTravelRequestOutput = z.infer<typeof InterpretTravelRequestOutputSchema>;
 
-// Interface pour les paramètres de la fonction
 interface InterpretTravelRequestParams {
   request: string;
 }
 
-// Interface pour le résultat de l'interprétation
-interface InterpretTravelRequestResult {
+export interface InterpretTravelRequestResult {
   destination?: string;
   startDate?: string;
   endDate?: string;
@@ -37,112 +34,117 @@ interface InterpretTravelRequestResult {
   budget?: string;
   activities?: string[];
   preferences?: string;
+  recommendations?: string;
+  notes?: string;
   isValidTravelRequest: boolean;
 }
 
-// Fonction principale
-export async function interpretTravelRequest({ request }: InterpretTravelRequestParams): Promise<InterpretTravelRequestResult> {
+const InterpretTravelResultSchema = z.object({
+  isValidTravelRequest: z.boolean(),
+  destination: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  numPeople: z.number().optional(),
+  budget: z.string().optional(),
+  activities: z.array(z.string()).optional(),
+  preferences: z.string().optional(),
+  recommendations: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const interpretTravelPrompt = ai.definePrompt({
+  name: 'interpretTravelRequestPrompt',
+  input: {
+    schema: z.object({
+      request: z.string().describe('The user travel request.'),
+    }),
+  },
+  output: { schema: InterpretTravelResultSchema },
+  prompt: `Tu es un assistant spécialisé dans l'interprétation des demandes de voyage.
+Analyse la demande et extrais les informations pertinentes.
+
+- Indique si c'est une demande de voyage (isValidTravelRequest).
+- Destination, dates (JJ/MM/AAAA ou YYYY-MM-DD si plus clair), nombre de personnes, budget, activités, préférences.
+- Si pertinent, ajoute recommendations (conseils courts) et notes (compléments).
+
+Demande utilisateur:
+{{{request}}}
+
+Réponds uniquement avec les champs du schéma JSON attendu.`,
+});
+
+const interpretTravelFlow = ai.defineFlow(
+  {
+    name: 'interpretTravelRequestFlow',
+    inputSchema: InterpretTravelRequestInputSchema,
+    outputSchema: InterpretTravelResultSchema,
+  },
+  async (input) => {
+    const { output } = await interpretTravelPrompt(input);
+    return output!;
+  }
+);
+
+export async function interpretTravelRequest({
+  request,
+}: InterpretTravelRequestParams): Promise<InterpretTravelRequestResult> {
   try {
-    // Créer une instance du modèle OpenAI
-    const model = new OpenAIModel();
-    
-    // Appeler le modèle pour interpréter la demande de voyage
-    const systemPrompt = `
-      Tu es un assistant spécialisé dans l'interprétation des demandes de voyage.
-      Ta tâche est d'analyser la demande de l'utilisateur et d'en extraire les informations pertinentes.
-      
-      - Identifie s'il s'agit d'une demande de voyage ou non.
-      - Extrait la destination (ville, pays ou région) si elle est mentionnée.
-      - Extrait les dates de début et de fin du voyage si elles sont mentionnées. Formate-les en JJ/MM/AAAA.
-      - Extrait le nombre de personnes participant au voyage si mentionné.
-      - Extrait le budget si mentionné.
-      - Extrait les activités souhaitées si mentionnées.
-      - Extrait les préférences (type d'hébergement, style de voyage, etc.) si mentionnées.
-      
-      Réponds uniquement en format JSON avec les clés suivantes:
-      {
-        "isValidTravelRequest": true/false,
-        "destination": "nom de la destination", // ou null si absent
-        "startDate": "date de début formatée", // ou null si absente
-        "endDate": "date de fin formatée", // ou null si absente
-        "numPeople": nombre, // ou null si absent
-        "budget": "budget mentionné", // ou null si absent
-        "activities": ["activité 1", "activité 2", ...], // ou [] si aucune
-        "preferences": "préférences mentionnées" // ou null si absentes
-      }
-    `;
-    
-    const result = await model.chat([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: request }
-    ]);
-    
-    // Parser la réponse JSON
-    try {
-      const parsedResponse = JSON.parse(result.content || '{}');
-      
-      return {
-        destination: parsedResponse.destination || undefined,
-        startDate: parsedResponse.startDate || undefined,
-        endDate: parsedResponse.endDate || undefined,
-        numPeople: parsedResponse.numPeople || undefined,
-        budget: parsedResponse.budget || undefined,
-        activities: parsedResponse.activities || [],
-        preferences: parsedResponse.preferences || undefined,
-        isValidTravelRequest: parsedResponse.isValidTravelRequest || false
-      };
-    } catch (e) {
-      console.error('Erreur lors du parsing de la réponse JSON:', e);
-      return {
-        isValidTravelRequest: false
-      };
-    }
-  } catch (error) {
-    console.error('Erreur lors de l\'interprétation de la demande de voyage:', error);
+    const parsed = await interpretTravelFlow({ request });
     return {
-      isValidTravelRequest: false
+      destination: parsed.destination,
+      startDate: parsed.startDate,
+      endDate: parsed.endDate,
+      numPeople: parsed.numPeople,
+      budget: parsed.budget,
+      activities: parsed.activities ?? [],
+      preferences: parsed.preferences,
+      recommendations: parsed.recommendations,
+      notes: parsed.notes,
+      isValidTravelRequest: parsed.isValidTravelRequest,
     };
+  } catch (error) {
+    console.error("Erreur lors de l'interprétation de la demande de voyage:", error);
+    return { isValidTravelRequest: false };
   }
 }
 
-// Fonction utilitaire de détection basique (fallback si l'IA ne répond pas)
-export function detectBasicTravelInfo(text: string): InterpretTravelRequestResult {
+export async function detectBasicTravelInfo(text: string): Promise<InterpretTravelRequestResult> {
   const result: InterpretTravelRequestResult = {
-    isValidTravelRequest: false
+    isValidTravelRequest: false,
   };
-  
-  // Détecter une destination
-  const destinationRegex = /(?:à|à destination de|vers|pour|visiter)\s+([A-Z][a-zÀ-ÿ]+(?:[\s'-][A-Z][a-zÀ-ÿ]+)*)/i;
+
+  const destinationRegex =
+    /(?:à|à destination de|vers|pour|visiter)\s+([A-Z][a-zÀ-ÿ]+(?:[\s'-][A-Z][a-zÀ-ÿ]+)*)/i;
   const destinationMatch = text.match(destinationRegex);
   if (destinationMatch) {
     result.destination = destinationMatch[1].trim();
     result.isValidTravelRequest = true;
   }
-  
-  // Détecter les dates
-  const datePattern = /(?:du|le|pour le)\s+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{2,4})\s+(?:au|jusqu'au|jusqu'à)\s+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{2,4})/i;
+
+  const datePattern =
+    /(?:du|le|pour le)\s+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{2,4})\s+(?:au|jusqu'au|jusqu'à)\s+(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{2,4})/i;
   const dateMatch = text.match(datePattern);
   if (dateMatch) {
     result.startDate = dateMatch[1].trim();
     result.endDate = dateMatch[2].trim();
     result.isValidTravelRequest = true;
   }
-  
-  // Détecter le nombre de voyageurs
-  const peoplePattern = /(?:pour|avec)\s+(\d+)\s+(?:personne|personnes|voyageur|voyageurs|adulte|adultes)/i;
+
+  const peoplePattern =
+    /(?:pour|avec)\s+(\d+)\s+(?:personne|personnes|voyageur|voyageurs|adulte|adultes)/i;
   const peopleMatch = text.match(peoplePattern);
   if (peopleMatch) {
     result.numPeople = parseInt(peopleMatch[1], 10);
     result.isValidTravelRequest = true;
   }
-  
-  // Détecter le budget
-  const budgetPattern = /(?:budget|coût|prix|montant)\s+(?:de|:)?\s*(\d+\s*(?:€|euros|EUR|dollars|\$|USD))/i;
+
+  const budgetPattern =
+    /(?:budget|coût|prix|montant)\s+(?:de|:)?\s*(\d+\s*(?:€|euros|EUR|dollars|\$|USD))/i;
   const budgetMatch = text.match(budgetPattern);
   if (budgetMatch) {
     result.budget = budgetMatch[1].trim();
     result.isValidTravelRequest = true;
   }
-  
+
   return result;
 }

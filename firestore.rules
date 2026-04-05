@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Travels + sous-collections (activities, etc.)
+    match /travels/{travelId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+
+      match /activities/{activityId} {
+        allow read, write, create, delete: if request.auth != null;
+      }
+    }
+
+    // Notes
+    match /notes/{noteId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+    }
+
+    // Images
+    match /images/{imageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Chat histories (ancienne collection)
+    match /chat-histories/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Conversations (dashboard chat)
+    match /conversations/{conversationId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Documents de voyage
+    match /travelDocuments/{docId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Préférences utilisateur
+    match /preferences/{prefId} {
+      allow read, write: if request.auth != null && request.auth.uid == prefId;
+    }
+
+    // Booking jobs (Stripe/Duffel)
+    match /booking_jobs/{jobId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { TravelDocument } from '@/lib/types';
 import Link from 'next/link';
 import { 
@@ -42,20 +42,17 @@ export const TravelDocumentList: React.FC<TravelDocumentListProps> = ({ tripId }
         setLoading(true);
         const allDocuments: ExtendedTravelDocument[] = [];
         
-        // 1. Récupérer les documents de voyage
+        // 1. Récupérer les documents de voyage (tri JS pour éviter l'index composite)
         let docsQuery = query(
           collection(db, 'travelDocuments'),
-          where('userId', '==', user.uid),
-          orderBy('updatedAt', 'desc')
+          where('userId', '==', user.uid)
         );
-        
-        // Si un tripId est fourni, filtrer par voyage
+
         if (tripId) {
           docsQuery = query(
             collection(db, 'travelDocuments'),
             where('userId', '==', user.uid),
-            where('tripId', '==', tripId),
-            orderBy('updatedAt', 'desc')
+            where('tripId', '==', tripId)
           );
         }
         

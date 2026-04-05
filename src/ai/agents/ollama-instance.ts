@@ -1,5 +1,4 @@
-import { Ollama } from 'langchain/llms/ollama';
-import { OllamaEmbeddings } from '@langchain/ollama';
+import { Ollama, OllamaEmbeddings } from '@langchain/ollama';
 
 // Configuration de l'instance Ollama avec le modèle DeepSeek
 export const ollamaModel = new Ollama({
