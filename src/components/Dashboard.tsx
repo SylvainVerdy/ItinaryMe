@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, addDoc, getDoc, doc } from 'firebase/firestore';
 import { LogoutButton } from './LogoutButton';
+import { Logo } from './Logo';
 import Link from 'next/link';
 import { useLanguage } from '@/hooks/useLanguage';
-import { 
-  PlusCircle, 
-  MessageSquare, 
-  Settings, 
-  FolderOpen, 
-  Calendar, 
+import {
+  PlusCircle,
+  MessageSquare,
+  FolderOpen,
+  Calendar,
   MapPin,
-  ChevronRight,
   Send,
   Loader,
   X,
@@ -23,14 +22,17 @@ import {
   Menu,
   Clock,
   Users,
-  User,
   Sparkles,
   FileText,
   Bookmark,
-  LogOut
+  ArrowRight,
+  Plane,
+  RefreshCw,
+  CalendarClock,
 } from 'lucide-react';
 import { TravelDocumentList } from './TravelDocumentList';
 import { ChatHistoryList } from './ChatHistoryList';
+import { cn } from '@/lib/utils';
 
 interface TravelPlan {
   id: string;
@@ -59,13 +61,33 @@ interface FirestoreImageData {
   uploadedAt: any;
 }
 
+type View = 'dashboard' | 'travel' | 'chat' | 'documents' | 'chat-history';
+
+/** Dégradés de vignette, choisis de façon stable à partir de l'id du voyage. */
+const CARD_GRADIENTS = [
+  'from-teal-500 to-cyan-500',
+  'from-orange-500 to-amber-500',
+  'from-cyan-500 to-blue-500',
+  'from-rose-500 to-orange-500',
+  'from-emerald-500 to-teal-500',
+  'from-violet-500 to-fuchsia-500',
+];
+
+function gradientFor(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) hash = (hash + id.charCodeAt(i)) % CARD_GRADIENTS.length;
+  return CARD_GRADIENTS[hash];
+}
+
 export function Dashboard() {
   const { user, signOut } = useAuth();
   const { t } = useLanguage();
   const [travelPlans, setTravelPlans] = useState<TravelPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebar, setSidebar] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'travel' | 'chat' | 'documents' | 'chat-history'>('dashboard');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentView, setCurrentView] = useState<View>('dashboard');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'system',
@@ -87,20 +109,20 @@ export function Dashboard() {
   useEffect(() => {
     const fetchTravelPlans = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
         const travelQuery = query(
           collection(db, 'travels'),
           where('userId', '==', user.uid)
         );
-        
+
         const querySnapshot = await getDocs(travelQuery);
         const travels: TravelPlan[] = [];
-        
+
         // Créer un tableau pour stocker les promesses de récupération d'images
         const imagePromises: Promise<void>[] = [];
-        
+
         querySnapshot.forEach((docSnapshot) => {
           const data = docSnapshot.data();
           const travel = {
@@ -114,9 +136,9 @@ export function Dashboard() {
             isFavorite: data.isFavorite || false,
             createdAt: data.createdAt?.toDate() || new Date(),
           };
-          
+
           travels.push(travel);
-          
+
           // Si le voyage a un ID d'image, ajouter une promesse pour récupérer l'image
           if (travel.imageId) {
             const imagePromise = getDoc(doc(db, 'images', travel.imageId))
@@ -131,14 +153,14 @@ export function Dashboard() {
               .catch(error => {
                 console.error(`Erreur lors de la récupération de l'image pour le voyage ${travel.id}:`, error);
               });
-            
+
             imagePromises.push(imagePromise);
           }
         });
-        
+
         // Attendre que toutes les images soient récupérées
         await Promise.all(imagePromises);
-        
+
         // Trier par date de création (plus récent en premier)
         travels.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
         setTravelPlans(travels);
@@ -169,7 +191,7 @@ export function Dashboard() {
       content: inputValue,
       timestamp: new Date()
     };
-    
+
     setChatMessages(prevMessages => [...prevMessages, userMessage]);
     setInputValue('');
     setIsSendingMessage(true);
@@ -199,14 +221,14 @@ export function Dashboard() {
       }
 
       const data = await response.json();
-      
+
       // Ajouter la réponse de l'assistant au chat
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: data.message.content,
         timestamp: new Date()
       };
-      
+
       setChatMessages(prevMessages => [...prevMessages, assistantMessage]);
 
       // Historiser automatiquement la conversation avec un titre généré
@@ -215,18 +237,18 @@ export function Dashboard() {
           // Ne pas sauvegarder si c'est la première intervention de l'utilisateur
           const updatedMessages = [...chatMessages, userMessage, assistantMessage];
           const userMessagesCount = updatedMessages.filter(msg => msg.role === 'user').length;
-          
+
           if (userMessagesCount === 0) {
             console.log("Pas d'historisation: aucun message utilisateur");
             return;
           }
-          
+
           // Extraire le premier message de l'utilisateur pour générer le titre
           const firstUserMessage = updatedMessages.find(msg => msg.role === 'user')?.content || "";
-          
+
           // Générer un titre pour la conversation
           let title = "Conversation du " + new Date().toLocaleDateString('fr-FR');
-          
+
           // Utiliser Ollama pour générer un titre plus descriptif
           try {
             console.log("Génération du titre pour la conversation...");
@@ -236,8 +258,8 @@ export function Dashboard() {
               body: JSON.stringify({
                 model: 'qwen3.5:9b',
                 messages: [
-                  { 
-                    role: 'system', 
+                  {
+                    role: 'system',
                     content: `Génère un titre court mais descriptif (4-7 mots) pour une conversation basée sur ce message.
                     Le titre doit être accrocheur et résumer au mieux le sujet de la conversation.
                     Inclus les éléments clés comme:
@@ -245,19 +267,19 @@ export function Dashboard() {
                     - La période ou les dates si mentionnées
                     - Le type de voyage (affaires, vacances, etc.) si mentionné
                     - Tout autre élément distinctif important
-                    
-                    Réponds uniquement avec le titre, sans ponctuation finale ni explications supplémentaires.` 
+
+                    Réponds uniquement avec le titre, sans ponctuation finale ni explications supplémentaires.`
                   },
                   { role: 'user', content: firstUserMessage }
                 ],
                 stream: false,
               }),
             });
-            
+
             if (titleResponse.ok) {
               const titleData = await titleResponse.json();
               const generatedTitle = titleData.message.content.trim();
-              
+
               // Si le titre généré est valide, l'utiliser
               if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= 60) {
                 title = generatedTitle.replace(/^["']|["']$/g, '').trim();
@@ -267,7 +289,7 @@ export function Dashboard() {
           } catch (titleError) {
             console.error("Erreur lors de la génération du titre, utilisation du titre par défaut:", titleError);
           }
-          
+
           // Sauvegarder la conversation avec le titre généré
           const docRef = await addDoc(collection(db, 'conversations'), {
             userId: user.uid,
@@ -283,9 +305,9 @@ export function Dashboard() {
             tags: [],
             isFavorite: false
           });
-          
+
           console.log("Conversation historisée avec succès - Titre:", title, "ID:", docRef.id);
-          
+
           // Déclencher une mise à jour de l'historique des conversations
           window.dispatchEvent(new Event('chatHistoryRefresh'));
         } catch (error) {
@@ -294,10 +316,10 @@ export function Dashboard() {
       }
     } catch (error) {
       console.error('Erreur lors de la communication avec Ollama:', error);
-      
+
       // Message d'erreur en cas d'échec
       setChatMessages(prevMessages => [
-        ...prevMessages, 
+        ...prevMessages,
         {
           role: 'assistant',
           content: "Je suis désolé, je n'ai pas pu traiter votre demande. Veuillez vérifier que le serveur Ollama est en cours d'exécution et réessayer.",
@@ -320,477 +342,616 @@ export function Dashboard() {
     }
   };
 
+  // Voyage à venir le plus proche + compte à rebours.
+  const nextTrip = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return [...travelPlans]
+      .filter((trip) => {
+        const start = new Date(trip.dateDepart);
+        return !Number.isNaN(start.getTime()) && start >= today;
+      })
+      .sort((a, b) => new Date(a.dateDepart).getTime() - new Date(b.dateDepart).getTime())[0];
+  }, [travelPlans]);
+
+  const daysUntilNextTrip = useMemo(() => {
+    if (!nextTrip) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(nextTrip.dateDepart);
+    return Math.max(0, Math.round((start.getTime() - today.getTime()) / 86_400_000));
+  }, [nextTrip]);
+
+  const filteredTrips = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return travelPlans;
+    return travelPlans.filter((trip) => trip.destination?.toLowerCase().includes(q));
+  }, [travelPlans, searchQuery]);
+
   if (!user) {
-    return <div className="p-8 text-center">Veuillez vous connecter pour accéder à votre tableau de bord.</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center p-8 text-center text-slate-500">
+        Veuillez vous connecter pour accéder à votre tableau de bord.
+      </div>
+    );
   }
 
-  return (
-    <div className="flex h-screen bg-[#f8f5ec] overflow-hidden">
-      {/* Sidebar */}
-      {sidebar && (
-        <div className="w-60 bg-white border-r border-[#e6e0d4] flex flex-col h-full shadow-sm">
-          <div className="p-4 border-b border-[#e6e0d4] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Globe size={18} className="text-white" />
-              </div>
-              <h1 className="font-medium text-lg tracking-tight">ItinaryMe</h1>
-            </div>
-            <button 
-              onClick={() => setSidebar(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X size={18} />
-            </button>
-          </div>
-          
-          <div className="px-2 py-4">
-            <div className="relative mb-4">
-              <input 
-                type="text" 
-                placeholder="Rechercher..." 
-                className="w-full py-1.5 pl-8 pr-3 rounded-md bg-[#f8f5ec] text-sm border border-transparent focus:border-[#e6e0d4] focus:outline-none transition-colors"
-              />
-              <Search size={14} className="absolute left-2.5 top-2 text-gray-400" />
-            </div>
-            
-            <button 
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
-                currentView === 'dashboard' 
-                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
-                  : 'text-gray-600 hover:bg-[#f8f5ec]'
-              }`}
-              onClick={() => setCurrentView('dashboard')}
-            >
-              <FolderOpen size={16} />
-              <span>{t('dashboard')}</span>
-            </button>
-            
-            <button 
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
-                currentView === 'chat' 
-                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
-                  : 'text-gray-600 hover:bg-[#f8f5ec]'
-              }`}
-              onClick={() => setCurrentView('chat')}
-            >
-              <Sparkles size={16} />
-              <span>Assistant IA</span>
-            </button>
+  const displayName = user.email?.split('@')[0] ?? 'voyageur';
+  const initial = user.email?.charAt(0).toUpperCase() || 'U';
 
-            <button 
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
-                currentView === 'documents' 
-                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
-                  : 'text-gray-600 hover:bg-[#f8f5ec]'
-              }`}
-              onClick={() => setCurrentView('documents')}
-            >
-              <FileText size={16} />
-              <span>Documents</span>
-            </button>
+  const navItems: { view: View; label: string; icon: React.ElementType }[] = [
+    // Le reste de ce composant est en français en dur : on reste cohérent
+    // plutôt que de mélanger une seule étiquette traduite.
+    { view: 'dashboard', label: 'Tableau de bord', icon: FolderOpen },
+    { view: 'chat', label: 'Assistant IA', icon: Sparkles },
+    { view: 'documents', label: 'Documents', icon: FileText },
+    { view: 'chat-history', label: 'Conversations', icon: MessageSquare },
+  ];
 
-            <button 
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mb-1 transition-colors ${
-                currentView === 'chat-history' 
-                  ? 'bg-[#f0ece3] text-gray-800 font-medium' 
-                  : 'text-gray-600 hover:bg-[#f8f5ec]'
-              }`}
-              onClick={() => setCurrentView('chat-history')}
-            >
-              <MessageSquare size={16} />
-              <span>Historique des conversations</span>
-            </button>
-          </div>
-          
-          <div className="px-3 mt-2">
-            <div className="flex items-center justify-between px-2 py-1">
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Mes Voyages</h3>
-              <Link href="/travel/new">
-                <PlusCircle size={14} className="text-gray-400 hover:text-gray-600 transition-colors" />
-              </Link>
-            </div>
-            
-            <div className="mt-1 space-y-0.5">
-              {travelPlans.length > 0 ? (
-                travelPlans.map(travel => (
-                  <Link 
-                    key={travel.id}
-                    href={`/travel/${travel.id}`}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors group"
-                  >
-                    <div className="flex-shrink-0 h-4 w-4 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 opacity-80"></div>
-                    <span className="truncate group-hover:text-gray-900">{travel.destination}</span>
-                  </Link>
-                ))
-              ) : (
-                <div className="text-xs text-gray-400 px-2 py-2">Aucun voyage planifié</div>
+  const shortcuts = [
+    { href: '/calendar', label: 'Calendrier', icon: Calendar },
+    { href: '/destinations', label: 'Destinations', icon: Globe },
+    { href: '/favorites', label: 'Favoris', icon: Bookmark },
+  ];
+
+  const viewTitle =
+    currentView === 'dashboard'
+      ? 'Tableau de bord'
+      : currentView === 'chat'
+        ? 'Assistant IA Voyageur'
+        : currentView === 'documents'
+          ? 'Mes documents de voyage'
+          : currentView === 'chat-history'
+            ? 'Historique des conversations'
+            : 'Voyages';
+
+  const sidebarContent = (
+    <>
+      <div className="flex items-center justify-between px-5 py-5">
+        <Link href="/" aria-label="ItinaryMe">
+          <Logo onDark />
+        </Link>
+        <button
+          onClick={() => {
+            setSidebar(false);
+            setMobileNavOpen(false);
+          }}
+          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+          aria-label="Fermer le menu"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="px-3">
+        <Link
+          href="/travel/new"
+          className="mb-5 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-coral to-brand-sun px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+        >
+          <PlusCircle size={16} />
+          Nouveau voyage
+        </Link>
+
+        <div className="relative mb-5">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Rechercher un voyage…"
+            className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-brand-lagoon/60 focus:bg-white/10"
+          />
+        </div>
+
+        <nav className="space-y-1">
+          {navItems.map((item) => (
+            <button
+              key={item.view}
+              onClick={() => {
+                setCurrentView(item.view);
+                setMobileNavOpen(false);
+                if (item.view === 'chat-history') {
+                  window.dispatchEvent(new Event('chatHistoryRefresh'));
+                }
+              }}
+              className={cn(
+                'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors',
+                currentView === item.view
+                  ? 'bg-white/10 font-medium text-white'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white',
               )}
-            </div>
-          </div>
-          
-          <div className="mt-auto p-3">
-            <div className="px-2 py-1 mb-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Raccourcis
-            </div>
-            <div className="space-y-1">
-              <Link 
-                href="/calendar" 
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
+            >
+              <item.icon size={16} />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div className="mt-7 min-h-0 flex-1 overflow-y-auto px-3">
+        <div className="flex items-center justify-between px-3 py-1.5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            Mes voyages
+          </h3>
+          <Link
+            href="/travel/new"
+            className="text-slate-500 transition-colors hover:text-white"
+            aria-label="Ajouter un voyage"
+          >
+            <PlusCircle size={14} />
+          </Link>
+        </div>
+
+        <div className="mt-1 space-y-0.5">
+          {filteredTrips.length > 0 ? (
+            filteredTrips.map((travel) => (
+              <Link
+                key={travel.id}
+                href={`/travel/${travel.id}`}
+                className="group flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
               >
-                <Calendar size={14} className="text-gray-500" />
-                <span>Calendrier</span>
+                <span
+                  className={cn(
+                    'h-2 w-2 flex-shrink-0 rounded-full bg-gradient-to-br',
+                    gradientFor(travel.id),
+                  )}
+                />
+                <span className="truncate">{travel.destination}</span>
               </Link>
-              <Link 
-                href="/destinations" 
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
-              >
-                <Globe size={14} className="text-gray-500" />
-                <span>Destinations</span>
-              </Link>
-              <Link 
-                href="/favorites" 
-                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover:bg-[#f8f5ec] text-gray-700 transition-colors"
-              >
-                <Bookmark size={14} className="text-gray-500" />
-                <span>Favoris</span>
-              </Link>
-            </div>
+            ))
+          ) : (
+            <p className="px-3 py-2 text-xs text-slate-600">
+              {searchQuery ? 'Aucun résultat' : 'Aucun voyage planifié'}
+            </p>
+          )}
+        </div>
+
+        <h3 className="mt-6 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          Raccourcis
+        </h3>
+        <div className="space-y-0.5">
+          {shortcuts.map((shortcut) => (
+            <Link
+              key={shortcut.href}
+              href={shortcut.href}
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <shortcut.icon size={14} />
+              {shortcut.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-white/10 p-3">
+        <div className="flex items-center justify-between gap-2 rounded-xl px-2 py-1.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-teal to-brand-lagoon text-sm font-semibold text-white">
+              {initial}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-white">{displayName}</span>
+              <span className="block truncate text-xs text-slate-500">{user.email}</span>
+            </span>
           </div>
-          
-          <div className="mt-2 p-3 border-t border-[#e6e0d4]">
-            <div className="flex items-center justify-between py-1 px-1">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-200 to-purple-300 flex items-center justify-center text-purple-800 font-medium overflow-hidden">
-                  {user.email?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="text-sm font-medium">{user.email?.split('@')[0]}</div>
-              </div>
-              <LogoutButton 
-                variant="icon" 
-                onClick={async () => {
-                  try {
-                    await signOut();
-                    window.location.href = '/';
-                  } catch (error) {
-                    console.error('Erreur lors de la déconnexion:', error);
-                  }
-                }} 
-              />
-            </div>
-          </div>
+          <LogoutButton
+            variant="icon"
+            className="flex-shrink-0 text-slate-400 hover:bg-white/10 hover:text-white"
+            onClick={async () => {
+              try {
+                await signOut();
+                window.location.href = '/';
+              } catch (error) {
+                console.error('Erreur lors de la déconnexion:', error);
+              }
+            }}
+          />
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-slate-50">
+      {/* Sidebar desktop */}
+      {sidebar && (
+        <aside className="hidden w-72 flex-shrink-0 flex-col bg-brand-ink lg:flex">
+          {sidebarContent}
+        </aside>
+      )}
+
+      {/* Sidebar mobile (overlay) */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Fermer le menu"
+          />
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-brand-ink shadow-float">
+            {sidebarContent}
+          </aside>
         </div>
       )}
-      
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-[#f8f5ec]">
-        {/* Header */}
-        <header className="h-14 border-b border-[#e6e0d4] flex items-center justify-between px-4 bg-white/80 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
+
+      {/* Contenu principal */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 lg:hidden"
+              aria-label="Ouvrir le menu"
+            >
+              <Menu size={18} />
+            </button>
             {!sidebar && (
-              <button 
+              <button
                 onClick={() => setSidebar(true)}
-                className="p-1.5 rounded-md hover:bg-[#f0ece3] transition-colors"
+                className="hidden rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 lg:block"
+                aria-label="Afficher la barre latérale"
               >
                 <Menu size={18} />
               </button>
             )}
-            <h2 className="font-medium text-gray-800">
-              {currentView === 'dashboard' 
-                ? 'Tableau de bord' 
-                : currentView === 'chat' 
-                  ? 'Assistant IA Voyageur' 
-                  : currentView === 'documents'
-                    ? 'Mes documents de voyage'
-                    : currentView === 'chat-history'
-                      ? 'Historique des conversations'
-                      : 'Voyages'}
-            </h2>
+            <h2 className="truncate font-display text-lg font-bold text-slate-900">{viewTitle}</h2>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Bouton pour actualiser le contenu */}
-            <button 
+
+          <div className="flex flex-shrink-0 items-center gap-1">
+            <button
               onClick={() => window.location.reload()}
-              className="p-1.5 rounded-md hover:bg-[#f0ece3] transition-colors text-gray-600" 
+              className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
               title="Actualiser"
+              aria-label="Actualiser"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
-                <path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
-              </svg>
+              <RefreshCw size={17} />
             </button>
-            <button className="p-1.5 rounded-md hover:bg-[#f0ece3] transition-colors text-gray-600">
-              <User size={18} />
-            </button>
-            <button className="p-1.5 rounded-md hover:bg-[#f0ece3] transition-colors text-gray-600">
-              <Settings size={18} />
-            </button>
+            <Link
+              href="/destinations"
+              className="hidden rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white sm:block"
+            >
+              Explorer
+            </Link>
           </div>
         </header>
-        
-        {/* Dashboard View */}
+
+        {/* Vue tableau de bord */}
         {currentView === 'dashboard' && (
-          <div className="flex-1 overflow-auto p-6">
-            <div className="max-w-5xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
-                      <Calendar className="text-blue-600" size={20} />
-                    </div>
-                    <h3 className="font-medium text-lg text-gray-800">Mes voyages</h3>
-                  </div>
-                  <p className="text-gray-600 mb-4 leading-relaxed">
-                    {travelPlans.length > 0 
-                      ? `Vous avez ${travelPlans.length} voyage(s) planifié(s). Votre prochain voyage est ${travelPlans[0]?.destination}.` 
-                      : "Vous n'avez pas encore de voyages planifiés. Commencez à créer votre premier itinéraire."}
-                  </p>
-                  <Link 
-                    href="/travel/new"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-colors text-sm font-medium"
-                  >
-                    <PlusCircle size={16} />
-                    <span>Créer un nouvel itinéraire</span>
-                  </Link>
+          <div className="flex-1 overflow-auto">
+            <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+              {/* Bandeau d'accueil */}
+              <section className="relative isolate overflow-hidden rounded-3xl bg-brand-ink p-7 sm:p-9">
+                <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                  <div className="absolute -right-16 -top-24 h-72 w-72 rounded-full bg-brand-teal/40 blur-[90px]" />
+                  <div className="absolute -bottom-24 right-1/3 h-64 w-64 rounded-full bg-brand-coral/30 blur-[90px]" />
                 </div>
-                
-                <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center">
-                      <Sparkles className="text-purple-600" size={20} />
-                    </div>
-                    <h3 className="font-medium text-lg text-gray-800">Assistant IA</h3>
-                  </div>
-                  <p className="text-gray-600 mb-4 leading-relaxed">
-                    Discutez avec notre assistant IA pour obtenir des recommandations de voyage personnalisées et des conseils d'experts.
-                  </p>
-                  <button 
-                    onClick={() => setCurrentView('chat')}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-colors text-sm font-medium"
-                  >
-                    <MessageSquare size={16} />
-                    <span>Démarrer une conversation</span>
-                  </button>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
-                      <FileText className="text-blue-600" size={20} />
-                    </div>
-                    <h3 className="font-medium text-lg text-gray-800">Documents de voyage</h3>
-                  </div>
-                  <p className="text-gray-600 mb-4 leading-relaxed">
-                    Créez et gérez vos documents de voyage dans un format interactif inspiré de Notion.
-                  </p>
-                  <button 
-                    onClick={() => setCurrentView('documents')}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-colors text-sm font-medium"
-                  >
-                    <PlusCircle size={16} />
-                    <span>Voir mes documents</span>
-                  </button>
-                </div>
-                
-                <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center">
-                      <MessageSquare className="text-purple-600" size={20} />
-                    </div>
-                    <h3 className="font-medium text-lg text-gray-800">Historique des conversations</h3>
-                  </div>
-                  <p className="text-gray-600 mb-4 leading-relaxed">
-                    Retrouvez l'historique de vos conversations avec l'assistant IA pour suivre vos conseils et suggestions.
-                  </p>
-                  <button 
-                    onClick={() => {
-                      setCurrentView('chat-history');
-                      // Force le chargement des données en rafraîchissant la page
-                      window.dispatchEvent(new Event('chatHistoryRefresh'));
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-colors text-sm font-medium"
-                  >
-                    <FolderOpen size={16} />
-                    <span>Voir l'historique</span>
-                  </button>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-10">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                      <MapPin className="text-gray-700" size={20} />
-                    </div>
-                    <h3 className="font-medium text-lg text-gray-800">Mes itinéraires de voyage</h3>
-                  </div>
-                  <Link 
-                    href="/travel/new" 
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#f0ece3] text-gray-700 hover:bg-[#e6e0d4] transition-colors text-sm"
-                  >
-                    <PlusCircle size={14} />
-                    <span>Nouveau</span>
-                  </Link>
-                </div>
-                
-                {loading ? (
-                  <div className="flex flex-col items-center justify-center py-16">
-                    <Loader className="animate-spin h-8 w-8 text-blue-500 mb-4" />
-                    <p className="text-gray-500">Chargement de vos voyages...</p>
-                  </div>
-                ) : travelPlans.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 px-4">
-                    <div className="h-16 w-16 rounded-full bg-[#f0ece3] flex items-center justify-center mb-4">
-                      <Globe className="text-gray-500" size={28} />
-                    </div>
-                    <h4 className="text-lg font-medium text-gray-800 mb-2">Aucun voyage planifié</h4>
-                    <p className="text-gray-500 mb-6 text-center max-w-md">
-                      Vous n'avez pas encore créé d'itinéraire de voyage. Commencez maintenant pour planifier votre prochaine aventure.
+                <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-grid opacity-50" />
+
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm text-slate-400">Bon retour parmi nous</p>
+                    <h1 className="mt-1.5 font-display text-3xl font-extrabold capitalize tracking-tight text-white sm:text-4xl">
+                      {displayName}
+                    </h1>
+                    <p className="mt-3 max-w-md text-slate-300">
+                      {nextTrip
+                        ? `Prochain départ pour ${nextTrip.destination}${
+                            daysUntilNextTrip === 0
+                              ? " — c'est aujourd'hui !"
+                              : ` dans ${daysUntilNextTrip} jour${daysUntilNextTrip! > 1 ? 's' : ''}.`
+                          }`
+                        : "Aucun départ prévu pour l'instant. Lancez l'assistant, il compose votre prochain voyage en une minute."}
                     </p>
-                    <Link 
-                      href="/travel/new" 
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-colors text-sm font-medium"
+                  </div>
+
+                  <div className="flex flex-shrink-0 flex-col gap-2.5 sm:flex-row">
+                    <Link
+                      href="/travel/new"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
                     >
                       <PlusCircle size={16} />
-                      <span>Créer mon premier itinéraire</span>
+                      Nouvel itinéraire
+                    </Link>
+                    <button
+                      onClick={() => setCurrentView('chat')}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                    >
+                      <Sparkles size={16} />
+                      Assistant IA
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Statistiques */}
+              <section className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard
+                  icon={Plane}
+                  accent="bg-teal-50 text-teal-700"
+                  value={String(travelPlans.length)}
+                  label={`voyage${travelPlans.length > 1 ? 's' : ''} planifié${travelPlans.length > 1 ? 's' : ''}`}
+                />
+                <StatCard
+                  icon={CalendarClock}
+                  accent="bg-orange-50 text-orange-700"
+                  value={daysUntilNextTrip === null ? '—' : `J-${daysUntilNextTrip}`}
+                  label="avant le départ"
+                />
+                <StatCard
+                  icon={MapPin}
+                  accent="bg-cyan-50 text-cyan-700"
+                  value={String(new Set(travelPlans.map((trip) => trip.destination)).size)}
+                  label="destinations"
+                />
+                <StatCard
+                  icon={Users}
+                  accent="bg-amber-50 text-amber-700"
+                  value={String(
+                    travelPlans.reduce((sum, trip) => sum + (Number(trip.nombreVoyageurs) || 0), 0),
+                  )}
+                  label="voyageurs au total"
+                />
+              </section>
+
+              {/* Accès rapides */}
+              <section className="mt-5 grid gap-4 md:grid-cols-3">
+                <ActionCard
+                  icon={Sparkles}
+                  accent="from-teal-500 to-cyan-500"
+                  title="Assistant IA"
+                  description="Recommandations personnalisées et itinéraires sur mesure, en conversation."
+                  actionLabel="Démarrer une conversation"
+                  onClick={() => setCurrentView('chat')}
+                />
+                <ActionCard
+                  icon={FileText}
+                  accent="from-orange-500 to-amber-500"
+                  title="Documents"
+                  description="Billets, réservations et notes de voyage réunis dans un espace éditable."
+                  actionLabel="Voir mes documents"
+                  onClick={() => setCurrentView('documents')}
+                />
+                <ActionCard
+                  icon={MessageSquare}
+                  accent="from-cyan-500 to-blue-500"
+                  title="Conversations"
+                  description="Retrouvez tous les échanges passés avec l'assistant et leurs suggestions."
+                  actionLabel="Voir l'historique"
+                  onClick={() => {
+                    setCurrentView('chat-history');
+                    window.dispatchEvent(new Event('chatHistoryRefresh'));
+                  }}
+                />
+              </section>
+
+              {/* Itinéraires */}
+              <section className="mt-8">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="font-display text-xl font-bold text-slate-900">Mes itinéraires</h3>
+                  <Link
+                    href="/travel/new"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-900 hover:bg-slate-900 hover:text-white"
+                  >
+                    <PlusCircle size={14} />
+                    Nouveau
+                  </Link>
+                </div>
+
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white py-20">
+                    <Loader className="mb-4 h-7 w-7 animate-spin text-brand-teal" />
+                    <p className="text-sm text-slate-500">Chargement de vos voyages…</p>
+                  </div>
+                ) : travelPlans.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white px-4 py-20 text-center">
+                    <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-teal to-brand-lagoon text-white">
+                      <Globe size={28} />
+                    </span>
+                    <h4 className="font-display text-lg font-bold text-slate-900">
+                      Aucun voyage planifié
+                    </h4>
+                    <p className="mb-6 mt-2 max-w-md text-sm text-slate-500">
+                      Créez votre premier itinéraire, ou laissez l'assistant IA le composer à partir
+                      d'une simple phrase.
+                    </p>
+                    <Link
+                      href="/travel/new"
+                      className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+                    >
+                      <PlusCircle size={16} />
+                      Créer mon premier itinéraire
                     </Link>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {travelPlans.map((travel) => (
-                      <Link 
-                        key={travel.id} 
+                      <Link
+                        key={travel.id}
                         href={`/travel/${travel.id}`}
-                        className="group"
+                        className="group flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lift"
                       >
-                        <div className="border border-[#e6e0d4] rounded-xl p-5 hover:shadow-md transition-all duration-300 group-hover:border-blue-300 bg-white/80 h-full flex flex-col">
-                          <div className="mb-1 text-blue-600 flex items-center gap-2">
+                        <div
+                          className={cn(
+                            'relative h-24 bg-gradient-to-br',
+                            gradientFor(travel.id),
+                          )}
+                        >
+                          {travel.imageUrl && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={travel.imageUrl}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 to-transparent" />
+                          <span className="absolute bottom-3 left-4 flex items-center gap-1.5 font-display text-base font-bold text-white">
                             <MapPin size={14} />
-                            <h3 className="font-medium">{travel.destination}</h3>
+                            <span className="truncate">{travel.destination}</span>
+                          </span>
+                        </div>
+
+                        <div className="flex flex-1 flex-col p-5">
+                          <div className="space-y-2 text-sm text-slate-500">
+                            <p className="flex items-center gap-2">
+                              <Clock size={14} className="flex-shrink-0 text-slate-400" />
+                              <span className="truncate">
+                                {new Date(travel.dateDepart).toLocaleDateString()} →{' '}
+                                {new Date(travel.dateRetour).toLocaleDateString()}
+                              </span>
+                            </p>
+                            <p className="flex items-center gap-2">
+                              <Users size={14} className="flex-shrink-0 text-slate-400" />
+                              {travel.nombreVoyageurs} voyageur
+                              {travel.nombreVoyageurs > 1 ? 's' : ''}
+                            </p>
                           </div>
-                          <div className="text-sm text-gray-600 mb-auto pb-4">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Clock size={14} className="text-gray-400" />
-                              <span>Du {new Date(travel.dateDepart).toLocaleDateString()} au {new Date(travel.dateRetour).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Users size={14} className="text-gray-400" />
-                              <span>{travel.nombreVoyageurs} voyageur{travel.nombreVoyageurs > 1 ? 's' : ''}</span>
-                            </div>
-                          </div>
-                          <div className="pt-2 border-t border-[#e6e0d4] text-sm text-blue-600 group-hover:text-blue-700 flex justify-end">
-                            Voir l'itinéraire →
-                          </div>
+
+                          <span className="mt-5 flex items-center gap-1.5 border-t border-slate-100 pt-4 text-sm font-semibold text-brand-teal">
+                            Voir l'itinéraire
+                            <ArrowRight
+                              size={15}
+                              className="transition-transform group-hover:translate-x-1"
+                            />
+                          </span>
                         </div>
                       </Link>
                     ))}
-                    
-                    <Link 
+
+                    <Link
                       href="/travel/new"
-                      className="border border-dashed border-[#e6e0d4] rounded-xl p-5 hover:bg-white/50 transition-colors flex flex-col items-center justify-center text-center gap-3 h-full"
+                      className="flex min-h-[15rem] flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-slate-300 bg-white/60 p-5 text-center transition hover:border-brand-teal hover:bg-white"
                     >
-                      <div className="h-12 w-12 rounded-full bg-[#f0ece3] flex items-center justify-center">
-                        <PlusCircle className="text-blue-600" size={24} />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-800 mb-1">Nouveau voyage</h4>
-                        <p className="text-sm text-gray-500">Créer un nouvel itinéraire</p>
-                      </div>
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-brand-teal">
+                        <PlusCircle size={22} />
+                      </span>
+                      <span>
+                        <span className="block font-display font-bold text-slate-900">
+                          Nouveau voyage
+                        </span>
+                        <span className="mt-1 block text-sm text-slate-500">
+                          Créer un nouvel itinéraire
+                        </span>
+                      </span>
                     </Link>
                   </div>
                 )}
-              </div>
+              </section>
             </div>
           </div>
         )}
-        
-        {/* Documents View */}
+
+        {/* Vue documents */}
         {currentView === 'documents' && (
-          <div className="flex-1 overflow-auto p-6">
-            <div className="max-w-5xl mx-auto">
+          <div className="flex-1 overflow-auto">
+            <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
               <TravelDocumentList />
             </div>
           </div>
         )}
-        
-        {/* Chat History View */}
+
+        {/* Vue historique des conversations */}
         {currentView === 'chat-history' && (
-          <div className="flex-1 overflow-auto p-6">
-            <div className="max-w-5xl mx-auto">
+          <div className="flex-1 overflow-auto">
+            <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
               <ChatHistoryList key={`chat-history-${Date.now()}`} />
             </div>
           </div>
         )}
-        
-        {/* Chat View */}
+
+        {/* Vue chat */}
         {currentView === 'chat' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto p-4 bg-[#f8f5ec]">
-              <div className="max-w-3xl mx-auto">
-                <div className="space-y-6">
-                  {chatMessages.filter(msg => msg.role !== 'system').map((msg, index) => (
-                    <div 
-                      key={index} 
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex-1 overflow-auto px-4 py-6 sm:px-6">
+              <div className="mx-auto max-w-3xl space-y-6">
+                {chatMessages
+                  .filter((msg) => msg.role !== 'system')
+                  .map((msg, index) => (
+                    <div
+                      key={index}
+                      className={cn('flex gap-3', msg.role === 'user' && 'flex-row-reverse')}
                     >
-                      {msg.role === 'assistant' && (
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center mr-2">
-                          <Sparkles size={16} className="text-white" />
-                        </div>
-                      )}
-                      <div 
-                        className={`max-w-[80%] p-4 rounded-2xl ${
-                          msg.role === 'user' 
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm' 
-                            : 'bg-white border border-[#e6e0d4] text-gray-800 shadow-sm'
-                        }`}
+                      <span
+                        className={cn(
+                          'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white',
+                          msg.role === 'user'
+                            ? 'bg-gradient-to-br from-brand-coral to-brand-sun'
+                            : 'bg-gradient-to-br from-brand-teal to-brand-lagoon',
+                        )}
                       >
-                        <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
-                        <div 
-                          className={`text-xs mt-2 ${
-                            msg.role === 'user' ? 'text-blue-200' : 'text-gray-500'
-                          }`}
+                        {msg.role === 'user' ? initial : <Sparkles size={16} />}
+                      </span>
+
+                      <div
+                        className={cn(
+                          'max-w-[80%] rounded-2xl px-4 py-3',
+                          msg.role === 'user'
+                            ? 'rounded-tr-sm bg-brand-ink text-white'
+                            : 'rounded-tl-sm border border-slate-200 bg-white text-slate-800',
+                        )}
+                      >
+                        <div className="whitespace-pre-wrap text-[15px] leading-relaxed">
+                          {msg.content}
+                        </div>
+                        <div
+                          className={cn(
+                            'mt-2 text-xs',
+                            msg.role === 'user' ? 'text-slate-400' : 'text-slate-400',
+                          )}
                         >
-                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {msg.timestamp.toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </div>
                       </div>
-                      {msg.role === 'user' && (
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-200 to-purple-300 flex items-center justify-center ml-2">
-                          <span className="text-purple-800 font-medium">
-                            {user.email?.charAt(0).toUpperCase() || 'U'}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   ))}
-                  <div ref={messagesEndRef} />
-                </div>
+
+                {isSendingMessage && (
+                  <div className="flex gap-3">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-teal to-brand-lagoon text-white">
+                      <Sparkles size={16} />
+                    </span>
+                    <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-4">
+                      {[0, 1, 2].map((dot) => (
+                        <span
+                          key={dot}
+                          className="h-2 w-2 animate-bounce rounded-full bg-slate-300"
+                          style={{ animationDelay: `${dot * 0.15}s` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
               </div>
             </div>
-            
-            <div className="border-t border-[#e6e0d4] p-4 bg-white">
-              <div className="max-w-3xl mx-auto">
-                <div className="relative bg-white rounded-xl shadow-sm border border-[#e6e0d4] overflow-hidden">
+
+            <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
+              <div className="mx-auto max-w-3xl">
+                <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition focus-within:border-brand-teal/60 focus-within:bg-white">
                   <textarea
                     ref={chatInputRef}
-                    className="w-full pl-4 pr-12 py-3.5 bg-transparent resize-none focus:outline-none text-gray-800"
+                    className="w-full resize-none bg-transparent py-3.5 pl-4 pr-14 text-[15px] text-slate-800 outline-none placeholder:text-slate-400"
                     rows={2}
-                    placeholder="Posez une question sur votre voyage..."
+                    placeholder="Posez une question sur votre voyage…"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
                     disabled={isSendingMessage}
                   />
                   <button
-                    className={`absolute right-3 bottom-3 p-2 rounded-full transition-all ${
+                    className={cn(
+                      'absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full transition',
                       inputValue.trim() && !isSendingMessage
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm hover:from-blue-600 hover:to-blue-700'
-                        : 'bg-[#f0ece3] text-gray-400 cursor-not-allowed'
-                    }`}
+                        ? 'bg-gradient-to-r from-brand-coral to-brand-sun text-white hover:brightness-110'
+                        : 'cursor-not-allowed bg-slate-200 text-slate-400',
+                    )}
                     onClick={handleSendMessage}
                     disabled={!inputValue.trim() || isSendingMessage}
+                    aria-label="Envoyer"
                   >
                     {isSendingMessage ? (
                       <Loader size={16} className="animate-spin" />
@@ -799,18 +960,18 @@ export function Dashboard() {
                     )}
                   </button>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-xs text-gray-500 text-center">
-                    Powered by Ollama · Les réponses sont générées par intelligence artificielle et peuvent ne pas être précises.
+
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-slate-400">
+                    Propulsé par Ollama · les réponses sont générées par IA et peuvent être
+                    imprécises.
                   </p>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
-                      onClick={() => setCurrentView('chat-history')}
-                    >
-                      Voir l'historique des conversations
-                    </button>
-                  </div>
+                  <button
+                    className="text-xs font-medium text-brand-teal transition-colors hover:text-brand-lagoon"
+                    onClick={() => setCurrentView('chat-history')}
+                  >
+                    Voir l'historique
+                  </button>
                 </div>
               </div>
             </div>
@@ -819,4 +980,66 @@ export function Dashboard() {
       </div>
     </div>
   );
-} 
+}
+
+function StatCard({
+  icon: Icon,
+  accent,
+  value,
+  label,
+}: {
+  icon: React.ElementType;
+  accent: string;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-xl', accent)}>
+        <Icon size={19} />
+      </span>
+      <p className="mt-4 font-display text-2xl font-extrabold tracking-tight text-slate-900">
+        {value}
+      </p>
+      <p className="mt-0.5 text-sm text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+function ActionCard({
+  icon: Icon,
+  accent,
+  title,
+  description,
+  actionLabel,
+  onClick,
+}: {
+  icon: React.ElementType;
+  accent: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex h-full flex-col items-start rounded-3xl border border-slate-200 bg-white p-6 text-left transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lift"
+    >
+      <span
+        className={cn(
+          'flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white',
+          accent,
+        )}
+      >
+        <Icon size={20} />
+      </span>
+      <h3 className="mt-5 font-display text-lg font-bold text-slate-900">{title}</h3>
+      <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-500">{description}</p>
+      <span className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-brand-teal">
+        {actionLabel}
+        <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+      </span>
+    </button>
+  );
+}

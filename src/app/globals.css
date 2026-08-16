@@ -2,71 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  color: black;
-}
-
 @layer base {
   :root {
-    --background: 36 54% 95%;   /* Very Light Beige (#fff0db) */
-    --foreground: 30 10% 20%;   /* Darker Beige/Desert */
-    --card: 36 54% 95%;        /* Slightly darker Beige/Desert */
-    --card-foreground: 30 10% 20%;
-    --popover: 36 54% 95%;      /* Slightly darker Beige/Desert */
-    --popover-foreground: 30 10% 20%;
-    --primary: 120 20% 40%;     /* Muted Green */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 36 54% 95%;    /* Light Sand */
-    --secondary-foreground: 30 10% 20%;
-    --muted: 60 10% 75%;        /* Light Sand */
-    --muted-foreground: 30 8% 40%;
-    --accent: 35 50% 50%;      /* Desert Sunrise (Orange-ish) */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 175 72% 33%;        /* Deep ocean teal */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 180 24% 96%;
+    --secondary-foreground: 200 30% 14%;
+    --muted: 180 20% 96%;
+    --muted-foreground: 200 12% 45%;
+    --accent: 12 88% 60%;          /* Sunset coral */
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 60% 50%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 30 5% 60%;
-    --input: 30 5% 60%;
-    --ring: 35 50% 50%;       /* Desert Sunrise (Orange-ish) */
-    --radius: 0.75rem;
-    --sidebar-background: 36 54% 95%; /* Lighter Beige/Desert */
-    --sidebar-foreground: 30 10% 30%;
-    --sidebar-primary: 120 20% 40%;    /* Muted Green */
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 60 10% 75%;   /* Light Sand */
-    --sidebar-accent-foreground: 30 10% 20%;
-    --sidebar-border: 30 5% 60%;
-    --sidebar-ring: 35 50% 50%;     /* Desert Sunrise (Orange-ish) */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 195 25% 90%;
+    --input: 195 25% 90%;
+    --ring: 175 72% 33%;
+    --radius: 1rem;
+
+    /* Brand palette — océan & coucher de soleil */
+    --brand-ink: 197 65% 8%;       /* Nuit sur l'océan */
+    --brand-deep: 195 62% 14%;     /* Bleu lagon profond */
+    --brand-teal: 175 72% 36%;     /* Turquoise signature */
+    --brand-lagoon: 187 82% 45%;   /* Eau claire */
+    --brand-coral: 12 88% 60%;     /* Corail */
+    --brand-sun: 33 95% 56%;       /* Soleil couchant */
+    --brand-sand: 36 52% 90%;      /* Sable */
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 200 20% 27%;
+    --sidebar-primary: 175 72% 33%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 180 24% 96%;
+    --sidebar-accent-foreground: 200 30% 14%;
+    --sidebar-border: 195 25% 90%;
+    --sidebar-ring: 175 72% 33%;
   }
 
   .dark {
-    --background: 30 8% 20%;   /* Darker Beige/Desert */
-    --foreground: 30 15% 90%;   /* Light Beige/Desert */
-    --card: 30 8% 20%;
-    --card-foreground: 30 15% 90%;
-    --popover: 30 8% 20%;
-    --popover-foreground: 30 15% 90%;
-    --primary: 60 10% 75%;    /* Light Sand */
-    --primary-foreground: 30 10% 20%;
-    --secondary: 30 5% 35%;
-    --secondary-foreground: 30 15% 90%;
-    --muted: 30 5% 35%;
-    --muted-foreground: 30 8% 50%;
-    --accent: 35 40% 30%;     /* Darker Desert Sunrise */
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 50% 30%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 30 5% 35%;
-    --input: 30 5% 35%;
-    --ring: 35 40% 30%;      /* Darker Desert Sunrise */
-    --sidebar-background: 30 6% 25%; /* Darkest Beige/Desert */
-    --sidebar-foreground: 30 12% 70%;
-    --sidebar-primary: 60 10% 75%;    /* Light Sand */
-    --sidebar-primary-foreground: 30 10% 20%;
-    --sidebar-accent: 30 5% 35%;
-    --sidebar-accent-foreground: 30 15% 90%;
-    --sidebar-border: 30 5% 35%;
-    --sidebar-ring: 35 40% 30%;     /* Darker Desert Sunrise */
+    --background: 197 65% 8%;
+    --foreground: 180 20% 97%;
+    --card: 195 55% 11%;
+    --card-foreground: 180 20% 97%;
+    --popover: 195 55% 11%;
+    --popover-foreground: 180 20% 97%;
+    --primary: 175 65% 45%;
+    --primary-foreground: 197 65% 8%;
+    --secondary: 195 35% 18%;
+    --secondary-foreground: 180 20% 97%;
+    --muted: 195 35% 18%;
+    --muted-foreground: 195 15% 65%;
+    --accent: 12 88% 62%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 195 35% 18%;
+    --input: 195 35% 18%;
+    --ring: 175 65% 45%;
+
+    --sidebar-background: 195 55% 11%;
+    --sidebar-foreground: 195 15% 65%;
+    --sidebar-primary: 175 65% 45%;
+    --sidebar-primary-foreground: 197 65% 8%;
+    --sidebar-accent: 195 35% 18%;
+    --sidebar-accent-foreground: 180 20% 97%;
+    --sidebar-border: 195 35% 18%;
+    --sidebar-ring: 175 65% 45%;
   }
 }
 
@@ -75,56 +81,194 @@ body {
     @apply border-border;
   }
   body {
-    @apply text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+  html,
+  body {
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: hsl(var(--brand-teal) / 0.22);
   }
 }
 
-/* Styles pour améliorer l'interactivité des éléments */
-html, body {
-  height: 100%;
-  width: 100%;
-  overflow-x: hidden;
-  position: relative;
+@layer components {
+  /* ---- Surfaces ---------------------------------------------------- */
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/60;
+  }
+  .glass-dark {
+    @apply bg-white/[0.06] backdrop-blur-xl border border-white/10;
+  }
+
+  /* ---- Typography -------------------------------------------------- */
+  /* Dégradé "coucher de soleil" — pensé pour les fonds sombres. */
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      100deg,
+      hsl(var(--brand-sun)),
+      hsl(var(--brand-coral)) 55%,
+      hsl(340 82% 66%)
+    );
+  }
+
+  /* Dégradé "océan" — contraste suffisant sur fond clair. */
+  .text-gradient-ocean {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      100deg,
+      hsl(187 82% 34%),
+      hsl(var(--brand-teal)) 55%,
+      hsl(190 70% 26%)
+    );
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em];
+  }
+
+  /* ---- Decorative backgrounds -------------------------------------- */
+  .bg-grid {
+    background-image: linear-gradient(
+        to right,
+        rgb(255 255 255 / 0.05) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .bg-grid-dark {
+    background-image: linear-gradient(
+        to right,
+        rgb(15 23 42 / 0.06) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, rgb(15 23 42 / 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .mask-fade-edges {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 12%,
+      black 88%,
+      transparent
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 12%,
+      black 88%,
+      transparent
+    );
+  }
+
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent);
+    mask-image: linear-gradient(to bottom, black 55%, transparent);
+  }
+
+  /* Gradient border card: put content in a child with its own bg */
+  .gradient-ring {
+    position: relative;
+  }
+  .gradient-ring::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      140deg,
+      hsl(var(--brand-lagoon) / 0.7),
+      hsl(var(--brand-sun) / 0.45) 50%,
+      transparent 80%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
 }
 
-a, button, [role="button"] {
-  cursor: pointer !important;
+@layer utilities {
+  .animation-delay-100 {
+    animation-delay: 0.1s;
+  }
+  .animation-delay-200 {
+    animation-delay: 0.2s;
+  }
+  .animation-delay-300 {
+    animation-delay: 0.3s;
+  }
+  .animation-delay-500 {
+    animation-delay: 0.5s;
+  }
+  .animation-delay-700 {
+    animation-delay: 0.7s;
+  }
+  .pause-on-hover:hover {
+    animation-play-state: paused;
+  }
+}
+
+/* Scroll reveal — driven by src/components/landing/Reveal.tsx */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Legacy helpers still used elsewhere in the app */
+a,
+button,
+[role="button"] {
   -webkit-tap-highlight-color: transparent;
-  position: relative;
-}
-
-/* Élément prioritaire qui garantit que le composant Navbar est bien cliquable */
-div[class*="fixed top-0"] a,
-div[class*="fixed top-0"] button,
-div[class*="fixed top-0"] [role="button"] {
-  pointer-events: auto !important;
-  z-index: 1000 !important;
-  cursor: pointer !important;
-  position: relative;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-nav, 
-div[class*="fixed top-0"] {
-  position: relative;
-  z-index: 1000 !important;
-  pointer-events: auto !important;
-}
-
-.fixed-content {
-  pointer-events: none;
-}
-
-.fixed-content > * {
-  pointer-events: auto;
 }
 
 @keyframes fadeOut {
-  0% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .animate-fade-out {

@@ -31,16 +31,20 @@ export function TravelForm({ initialData, travelId, isEditing = false }: TravelF
     if (initialData) {
       setFormData(initialData);
     } else {
-      // Vérifier si un paramètre de destination est présent dans l'URL
+      // Préremplir depuis l'URL (recherche lancée depuis la page d'accueil)
       const searchParams = new URLSearchParams(window.location.search);
-      const destinationParam = searchParams.get('destination');
-      
-      if (destinationParam) {
-        setFormData(prev => ({
-          ...prev,
-          destination: destinationParam
-        }));
-      }
+      const destination = searchParams.get('destination');
+      const dateDepart = searchParams.get('dateDepart');
+      const dateRetour = searchParams.get('dateRetour');
+      const voyageurs = Number(searchParams.get('nombreVoyageurs'));
+
+      setFormData(prev => ({
+        ...prev,
+        ...(destination ? { destination } : {}),
+        ...(dateDepart ? { dateDepart } : {}),
+        ...(dateRetour ? { dateRetour } : {}),
+        ...(Number.isFinite(voyageurs) && voyageurs > 0 ? { nombreVoyageurs: voyageurs } : {}),
+      }));
     }
   }, [initialData]);
 

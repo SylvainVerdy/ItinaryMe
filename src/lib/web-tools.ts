@@ -374,6 +374,175 @@ export async function searchHotelsSerpApi(
   }
 }
 
+/**
+ * Find a direct booking / reservation URL for a restaurant, hotel, or activity.
+ * Strategy:
+ *  1. Google Maps (SerpAPI) → look for reservation_link on the matched place
+ *  2. Fetch the place's website and scan for booking-platform URLs
+ *  3. Google search "{name} {city} réserver" filtered to TheFork / OpenTable / Zenchef…
+ *  4. Jina fallback
+ */
+export async function findBookingUrl(
+  placeName: string,
+  city: string,
+  type = 'restaurant',
+  date?: string,
+  partySize?: number,
+): Promise<WebResult> {
+  const label = type === 'restaurant' ? 'Réserver une table' : type === 'hotel' ? 'Réserver' : 'Réserver';
+  const BOOKING_PLATFORMS = /thefork|lafourchette|opentable|resy|zenchef|bookatable|quandoo|sevenrooms|yelp\.com\/reservations/i;
+
+  if (process.env.SERPAPI_KEY) {
+    // ── Step 1: Google Maps ───────────────────────────────────────────────────
+    try {
+      console.log(`[BOOKING URL] SerpAPI Maps → "${placeName} ${city}"`);
+      const mapsRes = await fetchWithTimeout(
+        serpapiUrl({ engine: 'google_maps', q: `${placeName} ${city}`, type: 'search', hl: 'fr' })
+      );
+      if (mapsRes.ok) {
+        const data = await mapsRes.json();
+        const places = (data.local_results ?? []) as Array<{
+          title: string;
+          website?: string;
+          reservation_link?: string;
+          phone?: string;
+          address?: string;
+          rating?: number;
+          links?: { website?: string; order?: string };
+        }>;
+
+        // Pick best match (case-insensitive partial)
+        const match =
+          places.find(
+            (p) =>
+              p.title.toLowerCase().includes(placeName.toLowerCase()) ||
+              placeName.toLowerCase().includes(p.title.toLowerCase()),
+          ) ?? places[0];
+
+        if (match) {
+          // Direct reservation link from Maps
+          if (match.reservation_link) {
+            console.log(`[BOOKING URL] Maps reservation_link found: ${match.reservation_link}`);
+            const sources: WebSource[] = [
+              { title: `${label} · ${match.title}`, url: match.reservation_link },
+            ];
+            if (match.website) sources.push({ title: match.title, url: match.website });
+            return {
+              text:
+                `✅ Lien de réservation trouvé pour **${match.title}**` +
+                (match.address ? ` (${match.address})` : '') +
+                (match.rating ? ` · ⭐ ${match.rating}/5` : '') +
+                `\n🔗 ${match.reservation_link}` +
+                (date ? `\nDate souhaitée : ${date}` : '') +
+                (partySize ? ` · ${partySize} pers.` : '') +
+                (match.phone ? `\n📞 ${match.phone}` : ''),
+              sources,
+            };
+          }
+
+          // No reservation_link — scan their website for booking platform links
+          const siteUrl = match.website ?? match.links?.website;
+          if (siteUrl) {
+            try {
+              console.log(`[BOOKING URL] Scanning website: ${siteUrl}`);
+              const pageText = await fetchPageText(siteUrl);
+              const foundUrls = pageText.match(
+                /https?:\/\/(?:www\.)?(?:thefork|lafourchette|opentable|resy|zenchef|bookatable|quandoo|sevenrooms)[^\s"'<>)]+/gi,
+              );
+              if (foundUrls?.length) {
+                const bookingUrl = foundUrls[0];
+                console.log(`[BOOKING URL] Platform link found on website: ${bookingUrl}`);
+                return {
+                  text:
+                    `✅ Réservation en ligne disponible pour **${match.title}**\n🔗 ${bookingUrl}` +
+                    (match.phone ? `\n📞 ${match.phone}` : ''),
+                  sources: [
+                    { title: `${label} · ${match.title}`, url: bookingUrl },
+                    { title: match.title, url: siteUrl },
+                  ],
+                };
+              }
+              // Return the website itself as booking destination
+              return {
+                text:
+                  `**${match.title}**` +
+                  (match.address ? `\n📍 ${match.address}` : '') +
+                  (match.rating ? ` · ⭐ ${match.rating}/5` : '') +
+                  `\n🔗 Site web : ${siteUrl}` +
+                  (match.phone ? `\n📞 Réservation par téléphone : ${match.phone}` : ''),
+                sources: [{ title: `${label} · ${match.title}`, url: siteUrl }],
+              };
+            } catch { /* ignore, continue */ }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[BOOKING URL] Maps error: ${(e as Error).message}`);
+    }
+
+    // ── Step 2: Google search on booking platforms ────────────────────────────
+    try {
+      const platformQuery = `"${placeName}" ${city} réserver site:thefork.com OR site:lafourchette.com OR site:opentable.com OR site:zenchef.com OR site:quandoo.fr`;
+      console.log(`[BOOKING URL] Google platform search → "${platformQuery}"`);
+      const searchRes = await fetchWithTimeout(
+        serpapiUrl({ engine: 'google', q: platformQuery, hl: 'fr', num: '6' })
+      );
+      if (searchRes.ok) {
+        const data = await searchRes.json();
+        const results = (data.organic_results ?? []) as Array<{ title: string; link: string; snippet: string }>;
+        const booking = results.find((r) => BOOKING_PLATFORMS.test(r.link));
+        if (booking) {
+          console.log(`[BOOKING URL] Platform result: ${booking.link}`);
+          return {
+            text: `✅ Réservation en ligne disponible pour **${placeName}** à ${city}\n🔗 ${booking.link}`,
+            sources: [{ title: `${label} · ${placeName}`, url: booking.link }],
+          };
+        }
+      }
+    } catch (e) {
+      console.warn(`[BOOKING URL] Platform search error: ${(e as Error).message}`);
+    }
+
+    // ── Step 3: Generic Google search ────────────────────────────────────────
+    try {
+      const genericQuery = `${placeName} ${city} réserver table en ligne`;
+      console.log(`[BOOKING URL] Generic search → "${genericQuery}"`);
+      const res = await fetchWithTimeout(
+        serpapiUrl({ engine: 'google', q: genericQuery, hl: 'fr', num: '5' })
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const results = (data.organic_results ?? []) as Array<{ title: string; link: string; snippet: string }>;
+        if (results.length) {
+          const sources: WebSource[] = results.slice(0, 3).map((r) => ({ title: r.title, url: r.link }));
+          // Elevate booking platform links
+          const platformResult = results.find((r) => BOOKING_PLATFORMS.test(r.link));
+          if (platformResult) {
+            sources.unshift({ title: `${label} · ${placeName}`, url: platformResult.link });
+          }
+          return {
+            text:
+              `Résultats pour réserver "${placeName}" à ${city}:\n` +
+              results.slice(0, 3).map((r) => `- **${r.title}**: ${r.link}\n  ${r.snippet}`).join('\n\n'),
+            sources,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn(`[BOOKING URL] Generic search error: ${(e as Error).message}`);
+    }
+  }
+
+  // ── Fallback: Jina ────────────────────────────────────────────────────────
+  try {
+    console.log(`[BOOKING URL] Jina fallback`);
+    const text = await fetchPageText(`https://s.jina.ai/${encodeURIComponent(`${placeName} ${city} réserver en ligne`)}`);
+    return { text: text.slice(0, 2000), sources: [] };
+  } catch { /* ignore */ }
+
+  return { text: `Impossible de trouver un lien de réservation pour "${placeName}" à ${city}.`, sources: [] };
+}
+
 /** Fetch the content of a URL and return clean text (Jina Reader) */
 export async function fetchPageText(url: string): Promise<string> {
   try {

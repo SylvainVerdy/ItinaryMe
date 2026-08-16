@@ -12,10 +12,10 @@ interface Props {
 
 const SUGGESTIONS = [
   'Meilleurs restaurants à proximité',
+  'Réserver une table au meilleur restaurant',
   'Trouve-moi des vols depuis Paris',
   'Cherche un hôtel pour mon séjour',
   'Que faire et visiter sur place ?',
-  'Conseils pratiques pour ce voyage',
 ];
 
 function renderText(text: string) {
@@ -138,7 +138,7 @@ export default function TripPlannerChat({ tripContext }: Props) {
   const welcome: TripChatMessage = {
     id: 'welcome',
     role: 'assistant',
-    text: `Bonjour ! Je suis votre assistant IA pour **${tripContext.destination}** (${new Date(tripContext.startDate + 'T12:00:00').toLocaleDateString('fr-FR')} – ${new Date(tripContext.endDate + 'T12:00:00').toLocaleDateString('fr-FR')}, ${tripContext.travelers} pers.).\n\nJe peux **rechercher sur le web**, chercher des **vols et hôtels** en temps réel. Que souhaitez-vous ?`,
+    text: `Bonjour ! Je suis votre assistant IA pour **${tripContext.destination}** (${new Date(tripContext.startDate + 'T12:00:00').toLocaleDateString('fr-FR')} – ${new Date(tripContext.endDate + 'T12:00:00').toLocaleDateString('fr-FR')}, ${tripContext.travelers} pers.).\n\nJe peux **rechercher sur le web**, chercher des **vols et hôtels**, et trouver des **liens de réservation** pour restaurants et activités. Dites-moi simplement "Réserver au [nom du restaurant]" et je vous trouve le lien directement. Que souhaitez-vous ?`,
     createdAt: new Date(),
   };
 
@@ -215,7 +215,7 @@ export default function TripPlannerChat({ tripContext }: Props) {
       <div className="flex items-center gap-2 mb-3 px-1">
         <div className="flex items-center gap-1.5 text-xs text-purple-600 bg-purple-50 border border-purple-100 rounded-full px-2.5 py-1">
           <Zap size={11} />
-          Agent IA · Qwen3.5 · Web + Vols + Hôtels
+          Agent IA · Qwen3.5 · Web + Vols + Hôtels + Réservations
         </div>
       </div>
 
@@ -248,7 +248,7 @@ export default function TripPlannerChat({ tripContext }: Props) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-          placeholder="Ex: Meilleurs restaurants à Tokyo près de Shinjuku..."
+          placeholder="Ex: Réserver une table au Noma pour 2 personnes le 20 avril..."
           disabled={loading}
           className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
         />

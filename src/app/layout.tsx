@@ -1,6 +1,6 @@
 import './globals.css'
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { Inter, Sora } from 'next/font/google'
 import { AuthProvider } from '@/hooks/useAuth'
 import { LanguageProvider } from '@/hooks/useLanguage';
 import { Toaster } from '@/components/ui/toaster';
@@ -8,12 +8,36 @@ import { CartProvider } from '@/context/CartContext';
 
 const inter = Inter({
   subsets: ['latin'],
+  display: 'swap',
   variable: '--font-inter',
 });
 
+const sora = Sora({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['500', '600', '700', '800'],
+  variable: '--font-display',
+});
+
 export const metadata: Metadata = {
-  title: 'ItinaryMe',
-  description: 'Planifiez vos voyages avec ItinaryMe',
+  metadataBase: new URL('https://itinaryme.app'),
+  title: {
+    default: 'ItinaryMe — Votre agent de voyage IA',
+    template: '%s · ItinaryMe',
+  },
+  description:
+    "Décrivez votre voyage, notre IA compose l'itinéraire, compare les vols et les hôtels, et vous réservez en un clic.",
+  openGraph: {
+    title: 'ItinaryMe — Votre agent de voyage IA',
+    description:
+      "Décrivez votre voyage, notre IA compose l'itinéraire, compare les vols et les hôtels, et vous réservez en un clic.",
+    type: 'website',
+    siteName: 'ItinaryMe',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0b1120',
 }
 
 export default function RootLayout({
@@ -23,7 +47,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className={`${inter.variable} font-sans`}>
+      <body className={`${inter.variable} ${sora.variable} font-sans`}>
         <AuthProvider>
           <LanguageProvider>
             <CartProvider>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCityInfo } from '@/lib/city-data';
-import { webSearch, fetchPageText, searchRestaurants, searchFlightsSerpApi, searchHotelsSerpApi, getFlightBookingOptions, WebSource } from '@/lib/web-tools';
+import { webSearch, fetchPageText, searchRestaurants, searchFlightsSerpApi, searchHotelsSerpApi, getFlightBookingOptions, findBookingUrl, WebSource } from '@/lib/web-tools';
 import { ChatCard, TripContext } from '@/types/chat-message';
 
 export const maxDuration = 180;
@@ -95,6 +95,25 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'find_booking_url',
+      description: 'Find a direct online booking / reservation URL for a specific restaurant, hotel, or activity. Use this when the user wants to book or reserve a specific place.',
+      parameters: {
+        type: 'object',
+        properties: {
+          place_name:  { type: 'string',  description: 'Exact name of the restaurant, hotel, or place to book' },
+          city:        { type: 'string',  description: 'City where the place is located' },
+          type:        { type: 'string',  description: '"restaurant" | "hotel" | "activity" (default: "restaurant")' },
+          date:        { type: 'string',  description: 'Desired reservation date YYYY-MM-DD (optional)' },
+          time:        { type: 'string',  description: 'Desired reservation time HH:MM (optional)' },
+          party_size:  { type: 'number',  description: 'Number of people (optional)' },
+        },
+        required: ['place_name', 'city'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'search_hotels',
       description: 'Search available hotels in a city using the Duffel API.',
       parameters: {
@@ -139,6 +158,18 @@ async function executeTool(name: string, args: Record<string, unknown>, ctx: Tri
         String(args.arrival_id ?? ''),
         String(args.outbound_date ?? ''),
         args.return_date ? String(args.return_date) : '',
+      );
+      result = { text, card: undefined, sources };
+      break;
+    }
+
+    case 'find_booking_url': {
+      const { text, sources } = await findBookingUrl(
+        String(args.place_name ?? ''),
+        String(args.city ?? ctx.destination),
+        String(args.type ?? 'restaurant'),
+        args.date ? String(args.date) : undefined,
+        args.party_size ? Number(args.party_size) : undefined,
       );
       result = { text, card: undefined, sources };
       break;
@@ -250,9 +281,30 @@ function detectForcedToolCall(userText: string, ctx: TripContext): ForcedCall {
   const mentionsAujourdhui = /aujourd.?hui|ce soir|ce matin/i.test(userText);
   const resolvedDate = mentionsDemain ? tomorrowStr : mentionsAujourdhui ? todayStr : (ctx.startDate || tomorrowStr);
 
+  const isBooking    = /réserver|réservation|booking|book|reserver|table pour|une table|réserve/i.test(userText);
   const isRestaurant = /restaurant|sushi|ramen|pizza|manger|dîner|déjeuner|café|bar|cuisine|food|eat|drink|boire|nourriture|plat|gastronomie/i.test(userText);
   const isFlight     = /vol|flight|avion|billet|partir|décoll|aller à|voyager vers|trajet/i.test(userText);
   const isHotel      = /hôtel|hotel|hébergement|dormir|nuit|chambre|séjour|logement|airbnb/i.test(userText);
+
+  // Extract place name hint from booking phrases like "réserver au {name}" or "réserver {name}"
+  const bookingPlaceMatch = userText.match(
+    /r[ée]server(?:\s+(?:au|à|chez|le|la|l['']\s*)?)?\s+([\w\s\-''"«»]+?)(?:\s+(?:à|pour|le|\d|$))/i
+  );
+
+  if (isBooking && (isRestaurant || bookingPlaceMatch)) {
+    const placeName = bookingPlaceMatch?.[1]?.trim() || dest;
+    return {
+      name: 'find_booking_url',
+      args: {
+        place_name: placeName,
+        city: dest || placeName,
+        type: isHotel ? 'hotel' : 'restaurant',
+        date: resolvedDate,
+        party_size: ctx.travelers || 2,
+      },
+      label: `lien de réservation pour "${placeName}"`,
+    };
+  }
 
   if (isRestaurant) {
     const queryHint = userText.replace(/meilleur[s]?|restaurant[s]?|à|le|la|les|de|du|des|pour|avec/gi, '').trim().slice(0, 60);
@@ -351,6 +403,7 @@ async function runAgent(messages: OMsg[], ctx: TripContext) {
       const labels: Record<string, string> = {
         web_search:          `🔍 Recherche web : "${args.query ?? ''}"`,
         fetch_page:          `📄 Lecture d'une page web`,
+        find_booking_url:    `🔗 Recherche du lien de réservation pour "${args.place_name ?? ''}" à ${args.city ?? ''}...`,
         search_restaurants:  `🍽️ Restaurants : "${args.query ?? ''}" à ${args.city ?? ''}`,
         search_flights:      `✈️ Vols ${args.origin_city ?? ''} → ${args.destination_city ?? ''} (${args.departure_date ?? ''})`,
         search_hotels:       `🏨 Hôtels à ${args.city ?? ''} (${args.check_in ?? ''} → ${args.check_out ?? ''})`,
@@ -411,21 +464,25 @@ export async function POST(req: NextRequest) {
 ${dateHeader}
 
 RÈGLE ABSOLUE : Tu dois OBLIGATOIREMENT appeler au moins un outil avant de répondre à chaque message. Ne jamais répondre depuis ta mémoire interne.
+- Demande de réservation d'un restaurant/lieu précis → appelle find_booking_url avec le nom exact du lieu
 - Question sur restaurants / nourriture / bars → appelle search_restaurants
 - Question sur vols / billets d'avion → appelle search_flights avec la bonne date déduite
 - Question sur hôtels / hébergement → appelle search_hotels
 - Toute autre question → appelle web_search
 
+Pour find_booking_url : extrais le nom exact du lieu mentionné par l'utilisateur. Si la date est mentionnée, inclus-la.
 Réponds en français, de manière concise et utile. Cite les résultats obtenus par les outils.`
     : `Tu es IA Voyageur, un assistant voyage intelligent.
 ${dateHeader}
 
 RÈGLE ABSOLUE : Tu dois OBLIGATOIREMENT appeler au moins un outil avant de répondre à chaque message. Ne jamais répondre depuis ta mémoire interne.
+- Demande de réservation d'un restaurant/lieu précis → appelle find_booking_url avec le nom exact du lieu
 - Question sur restaurants / nourriture / bars → appelle search_restaurants
 - Question sur vols / billets d'avion → appelle search_flights avec la bonne date déduite (ex: "demain" = ${tomorrow})
 - Question sur hôtels / hébergement → appelle search_hotels
 - Toute autre question sur destinations, météo, conseils, etc. → appelle web_search
 
+Pour find_booking_url : extrais le nom exact du lieu mentionné par l'utilisateur. Si la date est mentionnée, inclus-la.
 Réponds en français, de manière concise et utile. Cite les résultats obtenus par les outils.`;
 
   const ctx: TripContext = tripContext ?? {

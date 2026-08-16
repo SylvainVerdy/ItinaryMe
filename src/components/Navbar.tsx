@@ -1,344 +1,293 @@
 "use client";
 
-import Image from 'next/image';
+import { Logo } from './Logo';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
+import { ArrowRight, Check, Globe, LogOut, Menu, Sparkles, User, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { LogoutButton } from './LogoutButton';
-import { createPortal } from 'react-dom';
 import { CartDrawer } from './cart/CartDrawer';
+import { cn } from '@/lib/utils';
+
+const AVAILABLE_LANGUAGES = [
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+];
 
 export function Navbar({ transparent = false }) {
   const { user } = useAuth();
   const { language, setLanguage, t } = useLanguage();
-  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
-  const languageMenuRef = useRef<HTMLDivElement>(null);
-  const languageButtonRef = useRef<HTMLButtonElement>(null);
-  const buttonPositionRef = useRef<DOMRect | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
+
+  const [scrolled, setScrolled] = useState(false);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Liste des langues disponibles
-  const availableLanguages = [
-    { code: 'fr', name: 'Français' },
-    { code: 'en', name: 'English' },
-    { code: 'es', name: 'Español' },
-    { code: 'de', name: 'Deutsch' },
-    { code: 'it', name: 'Italiano' },
-  ];
+  const languageRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
-  // Mise à jour de la position du bouton pour le menu
+  // Le style "transparent" n'est valable qu'en haut de page (hero sombre).
+  const onDark = transparent && !scrolled;
+
   useEffect(() => {
-    setMounted(true);
+    const onScroll = () => setScrolled(window.scrollY > 16);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const toggleLanguageMenu = () => {
-    if (languageButtonRef.current) {
-      buttonPositionRef.current = languageButtonRef.current.getBoundingClientRect();
-    }
-    setIsLanguageMenuOpen(!isLanguageMenuOpen);
-  };
-
-  const handleLanguageSelect = (langCode: string) => {
-    setLanguage(langCode as any);
-    setIsLanguageMenuOpen(false);
-  };
-
-  // Fermer le menu quand l'utilisateur clique en dehors
+  // Fermer les menus au clic extérieur / touche Échap.
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        languageMenuRef.current && 
-        !languageMenuRef.current.contains(event.target as Node) &&
-        languageButtonRef.current && 
-        !languageButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsLanguageMenuOpen(false);
+    const onPointerDown = (event: MouseEvent) => {
+      if (languageRef.current && !languageRef.current.contains(event.target as Node)) {
+        setLanguageMenuOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
       }
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setLanguageMenuOpen(false);
+      setProfileMenuOpen(false);
+      setMobileMenuOpen(false);
+    };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
     };
   }, []);
 
-  const navBgClass = transparent 
-    ? "bg-transparent" 
-    : "bg-white shadow-md";
+  // Refermer le menu mobile à chaque navigation.
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
-  const textColorClass = transparent 
-    ? "text-white" 
-    : "text-gray-600";
+  const links = [
+    { href: '/destinations', label: t('destinations') },
+    { href: '/how-it-works', label: t('howItWorks') },
+    { href: '/about', label: t('about') },
+    ...(user ? [{ href: '/dashboard', label: t('myTrips') }] : []),
+  ];
 
-  const hoverTextColorClass = transparent 
-    ? "hover:text-gray-200" 
-    : "hover:text-blue-600";
-
-  const buttonHoverBgClass = transparent 
-    ? "hover:bg-white/10" 
-    : "hover:bg-gray-100";
-    
-  // Calculer la position du menu déroulant
-  const menuPosition = buttonPositionRef.current ? {
-    top: `${buttonPositionRef.current.bottom + window.scrollY}px`,
-    right: `${window.innerWidth - buttonPositionRef.current.right}px`,
-  } : {};
+  const iconButton = cn(
+    'flex h-9 w-9 items-center justify-center rounded-full transition-colors',
+    onDark ? 'text-white hover:bg-white/15' : 'text-slate-600 hover:bg-slate-100',
+  );
 
   return (
-    <div className={`w-full px-4 md:px-8 py-3 ${navBgClass} fixed top-0 left-0 right-0 z-[999]`} style={{pointerEvents: 'auto'}}>
-      <div className="flex justify-between items-center">
-        {/* Logo à gauche */}
-        <div className="flex-shrink-0">
-          <a 
-            href="/" 
-            className="block"
-            style={{pointerEvents: 'auto'}}
-            onClick={() => window.location.href = '/'}
-          >
-            <Image
-              src="/images/logo/logo.png"
-              alt="Logo ItinaryMe"
-              width={120}
-              height={40}
-              className="object-contain"
-            />
-          </a>
+    <header
+      className={cn(
+        'fixed inset-x-0 top-0 z-[999] transition-all duration-300',
+        scrolled || mobileMenuOpen
+          ? 'border-b border-slate-200/70 bg-white/85 backdrop-blur-xl shadow-[0_1px_20px_-8px_rgb(15_23_42/0.25)]'
+          : transparent
+            ? 'bg-transparent'
+            : 'border-b border-slate-200/70 bg-white',
+      )}
+    >
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        {/* Logo */}
+        <Link href="/" className="flex flex-shrink-0 items-center" aria-label="ItinaryMe">
+          <Logo onDark={onDark} />
+        </Link>
+
+        {/* Navigation desktop */}
+        <div className="hidden items-center gap-1 md:flex">
+          {links.map((link) => {
+            const active = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  'rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                  onDark
+                    ? active
+                      ? 'bg-white/15 text-white'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    : active
+                      ? 'bg-slate-100 text-slate-900'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                )}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </div>
-        
-        {/* Bouton menu mobile */}
-        <button 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 rounded-md focus:outline-none"
-          style={{pointerEvents: 'auto'}}
-        >
-          <svg className={`h-6 w-6 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            {mobileMenuOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            )}
-          </svg>
-        </button>
-        
-        {/* Navigation centrale - Desktop */}
-        <div className="hidden md:flex items-center justify-center space-x-10">
-          <a
-            href="/destinations"
-            className={`${textColorClass} ${hoverTextColorClass} font-medium text-base py-2 px-3 rounded-md hover:bg-gray-100 hover:bg-opacity-20`}
-            style={{pointerEvents: 'auto'}}
-            onClick={(e) => {
-              e.preventDefault();
-              window.location.href = '/destinations';
-            }}
-          >
-            {t('destinations')}
-          </a>
-          <a
-            href="/about"
-            className={`${textColorClass} ${hoverTextColorClass} font-medium text-base py-2 px-3 rounded-md hover:bg-gray-100 hover:bg-opacity-20`}
-            style={{pointerEvents: 'auto'}}
-            onClick={(e) => {
-              e.preventDefault();
-              window.location.href = '/about';
-            }}
-          >
-            {t('about')}
-          </a>
-          <a
-            href="/how-it-works"
-            className={`${textColorClass} ${hoverTextColorClass} font-medium text-base py-2 px-3 rounded-md hover:bg-gray-100 hover:bg-opacity-20`}
-            style={{pointerEvents: 'auto'}}
-            onClick={(e) => {
-              e.preventDefault();
-              window.location.href = '/how-it-works';
-            }}
-          >
-            {t('howItWorks')}
-          </a>
-          {user && (
-            <a
-              href="/dashboard"
-              className={`${textColorClass} ${hoverTextColorClass} font-medium text-base py-2 px-3 rounded-md hover:bg-gray-100 hover:bg-opacity-20`}
-              style={{pointerEvents: 'auto'}}
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = '/dashboard';
-              }}
-            >
-              {t('myTrips')}
-            </a>
-          )}
-        </div>
-        
-        {/* Contrôles à droite */}
-        <div className="flex items-center space-x-2 md:space-x-5">
-          {/* Panier */}
-          <div className={`${textColorClass}`}>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          <div className={onDark ? 'text-white' : 'text-slate-600'}>
             <CartDrawer />
           </div>
 
           {/* Sélecteur de langue */}
-          <button 
-            ref={languageButtonRef}
-            onClick={toggleLanguageMenu}
-            className={`flex items-center justify-center p-2 rounded-full w-8 h-8 ${buttonHoverBgClass}`}
-            aria-label="Sélectionner la langue"
-            style={{pointerEvents: 'auto'}}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-            </svg>
-          </button>
-          
-          {/* Bouton d'aide / Comment ça marche - visible uniquement sur desktop */}
-          <a 
-            href="/how-it-works" 
-            className={`hidden md:flex items-center justify-center p-2 rounded-full w-8 h-8 ${buttonHoverBgClass}`}
-            aria-label="Comment ça marche"
-            style={{pointerEvents: 'auto'}}
-            onClick={(e) => {
-              e.preventDefault();
-              window.location.href = '/how-it-works';
-            }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </a>
-          
-          {/* Profil / Connexion */}
-          {user ? (
-            <div className="relative group" style={{pointerEvents: 'auto'}}>
-              <button
-                className={`flex items-center justify-center p-2 rounded-full w-8 h-8 ${buttonHoverBgClass}`}
-                aria-label="Menu de profil"
+          <div className="relative" ref={languageRef}>
+            <button
+              type="button"
+              onClick={() => setLanguageMenuOpen((open) => !open)}
+              className={iconButton}
+              aria-haspopup="menu"
+              aria-expanded={languageMenuOpen}
+              aria-label="Langue"
+            >
+              <Globe className="h-[18px] w-[18px]" />
+            </button>
+            {languageMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lift animate-fade-up"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </button>
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block">
-                <span className="block px-4 py-2 text-sm text-gray-700 border-b border-gray-200">
-                  {user.email}
-                </span>
-                <a 
-                  href="/dashboard" 
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    window.location.href = '/dashboard';
-                  }}
-                >
-                  Dashboard
-                </a>
-                <div className="px-4 py-1">
-                  <LogoutButton className="w-full text-left text-sm px-0 py-1 bg-transparent text-red-600 hover:text-red-800" />
-                </div>
+                {AVAILABLE_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    role="menuitem"
+                    onClick={() => {
+                      setLanguage(lang.code as never);
+                      setLanguageMenuOpen(false);
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors',
+                      language === lang.code
+                        ? 'bg-slate-100 font-medium text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-50',
+                    )}
+                  >
+                    <span aria-hidden>{lang.flag}</span>
+                    {lang.name}
+                    {language === lang.code && <Check className="ml-auto h-4 w-4 text-brand-teal" />}
+                  </button>
+                ))}
               </div>
-            </div>
-          ) : (
-            <a 
-              href="/auth" 
-              className={`flex items-center justify-center p-2 rounded-full w-8 h-8 ${buttonHoverBgClass}`}
-              aria-label="Se connecter"
-              style={{pointerEvents: 'auto'}}
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = '/auth';
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${textColorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </a>
-          )}
-        </div>
-      </div>
-      
-      {/* Menu mobile */}
-      {mobileMenuOpen && (
-        <div className="md:hidden mt-3 pt-3 border-t border-gray-200">
-          <div className="flex flex-col space-y-2 pb-3">
-            <a 
-              href="/destinations" 
-              className={`${textColorClass} ${hoverTextColorClass} py-2 px-4 rounded-md hover:bg-gray-100`}
-              style={{pointerEvents: 'auto'}}
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = '/destinations';
-                setMobileMenuOpen(false);
-              }}
-            >
-              {t('destinations')}
-            </a>
-            <a 
-              href="/about" 
-              className={`${textColorClass} ${hoverTextColorClass} py-2 px-4 rounded-md hover:bg-gray-100`}
-              style={{pointerEvents: 'auto'}}
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = '/about';
-                setMobileMenuOpen(false);
-              }}
-            >
-              {t('about')}
-            </a>
-            <a 
-              href="/how-it-works" 
-              className={`${textColorClass} ${hoverTextColorClass} py-2 px-4 rounded-md hover:bg-gray-100`}
-              style={{pointerEvents: 'auto'}}
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = '/how-it-works';
-                setMobileMenuOpen(false);
-              }}
-            >
-              {t('howItWorks')}
-            </a>
-            {user && (
-              <a 
-                href="/dashboard" 
-                className={`${textColorClass} ${hoverTextColorClass} py-2 px-4 rounded-md hover:bg-gray-100`}
-                style={{pointerEvents: 'auto'}}
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = '/dashboard';
-                  setMobileMenuOpen(false);
-                }}
-              >
-                {t('myTrips')}
-              </a>
             )}
           </div>
+
+          {/* Compte */}
+          {user ? (
+            <div className="relative" ref={profileRef}>
+              <button
+                type="button"
+                onClick={() => setProfileMenuOpen((open) => !open)}
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white transition',
+                  'bg-gradient-to-br from-brand-teal to-brand-lagoon hover:opacity-90',
+                )}
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                aria-label="Menu du compte"
+              >
+                {(user.email ?? '?').charAt(0).toUpperCase()}
+              </button>
+              {profileMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lift animate-fade-up"
+                >
+                  <p className="truncate border-b border-slate-100 px-3 py-2.5 text-xs text-slate-500">
+                    {user.email}
+                  </p>
+                  <Link
+                    href="/dashboard"
+                    role="menuitem"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
+                    onClick={() => setProfileMenuOpen(false)}
+                  >
+                    <User className="h-4 w-4" />
+                    {t('dashboard')}
+                  </Link>
+                  <Link
+                    href="/chat"
+                    role="menuitem"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50"
+                    onClick={() => setProfileMenuOpen(false)}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {t('lp_navPlan')}
+                  </Link>
+                  <div className="mt-1 flex items-center gap-2.5 border-t border-slate-100 px-3 pt-2">
+                    <LogOut className="h-4 w-4 text-red-500" />
+                    <LogoutButton className="w-full bg-transparent px-0 py-1.5 text-left text-sm text-red-600 hover:text-red-700" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/auth"
+                className={cn(
+                  'hidden rounded-full px-4 py-2 text-sm font-medium transition-colors sm:block',
+                  onDark ? 'text-white/85 hover:text-white' : 'text-slate-600 hover:text-slate-900',
+                )}
+              >
+                {t('login')}
+              </Link>
+              <Link
+                href="/auth"
+                className="group hidden items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-5 py-2.5 text-sm font-semibold text-white shadow-glow-warm transition hover:brightness-110 sm:inline-flex"
+              >
+                {t('lp_navCta')}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </>
+          )}
+
+          {/* Burger mobile */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className={cn(iconButton, 'md:hidden')}
+            aria-label="Menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+      </nav>
+
+      {/* Menu mobile */}
+      {mobileMenuOpen && (
+        <div className="border-t border-slate-200/70 bg-white px-4 pb-5 pt-3 md:hidden">
+          <div className="flex flex-col gap-1">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+          {!user && (
+            <div className="mt-4 flex flex-col gap-2">
+              <Link
+                href="/auth"
+                className="rounded-full border border-slate-200 px-4 py-2.5 text-center text-sm font-medium text-slate-700"
+              >
+                {t('login')}
+              </Link>
+              <Link
+                href="/auth"
+                className="rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-4 py-2.5 text-center text-sm font-semibold text-white"
+              >
+                {t('lp_navCta')}
+              </Link>
+            </div>
+          )}
         </div>
       )}
-      
-      {/* Portail pour le menu de langues */}
-      {mounted && isLanguageMenuOpen && createPortal(
-        <div 
-          ref={languageMenuRef}
-          className="fixed shadow-lg py-1 bg-white rounded-md w-40"
-          style={{
-            ...menuPosition,
-            zIndex: 9999,
-            pointerEvents: 'auto'
-          }}
-        >
-          {availableLanguages.map(lang => (
-            <button
-              key={lang.code}
-              className={`block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left ${
-                language === lang.code ? 'bg-gray-100' : ''
-              }`}
-              onClick={() => handleLanguageSelect(lang.code)}
-            >
-              {lang.name}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </div>
+    </header>
   );
-} 
+}
