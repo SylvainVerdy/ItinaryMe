@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, Hotel, Plane, Ticket, UtensilsCrossed } from 'lucide-react';
+import { Globe, Hotel, Plane, Ticket, FerrisWheel, UtensilsCrossed } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -13,6 +13,7 @@ export const CAPABILITY_OPTIONS = [
   { id: 'flights',     label: 'Vols',          icon: Plane,            hint: 'Recherche de vols réservables' },
   { id: 'hotels',      label: 'Hôtels',        icon: Hotel,            hint: 'Recherche d\'hébergements réservables' },
   { id: 'restaurants', label: 'Restaurants',   icon: UtensilsCrossed,  hint: 'Recherche de restaurants et bars' },
+  { id: 'activities',  label: 'Activités',     icon: FerrisWheel,         hint: 'Visites, excursions et billets réservables' },
   { id: 'booking',     label: 'Réservations',  icon: Ticket,           hint: 'Trouve les liens de réservation directe' },
 ] as const;
 

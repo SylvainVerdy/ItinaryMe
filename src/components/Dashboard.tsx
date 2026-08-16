@@ -29,6 +29,7 @@ import {
   RefreshCw,
   CalendarClock,
   Check,
+  Ticket,
 } from 'lucide-react';
 import { TravelDocumentList } from './TravelDocumentList';
 import { ChatHistoryList } from './ChatHistoryList';
@@ -36,6 +37,7 @@ import FlightResultCard from './chat/FlightResultCard';
 import { CartDrawer } from './cart/CartDrawer';
 import { ChatCapabilities, ALL_CAPABILITIES, CapabilityId } from './chat/ChatCapabilities';
 import HotelResultCard from './chat/HotelResultCard';
+import ActivityResultCard from './chat/ActivityResultCard';
 import { ChatCard, WebSource } from '@/types/chat-message';
 import { cn } from '@/lib/utils';
 
@@ -960,36 +962,43 @@ export function Dashboard() {
                         {msg.cards?.map((card, ci) => (
                           <div key={ci} className="w-full">
                             <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                              {card.type === 'flights' ? (
+                              {card.type === 'flights' && (
                                 <>
                                   <Plane size={13} /> {card.results.length} vol
                                   {card.results.length > 1 ? 's' : ''}
                                 </>
-                              ) : (
+                              )}
+                              {card.type === 'hotels' && (
                                 <>
                                   <MapPin size={13} /> {card.results.length} hôtel
                                   {card.results.length > 1 ? 's' : ''}
                                 </>
                               )}
+                              {card.type === 'activities' && (
+                                <>
+                                  <Ticket size={13} /> {card.results.length} activité
+                                  {card.results.length > 1 ? 's' : ''}
+                                </>
+                              )}
                             </p>
-                            {card.type === 'flights' ? (
+                            {card.type === 'flights' && (
                               <div className="flex flex-col gap-3">
                                 {card.results.map((o) => (
-                                  <FlightResultCard
-                                    key={o.offerId}
-                                    offer={o}
-                                    tripId={nextTrip?.id ?? ''}
-                                  />
+                                  <FlightResultCard key={o.offerId} offer={o} tripId={nextTrip?.id ?? ''} />
                                 ))}
                               </div>
-                            ) : (
+                            )}
+                            {card.type === 'hotels' && (
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 {card.results.map((o) => (
-                                  <HotelResultCard
-                                    key={o.rateId}
-                                    offer={o}
-                                    tripId={nextTrip?.id ?? ''}
-                                  />
+                                  <HotelResultCard key={o.rateId} offer={o} tripId={nextTrip?.id ?? ''} />
+                                ))}
+                              </div>
+                            )}
+                            {card.type === 'activities' && (
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                {card.results.map((o) => (
+                                  <ActivityResultCard key={o.activityId} offer={o} tripId={nextTrip?.id ?? ''} />
                                 ))}
                               </div>
                             )}

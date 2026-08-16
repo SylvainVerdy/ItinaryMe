@@ -589,19 +589,31 @@ const ACTIVITY_MARKETPLACES = [
   'musement.com',
 ];
 
-/** Extrait un prix d'un texte libre ("À partir de 25,50 €", "$32.00"). */
+/**
+ * Extrait un prix d'un texte libre.
+ * Couvre les formats vus dans les résultats Google : « À partir de 49,00 € »,
+ * « 20,78 $US » (devise après le nombre) et « $32.00 ».
+ */
 function parsePrice(text: string): { price: number; currency: string } | null {
-  const m = text.match(/(?:€|EUR)\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*(?:€|EUR)/i);
-  if (m) {
-    const raw = (m[1] ?? m[2]).replace(',', '.');
-    const price = Number.parseFloat(raw);
-    if (Number.isFinite(price) && price > 0) return { price, currency: 'EUR' };
+  const toNumber = (raw: string) => {
+    const n = Number.parseFloat(raw.replace(/\s/g, '').replace(',', '.'));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  // Euros, devise avant ou après le montant.
+  const eur = text.match(/(?:€|EUR)\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*(?:€|EUR)/i);
+  if (eur) {
+    const n = toNumber(eur[1] ?? eur[2]);
+    if (n) return { price: n, currency: 'EUR' };
   }
-  const usd = text.match(/\$\s*(\d+(?:[.,]\d{1,2})?)/);
+
+  // Dollars : « $32.00 » ou « 20,78 $US ».
+  const usd = text.match(/\$\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*\$(?:US)?/i);
   if (usd) {
-    const price = Number.parseFloat(usd[1].replace(',', '.'));
-    if (Number.isFinite(price) && price > 0) return { price, currency: 'USD' };
+    const n = toNumber(usd[1] ?? usd[2]);
+    if (n) return { price: n, currency: 'USD' };
   }
+
   return null;
 }
 
@@ -638,7 +650,7 @@ export async function searchActivities(
         const data = await res.json();
         const organic = (data.organic_results ?? []) as Array<{
           title: string; link: string; snippet?: string; thumbnail?: string;
-          rich_snippet?: { top?: { detected_extensions?: { rating?: number; reviews?: number } } };
+          rich_snippet?: { top?: { detected_extensions?: { rating?: number; reviews?: number }; extensions?: string[] } };
         }>;
 
         const offers: ActivityOffer[] = [];
@@ -649,7 +661,10 @@ export async function searchActivities(
           if (!ACTIVITY_MARKETPLACES.some((d) => host.endsWith(d))) continue;
           if (offers.some((o) => o.bookingUrl === r.link)) continue;
 
-          const priceInfo = parsePrice(`${r.title} ${r.snippet ?? ''}`);
+          // Le prix vit le plus souvent dans les extensions du rich snippet
+          // (« À partir de 49,00 € »), pas dans le titre ni le snippet.
+          const extensions = r.rich_snippet?.top?.extensions?.join(' ') ?? '';
+          const priceInfo = parsePrice(`${extensions} ${r.title} ${r.snippet ?? ''}`);
           const ext = r.rich_snippet?.top?.detected_extensions;
 
           offers.push({

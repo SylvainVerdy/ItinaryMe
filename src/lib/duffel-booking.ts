@@ -48,12 +48,15 @@ export async function runDuffelBookings(
         results.push({ itemId: item.id, itemName: item.name, status: 'success', confirmationNumber });
 
       } else {
-        // Restaurants / activities — no Duffel API, flag for manual booking
+        // Restaurants / activités : aucune API de réservation côté Duffel.
+        // On les marque `pending`, pas `success` : afficher une confirmation
+        // verte laissait croire que la réservation était faite alors que le
+        // client doit encore la finaliser lui-même sur le site du prestataire.
         results.push({
           itemId: item.id,
           itemName: item.name,
-          status: 'success',
-          confirmationNumber: 'Réservation directe requise',
+          status: 'pending',
+          error: 'À réserver directement auprès du prestataire',
         });
       }
     } catch (err) {

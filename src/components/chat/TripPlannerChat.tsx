@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, User, Plane, Hotel, Zap, CheckCircle, ExternalLink } from 'lucide-react';
+import { Send, Loader2, Sparkles, User, Plane, Hotel, Ticket, Zap, CheckCircle, ExternalLink } from 'lucide-react';
 import { TripChatMessage, TripContext } from '@/types/chat-message';
 import FlightResultCard from './FlightResultCard';
 import HotelResultCard from './HotelResultCard';
+import ActivityResultCard from './ActivityResultCard';
 import { CartDrawer } from '../cart/CartDrawer';
 import { ChatCapabilities, ALL_CAPABILITIES, CapabilityId } from './ChatCapabilities';
 import { cn } from '@/lib/utils';
@@ -97,6 +98,12 @@ function MessageBubble({ msg, tripId }: { msg: TripChatMessage; tripId: string }
                   {card.results.length > 1 ? 's' : ''} trouvé{card.results.length > 1 ? 's' : ''}
                 </>
               )}
+              {card.type === 'activities' && (
+                <>
+                  <Ticket size={13} /> {card.results.length} activité
+                  {card.results.length > 1 ? 's' : ''} trouvée{card.results.length > 1 ? 's' : ''}
+                </>
+              )}
             </div>
             {card.type === 'flights' && (
               <div className="flex flex-col gap-3">
@@ -106,6 +113,11 @@ function MessageBubble({ msg, tripId }: { msg: TripChatMessage; tripId: string }
             {card.type === 'hotels' && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {card.results.map((o) => <HotelResultCard key={o.rateId} offer={o} tripId={tripId} />)}
+              </div>
+            )}
+            {card.type === 'activities' && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {card.results.map((o) => <ActivityResultCard key={o.activityId} offer={o} tripId={tripId} />)}
               </div>
             )}
           </div>

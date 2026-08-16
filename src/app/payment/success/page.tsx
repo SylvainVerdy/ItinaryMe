@@ -223,6 +223,11 @@ function PaymentSuccessContent() {
                           ✓ {r.confirmationNumber}
                         </p>
                       )}
+                      {r.status === 'pending' && (
+                        <p className="mt-0.5 text-xs text-amber-600">
+                          ⏳ {r.error ?? 'À réserver directement auprès du prestataire'}
+                        </p>
+                      )}
                       {r.status === 'failed' && (
                         <p className="mt-0.5 text-xs text-red-500">✗ {r.error ?? 'Échec'}</p>
                       )}
