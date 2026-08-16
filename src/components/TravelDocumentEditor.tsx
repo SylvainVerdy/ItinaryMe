@@ -35,8 +35,14 @@ export const TravelDocumentEditor: React.FC<TravelDocumentEditorProps> = ({
   // Charger le document existant si documentId est fourni
   useEffect(() => {
     const fetchDocument = async () => {
-      if (!documentId || !user) return;
-      
+      // Nouveau document (pas d'id) : rien à charger, on sort de l'état de
+      // chargement — sinon l'éditeur reste bloqué sur le spinner.
+      if (!documentId) {
+        setLoading(false);
+        return;
+      }
+      if (!user) return;
+
       try {
         setLoading(true);
         const docRef = doc(db, 'travelDocuments', documentId);
@@ -73,6 +79,12 @@ export const TravelDocumentEditor: React.FC<TravelDocumentEditorProps> = ({
       if (documentId) {
         // Mettre à jour un document existant
         await updateDoc(doc(db, 'travelDocuments', documentId), updatedDocument);
+
+        // Prévenir l'appelant, comme pour une création : sans ça, l'édition
+        // n'entraînait aucune redirection ni retour visuel.
+        if (onSave) {
+          onSave({ ...updatedDocument, id: documentId });
+        }
       } else {
         // Créer un nouveau document
         const newDocRef = doc(collection(db, 'travelDocuments'));

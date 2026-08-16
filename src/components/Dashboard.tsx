@@ -28,9 +28,13 @@ import {
   Plane,
   RefreshCw,
   CalendarClock,
+  Check,
 } from 'lucide-react';
 import { TravelDocumentList } from './TravelDocumentList';
 import { ChatHistoryList } from './ChatHistoryList';
+import FlightResultCard from './chat/FlightResultCard';
+import HotelResultCard from './chat/HotelResultCard';
+import { ChatCard, WebSource } from '@/types/chat-message';
 import { cn } from '@/lib/utils';
 
 interface TravelPlan {
@@ -49,6 +53,12 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  /** Résultats structurés renvoyés par l'agent (vols, hôtels). */
+  cards?: ChatCard[];
+  /** Étapes d'outillage parcourues par l'agent. */
+  steps?: string[];
+  /** Liens sources / réservation. */
+  sources?: WebSource[];
 }
 
 interface FirestoreImageData {
@@ -102,6 +112,16 @@ export function Dashboard() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Ouvrir directement la bonne vue quand on arrive avec ?view=… (retour
+  // depuis l'éditeur de document, par exemple).
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('view');
+    const allowed: View[] = ['dashboard', 'travel', 'chat', 'documents', 'chat-history'];
+    if (requested && (allowed as string[]).includes(requested)) {
+      setCurrentView(requested as View);
+    }
+  }, []);
 
   // Fonction pour récupérer les données de voyage depuis Firestore
   useEffect(() => {
@@ -179,7 +199,7 @@ export function Dashboard() {
     }
   }, [chatMessages]);
 
-  // Fonction pour envoyer un message au serveur Ollama
+  // Envoi d'un message a l'agent outille (/api/chat)
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isSendingMessage) return;
 
@@ -195,27 +215,35 @@ export function Dashboard() {
     setIsSendingMessage(true);
 
     try {
-      // Appel API à Ollama
-      const response = await fetch('http://localhost:11434/api/chat', {
+      // On passe par /api/chat plutôt que d'appeler Ollama en direct : cette
+      // route expose à l'agent les outils search_flights / search_hotels /
+      // search_restaurants / web_search / find_booking_url. Sans elle, le
+      // modèle répondait de mémoire et ne pouvait rien chercher.
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'qwen3.5:9b',
-          messages: [
-            { role: 'system', content: 'Tu es un assistant de voyage appelé IA Voyageur. Tu aides les utilisateurs à planifier leur voyage, à découvrir des destinations et à créer des itinéraires. Sois précis, utile et amical.' },
-            ...chatMessages
-              .filter(msg => msg.role !== 'system')
-              .map(msg => ({ role: msg.role, content: msg.content })),
-            { role: 'user', content: inputValue }
-          ],
-          stream: false
+          userMessage: inputValue,
+          // Pas de voyage sélectionné ici : la route gère ce cas (hasTrip).
+          tripContext: nextTrip
+            ? {
+                tripId: nextTrip.id,
+                destination: nextTrip.destination,
+                startDate: nextTrip.dateDepart,
+                endDate: nextTrip.dateRetour,
+                travelers: nextTrip.nombreVoyageurs,
+              }
+            : undefined,
+          history: chatMessages
+            .filter(msg => msg.role !== 'system')
+            .map(msg => ({ role: msg.role, text: msg.content })),
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Erreur de connexion à Ollama');
+        throw new Error(`Agent indisponible (HTTP ${response.status})`);
       }
 
       const data = await response.json();
@@ -223,7 +251,10 @@ export function Dashboard() {
       // Ajouter la réponse de l'assistant au chat
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: data.message.content,
+        content: data.text || 'Voici les résultats.',
+        cards: data.cards?.length ? data.cards : undefined,
+        steps: data.steps?.length ? data.steps : undefined,
+        sources: data.sources?.length ? data.sources : undefined,
         timestamp: new Date()
       };
 
@@ -882,26 +913,114 @@ export function Dashboard() {
 
                       <div
                         className={cn(
-                          'max-w-[80%] rounded-2xl px-4 py-3',
-                          msg.role === 'user'
-                            ? 'rounded-tr-sm bg-brand-ink text-white'
-                            : 'rounded-tl-sm border border-slate-200 bg-white text-slate-800',
+                          'flex min-w-0 max-w-[80%] flex-col gap-3',
+                          msg.role === 'user' ? 'items-end' : 'items-start',
                         )}
                       >
-                        <div className="whitespace-pre-wrap text-[15px] leading-relaxed">
-                          {msg.content}
-                        </div>
+                        {msg.steps && msg.steps.length > 0 && (
+                          <div className="flex flex-col gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500">
+                            {msg.steps.map((step, i) => (
+                              <span key={i} className="flex items-center gap-2">
+                                <Check size={12} className="flex-shrink-0 text-emerald-500" />
+                                {step}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
                         <div
                           className={cn(
-                            'mt-2 text-xs',
-                            msg.role === 'user' ? 'text-slate-400' : 'text-slate-400',
+                            'rounded-2xl px-4 py-3',
+                            msg.role === 'user'
+                              ? 'rounded-tr-sm bg-brand-ink text-white'
+                              : 'rounded-tl-sm border border-slate-200 bg-white text-slate-800',
                           )}
                         >
-                          {msg.timestamp.toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          <div className="whitespace-pre-wrap text-[15px] leading-relaxed">
+                            {msg.content}
+                          </div>
+                          <div className="mt-2 text-xs text-slate-400">
+                            {msg.timestamp.toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
                         </div>
+
+                        {/* Résultats structurés de l'agent */}
+                        {msg.cards?.map((card, ci) => (
+                          <div key={ci} className="w-full">
+                            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                              {card.type === 'flights' ? (
+                                <>
+                                  <Plane size={13} /> {card.results.length} vol
+                                  {card.results.length > 1 ? 's' : ''}
+                                </>
+                              ) : (
+                                <>
+                                  <MapPin size={13} /> {card.results.length} hôtel
+                                  {card.results.length > 1 ? 's' : ''}
+                                </>
+                              )}
+                            </p>
+                            {card.type === 'flights' ? (
+                              <div className="flex flex-col gap-3">
+                                {card.results.map((o) => (
+                                  <FlightResultCard
+                                    key={o.offerId}
+                                    offer={o}
+                                    tripId={nextTrip?.id ?? ''}
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                {card.results.map((o) => (
+                                  <HotelResultCard
+                                    key={o.rateId}
+                                    offer={o}
+                                    tripId={nextTrip?.id ?? ''}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {msg.sources && msg.sources.length > 0 && (
+                          <div className="w-full">
+                            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                              Sources
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {msg.sources.map((src, i) => {
+                                const isBooking = src.title.startsWith('Réserver ·');
+                                let label = src.url;
+                                try {
+                                  label = new URL(src.url).hostname.replace('www.', '');
+                                } catch { /* garde l'url brute */ }
+                                if (isBooking) label = src.title.replace('Réserver · ', '');
+                                return (
+                                  <a
+                                    key={i}
+                                    href={src.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={src.title}
+                                    className={cn(
+                                      'inline-flex max-w-[240px] items-center gap-1 truncate rounded-full border px-2.5 py-1 text-[11px] transition-colors',
+                                      isBooking
+                                        ? 'border-transparent bg-gradient-to-r from-brand-coral to-brand-sun font-semibold text-white hover:brightness-110'
+                                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-brand-teal hover:text-brand-teal',
+                                    )}
+                                  >
+                                    <span className="truncate">{label}</span>
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
