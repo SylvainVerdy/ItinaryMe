@@ -1883,21 +1883,21 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full p-6 space-y-5 bg-gradient-to-br from-green-50 to-beige-50 rounded-2xl shadow-lg">
+    <div className="flex h-full w-full flex-col space-y-5 rounded-3xl border border-slate-200 bg-white p-6">
       {/* Indicateur de l'état d'Ollama */}
       {USE_OLLAMA && (
         <div className="flex items-center justify-end mb-0 py-0">
           <button 
             onClick={checkOllamaStatus}
-            className={`text-xs flex items-center gap-1 px-2 py-1 rounded
-              ${ollamaStatus === 'connected' ? 'bg-green-100 text-green-700' : 
-                ollamaStatus === 'disconnected' ? 'bg-red-100 text-red-700' : 
-                'bg-yellow-100 text-yellow-700'}`}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium
+              ${ollamaStatus === 'connected' ? 'bg-emerald-50 text-emerald-700' :
+                ollamaStatus === 'disconnected' ? 'bg-red-50 text-red-700' :
+                'bg-amber-50 text-amber-700'}`}
           >
-            <span className={`w-2 h-2 rounded-full 
-              ${ollamaStatus === 'connected' ? 'bg-green-500' : 
-                ollamaStatus === 'disconnected' ? 'bg-red-500' : 
-                'bg-yellow-500'}`}></span>
+            <span className={`h-1.5 w-1.5 rounded-full
+              ${ollamaStatus === 'connected' ? 'bg-emerald-500' :
+                ollamaStatus === 'disconnected' ? 'bg-red-500' :
+                'bg-amber-500'}`}></span>
             Ollama: {ollamaStatus === 'connected' ? 'Connecté' : 
               ollamaStatus === 'disconnected' ? 'Déconnecté' : 
               'Vérification...'}
@@ -1907,7 +1907,7 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
 
       {/* Debug panel visible uniquement en mode debug */}
       {debugMode && (
-        <div className="bg-gray-800 text-white p-3 rounded-lg text-xs font-mono overflow-y-auto max-h-40">
+        <div className="max-h-40 overflow-y-auto rounded-2xl bg-brand-ink p-4 font-mono text-xs text-slate-300">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-sm font-semibold">Mode Débogage</h3>
             <div className="flex space-x-2">
@@ -1942,9 +1942,9 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
       {currentTravelId && (
         <>
           {/* En-tête du voyage avec le bouton de suppression */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-green-100 mb-2">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-teal-700">
+              <h3 className="font-display text-lg font-bold text-slate-900">
                 {tripData ? `Voyage à ${tripData.destination}` : 'Voyage actif'}
               </h3>
               <Button 
@@ -1958,13 +1958,13 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
             </div>
             
             {tripData && (
-              <div className="mt-2 text-sm text-gray-600 flex flex-wrap gap-3">
+              <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
                 <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1 text-teal-600" />
+                  <Calendar className="mr-1.5 h-4 w-4 text-brand-teal" />
                   <span>Du {new Date(tripData.startDate.toString()).toLocaleDateString('fr-FR')} au {new Date(tripData.endDate.toString()).toLocaleDateString('fr-FR')}</span>
                 </div>
                 <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-1 text-teal-600" />
+                  <Users className="mr-1.5 h-4 w-4 text-brand-teal" />
                   <span>{tripData.numPeople} {tripData.numPeople > 1 ? 'personnes' : 'personne'}</span>
                 </div>
               </div>
@@ -1972,9 +1972,9 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
           </div>
           
           {/* Section Notes de voyage */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-green-100">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-medium text-teal-700">Notes de voyage</h3>
+              <h3 className="font-display text-lg font-bold text-slate-900">Notes de voyage</h3>
               <div className="flex space-x-2">
                 {!isEditingNotes ? (
                   <Button 
@@ -2013,7 +2013,7 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
             </div>
             
             {!isEditingNotes ? (
-              <div className="bg-gray-50 p-3 rounded-md whitespace-pre-wrap max-h-40 overflow-y-auto text-sm">
+              <div className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
                 {travelNotes ? travelNotes : 'Aucune note pour ce voyage.'}
               </div>
             ) : (
@@ -2028,35 +2028,33 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
         </>
       )}
       
-      <div className="flex-grow overflow-y-auto space-y-3 p-2">
+      <div className="flex-grow space-y-3 overflow-y-auto p-1">
         {messages.length > 0 ? (
           messages.map((message, index) => (
           <div
             key={index}
-              className={`px-4 py-3 rounded-xl ${
-                message.sender === 'user' 
-                  ? 'bg-teal-100 text-gray-800 ml-auto' 
-                  : 'bg-white text-gray-800'
-              } shadow-md text-sm max-w-[80%] ${
-                message.sender === 'user' ? 'ml-auto' : 'mr-auto'
-              } relative group`}
+              className={`group relative max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                message.sender === 'user'
+                  ? 'ml-auto rounded-tr-sm bg-brand-ink text-white'
+                  : 'mr-auto rounded-tl-sm border border-slate-200 bg-white text-slate-800'
+              }`}
             >
               {message.text}
               
               {message.sender === 'assistant' && message.text.length > 30 && (
                 <button
                   onClick={() => generateNoteFromMessage(message.text)}
-                  className="absolute -right-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-100 hover:bg-gray-200 p-1 rounded-full"
+                  className="absolute -right-10 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100"
                   title="Créer une note à partir de ce message"
                 >
-                  <Pencil className="h-4 w-4 text-gray-600" />
+                  <Pencil className="h-3.5 w-3.5 text-slate-600" />
                 </button>
               )}
           </div>
           ))
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500 italic">
+            <p className="text-center text-sm italic text-slate-400">
               {loading || isSearching || isOllamaDetecting
                 ? "Chargement en cours..." 
                 : "Aucun message. Commencez à discuter avec l'assistant de voyage. Tapez 'debug' pour activer/désactiver le mode débogage."}
@@ -2066,16 +2064,16 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
         
         {(isSearching || isOllamaDetecting) && (
           <div className="flex items-center justify-center">
-            <div className="animate-pulse flex space-x-2">
-              <div className="h-2 w-2 bg-teal-500 rounded-full"></div>
-              <div className="h-2 w-2 bg-teal-500 rounded-full"></div>
-              <div className="h-2 w-2 bg-teal-500 rounded-full"></div>
+            <div className="flex space-x-1.5">
+              <div className="h-2 w-2 animate-bounce rounded-full bg-brand-teal"></div>
+              <div className="h-2 w-2 animate-bounce rounded-full bg-brand-teal [animation-delay:0.15s]"></div>
+              <div className="h-2 w-2 animate-bounce rounded-full bg-brand-teal [animation-delay:0.3s]"></div>
             </div>
           </div>
         )}
       </div>
       
-      <div className="flex space-x-3">
+      <div className="flex items-end gap-3">
         <Textarea
           value={inputValue}
           onChange={e => setInputValue(e.target.value)}
@@ -2086,12 +2084,12 @@ export const ChatInterface = (props: ChatInterfaceProps = {}) => {
             }
           }}
           placeholder="Posez vos questions sur votre voyage..."
-          className="flex-grow rounded-md border-green-200 bg-white text-gray-700 shadow-sm focus:border-green-400 focus:ring-green-400"
+          className="flex-grow resize-none rounded-2xl border-slate-200 bg-slate-50 text-slate-800 focus-visible:border-brand-teal focus-visible:ring-brand-teal/20"
           disabled={isSearching || isOllamaDetecting}
         />
         <Button
           onClick={handleSendMessage}
-          className="bg-gradient-to-r from-teal-400 to-green-500 text-white font-semibold rounded-md shadow-md hover:from-teal-500 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-1"
+          className="h-auto flex-shrink-0 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-6 py-3 font-semibold text-white transition hover:brightness-110"
           disabled={isSearching || isOllamaDetecting || inputValue.trim() === ''}
         >
           Envoyer

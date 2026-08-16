@@ -89,13 +89,13 @@ export default function AddActivityModal({ tripId, tripStart, tripEnd, activity,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white shadow-float">
+        <div className="flex items-center justify-between border-b border-slate-100 p-5">
+          <h2 className="font-display text-lg font-bold text-slate-900">
             {activity ? 'Modifier l\'activité' : 'Ajouter une activité'}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+          <button onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900">
             <X size={18} />
           </button>
         </div>
@@ -103,29 +103,29 @@ export default function AddActivityModal({ tripId, tripStart, tripEnd, activity,
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Titre */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
+            <label className="mb-2 block text-sm font-semibold text-slate-800">Titre *</label>
             <input
               type="text"
               value={form.title}
               onChange={(e) => set('title', e.target.value)}
               placeholder="Ex: Visite du Louvre"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
             />
           </div>
 
           {/* Catégorie */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+            <label className="mb-2 block text-sm font-semibold text-slate-800">Catégorie</label>
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => set('category', cat)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
                     form.category === cat
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+                      ? 'border-transparent bg-gradient-to-r from-brand-teal to-brand-lagoon text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-brand-teal'
                   }`}
                 >
                   {CATEGORY_LABELS[cat]}
@@ -137,52 +137,52 @@ export default function AddActivityModal({ tripId, tripStart, tripEnd, activity,
           {/* Date + Horaires */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+              <label className="mb-2 block text-sm font-semibold text-slate-800">Date *</label>
               <input
                 type="date"
                 value={form.date}
                 min={tripStart}
                 max={tripEnd}
                 onChange={(e) => set('date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Début</label>
+              <label className="mb-2 block text-sm font-semibold text-slate-800">Début</label>
               <input
                 type="time"
                 value={form.startTime}
                 onChange={(e) => set('startTime', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fin</label>
+              <label className="mb-2 block text-sm font-semibold text-slate-800">Fin</label>
               <input
                 type="time"
                 value={form.endTime}
                 onChange={(e) => set('endTime', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
               />
             </div>
           </div>
 
           {/* Lieu */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
+            <label className="mb-2 block text-sm font-semibold text-slate-800">Lieu</label>
             <input
               type="text"
               value={form.location}
               onChange={(e) => set('location', e.target.value)}
               placeholder="Ex: Paris, Rue de Rivoli"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
             />
           </div>
 
           {/* Prix */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Prix</label>
+              <label className="mb-2 block text-sm font-semibold text-slate-800">Prix</label>
               <input
                 type="number"
                 min="0"
@@ -190,15 +190,15 @@ export default function AddActivityModal({ tripId, tripStart, tripEnd, activity,
                 value={form.price ?? ''}
                 onChange={(e) => set('price', e.target.value ? parseFloat(e.target.value) : undefined)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Devise</label>
+              <label className="mb-2 block text-sm font-semibold text-slate-800">Devise</label>
               <select
                 value={form.currency}
                 onChange={(e) => set('currency', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
               >
                 <option>EUR</option>
                 <option>USD</option>
@@ -211,17 +211,17 @@ export default function AddActivityModal({ tripId, tripStart, tripEnd, activity,
 
           {/* Statut */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+            <label className="mb-2 block text-sm font-semibold text-slate-800">Statut</label>
             <div className="flex gap-2 flex-wrap">
               {STATUSES.map((s) => (
                 <button
                   key={s.value}
                   type="button"
                   onClick={() => set('status', s.value)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
                     form.status === s.value
-                      ? 'bg-green-600 text-white border-green-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-green-400'
+                      ? 'border-transparent bg-emerald-600 text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-400'
                   }`}
                 >
                   {s.label}
@@ -232,13 +232,13 @@ export default function AddActivityModal({ tripId, tripStart, tripEnd, activity,
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <label className="mb-2 block text-sm font-semibold text-slate-800">Notes</label>
             <textarea
               value={form.notes}
               onChange={(e) => set('notes', e.target.value)}
               placeholder="Informations complémentaires..."
               rows={3}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
             />
           </div>
 
@@ -248,14 +248,14 @@ export default function AddActivityModal({ tripId, tripStart, tripEnd, activity,
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="rounded-full px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
               {activity ? 'Enregistrer' : 'Ajouter'}

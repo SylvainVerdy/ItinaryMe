@@ -92,7 +92,7 @@ export const WebAutomationInterface: React.FC = () => {
             Utilisez l'IA locale via Ollama pour automatiser des tâches web et analyser du contenu
           </CardDescription>
           <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
             <span className="text-sm">
               {isConnected ? `Connecté à Ollama (${modelName})` : 'Déconnecté'}
             </span>
@@ -136,7 +136,7 @@ export const WebAutomationInterface: React.FC = () => {
                 
                 <div className="space-y-2">
                   <Label>Aperçu</Label>
-                  <div className="border rounded-md p-2 min-h-[200px] flex items-center justify-center bg-gray-50">
+                  <div className="border rounded-md p-2 min-h-[200px] flex items-center justify-center bg-slate-50">
                     {screenshotUrl ? (
                       <img 
                         src={screenshotUrl} 
@@ -144,7 +144,7 @@ export const WebAutomationInterface: React.FC = () => {
                         className="max-w-full max-h-[200px] object-contain"
                       />
                     ) : (
-                      <span className="text-gray-400">Aucun aperçu disponible</span>
+                      <span className="text-slate-400">Aucun aperçu disponible</span>
                     )}
                   </div>
                 </div>
@@ -175,14 +175,14 @@ export const WebAutomationInterface: React.FC = () => {
                 <Label>Historique des tâches</Label>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {taskHistory.length === 0 ? (
-                    <p className="text-sm text-gray-500">Aucune tâche exécutée</p>
+                    <p className="text-sm text-slate-500">Aucune tâche exécutée</p>
                   ) : (
                     taskHistory.map((item, index) => (
                       <Card key={index} className="text-sm">
                         <CardHeader className="py-2 px-4">
                           <div className="flex justify-between items-center">
                             <span className="font-medium">{item.task}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-slate-500">
                               {item.timestamp.toLocaleTimeString()}
                             </span>
                           </div>
@@ -207,7 +207,7 @@ export const WebAutomationInterface: React.FC = () => {
                     onChange={(e) => setModelName(e.target.value)}
                     placeholder="Nom du modèle (ex: deepseek-coder)"
                   />
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-500">
                     Modèle Ollama à utiliser. Assurez-vous qu'il est installé.
                   </p>
                 </div>
@@ -221,7 +221,7 @@ export const WebAutomationInterface: React.FC = () => {
                       onCheckedChange={setHeadlessMode}
                     />
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-500">
                     Exécuter le navigateur en mode invisible (plus rapide, mais sans affichage visuel)
                   </p>
                 </div>
@@ -237,7 +237,7 @@ export const WebAutomationInterface: React.FC = () => {
         </CardContent>
         
         <CardFooter className="flex justify-between">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-slate-500">
             Utilise DeepSeek via Ollama pour l'analyse et l'automatisation
           </p>
         </CardFooter>

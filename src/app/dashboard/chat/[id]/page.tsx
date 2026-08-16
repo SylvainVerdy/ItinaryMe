@@ -453,7 +453,7 @@ export default function ChatPage() {
   if (loading || isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-coral"></div>
       </div>
     );
   }
@@ -464,14 +464,14 @@ export default function ChatPage() {
   
   if (error) {
     return (
-      <div className="p-6 bg-[#f8f5ec] min-h-screen">
+      <div className="p-6 bg-slate-50 min-h-screen">
         <div className="max-w-3xl mx-auto">
           <div className="bg-red-50 p-4 rounded-lg text-red-700 mb-6">
             {error}
           </div>
           <Link 
             href="/dashboard?view=chat-history" 
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
           >
             <ArrowLeft size={16} />
             <span>Retour à l'historique</span>
@@ -482,39 +482,39 @@ export default function ChatPage() {
   }
   
   return (
-    <div className="flex flex-col h-screen bg-[#f8f5ec] overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
       {/* Header avec titre dynamique */}
-      <header className="h-14 border-b border-[#e6e0d4] flex items-center justify-between px-4 bg-white/80 backdrop-blur-sm">
+      <header className="h-14 border-b border-slate-200 flex items-center justify-between px-4 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard?view=chat-history"
-            className="p-1.5 rounded-md hover:bg-[#f0ece3] transition-colors"
+            className="p-1.5 rounded-md hover:bg-slate-100 transition-colors"
           >
-            <ArrowLeft size={18} className="text-gray-600" />
+            <ArrowLeft size={18} className="text-slate-600" />
           </Link>
           
           {chatId === 'new' || !chatHistory?.title || chatHistory.title === 'Nouvelle conversation' ? (
             <div className="relative flex items-center">
-              <h2 className="font-medium text-gray-800 truncate max-w-md">
+              <h2 className="font-medium text-slate-900 truncate max-w-md">
                 {chatHistory?.title || "Nouvelle conversation"}
               </h2>
               {titleGenerated && (
-                <div className="absolute -top-5 left-0 text-xs text-green-600 animate-fade-out">
+                <div className="absolute -top-5 left-0 text-xs text-emerald-600 animate-fade-out">
                   Titre généré !
                 </div>
               )}
             </div>
           ) : (
             <div className="group relative cursor-pointer">
-              <h2 className="font-medium text-gray-800 truncate max-w-md group-hover:text-blue-600 transition-colors">
+              <h2 className="font-medium text-slate-900 truncate max-w-md group-hover:text-brand-teal transition-colors">
                 {chatHistory.title}
               </h2>
               {titleGenerated && (
-                <div className="absolute -top-5 left-0 text-xs text-green-600 animate-fade-out">
+                <div className="absolute -top-5 left-0 text-xs text-emerald-600 animate-fade-out">
                   Titre mis à jour !
                 </div>
               )}
-              <div className="absolute hidden group-hover:block top-full left-0 bg-white shadow-md p-2 rounded-md text-xs text-gray-500 whitespace-nowrap z-10">
+              <div className="absolute hidden group-hover:block top-full left-0 bg-white shadow-md p-2 rounded-md text-xs text-slate-500 whitespace-nowrap z-10">
                 Généré à partir du contexte de la conversation
               </div>
             </div>
@@ -523,15 +523,15 @@ export default function ChatPage() {
         
         {/* Indicateur visuel de génération de titre */}
         {isSendingMessage && chatId === 'new' && (
-          <div className="text-xs text-gray-500 flex items-center gap-1">
-            <div className="animate-spin h-3 w-3 border-t-2 border-blue-500 rounded-full"></div>
+          <div className="text-xs text-slate-500 flex items-center gap-1">
+            <div className="animate-spin h-3 w-3 border-t-2 border-brand-teal rounded-full"></div>
             <span>Génération du titre...</span>
           </div>
         )}
       </header>
       
       {/* Chat Messages */}
-      <div className="flex-1 overflow-auto p-4 bg-[#f8f5ec]">
+      <div className="flex-1 overflow-auto p-4 bg-slate-50">
         <div className="max-w-3xl mx-auto">
           <div className="space-y-6">
             {messages
@@ -542,29 +542,29 @@ export default function ChatPage() {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {msg.role === 'assistant' && (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center mr-2">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-teal to-brand-lagoon flex items-center justify-center mr-2">
                       <Sparkles size={16} className="text-white" />
                     </div>
                   )}
                   <div 
                     className={`max-w-[80%] p-4 rounded-2xl ${
                       msg.role === 'user' 
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm' 
-                        : 'bg-white border border-[#e6e0d4] text-gray-800 shadow-sm'
+                        ? 'bg-gradient-to-r from-brand-teal to-brand-lagoon text-white shadow-sm' 
+                        : 'bg-white border border-slate-200 text-slate-900 shadow-sm'
                     }`}
                   >
                     <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
                     <div 
                       className={`text-xs mt-2 ${
-                        msg.role === 'user' ? 'text-blue-200' : 'text-gray-500'
+                        msg.role === 'user' ? 'text-slate-400' : 'text-slate-500'
                       }`}
                     >
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                   {msg.role === 'user' && (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-200 to-purple-300 flex items-center justify-center ml-2">
-                      <span className="text-purple-800 font-medium">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-teal to-brand-lagoon flex items-center justify-center ml-2">
+                      <span className="text-white font-medium">
                         {user.email?.charAt(0).toUpperCase() || 'U'}
                       </span>
                     </div>
@@ -577,12 +577,12 @@ export default function ChatPage() {
       </div>
       
       {/* Chat Input */}
-      <div className="border-t border-[#e6e0d4] p-4 bg-white">
+      <div className="border-t border-slate-200 p-4 bg-white">
         <div className="max-w-3xl mx-auto">
-          <div className="relative bg-white rounded-xl shadow-sm border border-[#e6e0d4] overflow-hidden">
+          <div className="relative bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <textarea
               ref={chatInputRef}
-              className="w-full pl-4 pr-12 py-3.5 bg-transparent resize-none focus:outline-none text-gray-800"
+              className="w-full pl-4 pr-12 py-3.5 bg-transparent resize-none focus:outline-none text-slate-900"
               rows={2}
               placeholder="Posez une question sur votre voyage..."
               value={inputValue}
@@ -593,8 +593,8 @@ export default function ChatPage() {
             <button
               className={`absolute right-3 bottom-3 p-2 rounded-full transition-all ${
                 inputValue.trim() && !isSendingMessage
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm hover:from-blue-600 hover:to-blue-700'
-                  : 'bg-[#f0ece3] text-gray-400 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-brand-teal to-brand-lagoon text-white shadow-sm hover:brightness-110'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
               }`}
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isSendingMessage}
@@ -606,7 +606,7 @@ export default function ChatPage() {
               )}
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
+          <p className="text-xs text-slate-500 mt-2 text-center">
             Powered by Ollama · Les réponses sont générées par intelligence artificielle et peuvent ne pas être précises.
           </p>
         </div>

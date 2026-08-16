@@ -588,21 +588,21 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
   if (loading && chatHistories.length === 0) {
     return (
       <div className="p-8 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-coral"></div>
       </div>
     );
   }
   
   if (error && chatHistories.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
         <div className="p-4 bg-red-50 text-red-700 rounded-lg mb-4">
           <p className="font-medium mb-2">Erreur lors du chargement des conversations</p>
           <p className="text-sm">{error}</p>
         </div>
         
         {error.includes('index') && (
-          <div className="p-4 bg-yellow-50 text-yellow-700 rounded-lg mb-4">
+          <div className="p-4 bg-amber-50 text-amber-700 rounded-lg mb-4">
             <p className="font-medium mb-2">Action requise : Création d'index Firebase</p>
             <p className="text-sm mb-3">
               Pour résoudre ce problème, vous devez créer un index dans Firebase. Suivez ces étapes:
@@ -616,7 +616,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
             </ol>
             <button 
               onClick={() => refreshChatHistories(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition-colors text-sm"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors text-sm"
             >
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -640,7 +640,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
         <div className="flex justify-center">
           <Link 
             href="/dashboard/chat/new" 
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-brand-coral to-brand-sun text-white hover:brightness-110 transition-colors text-sm font-medium"
           >
             <PlusCircle size={16} />
             <span>Démarrer une nouvelle conversation</span>
@@ -651,17 +651,17 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
   }
   
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-6">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-medium text-gray-800">
+        <h2 className="text-xl font-medium text-slate-900">
           {tripId ? 'Conversations du voyage' : 'Historique des conversations'}
-          {totalItems > 0 && <span className="text-sm text-gray-500 ml-2">({totalItems})</span>}
+          {totalItems > 0 && <span className="text-sm text-slate-500 ml-2">({totalItems})</span>}
         </h2>
         
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setShowDebug(!showDebug)}
-            className="p-1.5 rounded-lg hover:bg-[#f8f5ec] transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
             title={showDebug ? "Masquer le mode debug" : "Afficher le mode debug"}
           >
             <svg 
@@ -674,7 +674,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
               strokeWidth="2" 
               strokeLinecap="round" 
               strokeLinejoin="round"
-              className="text-gray-600"
+              className="text-slate-600"
             >
               <path d="M12 3v4"></path>
               <path d="M8 7l2 2"></path>
@@ -688,7 +688,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
         
           <button 
             onClick={verifyAllConversations}
-            className="p-1.5 rounded-lg hover:bg-[#f8f5ec] transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
             title="Vérifier toutes les conversations"
             disabled={loading}
           >
@@ -702,7 +702,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
               strokeWidth="2" 
               strokeLinecap="round" 
               strokeLinejoin="round"
-              className="text-gray-600"
+              className="text-slate-600"
             >
               <path d="M9 12l2 2 4-4"></path>
               <circle cx="12" cy="12" r="10"></circle>
@@ -711,7 +711,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
         
           <button 
             onClick={() => refreshChatHistories(true)}
-            className="p-1.5 rounded-lg hover:bg-[#f8f5ec] transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
             title="Rafraîchir"
             disabled={loading}
           >
@@ -725,7 +725,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
               strokeWidth="2" 
               strokeLinecap="round" 
               strokeLinejoin="round"
-              className={`text-gray-600 ${loading ? 'animate-spin' : ''}`}
+              className={`text-slate-600 ${loading ? 'animate-spin' : ''}`}
             >
               <path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
               <path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
@@ -734,7 +734,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
           
           <Link 
             href="/dashboard/chat/new" 
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors text-sm font-medium"
           >
             <PlusCircle size={14} />
             <span>Nouvelle conversation</span>
@@ -744,7 +744,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
       
       {/* Mode débogage - informations de pagination */}
       {showDebug && (
-        <div className="mb-3 p-2 bg-gray-50 rounded-lg text-xs text-gray-600 font-mono">
+        <div className="mb-3 p-2 bg-slate-50 rounded-lg text-xs text-slate-600 font-mono">
           <div>État: {loading ? 'Chargement...' : 'Prêt'}</div>
           <div>Page actuelle: {currentPage}</div>
           <div>Éléments par page: {itemsPerPage}</div>
@@ -758,14 +758,14 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
           <div className="flex gap-2 mt-2">
             <button 
               onClick={checkDuplicates}
-              className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs"
+              className="bg-teal-100 text-teal-700 px-2 py-1 rounded text-xs"
             >
               Vérifier doublons
             </button>
             
             <button 
               onClick={loadAllConversations}
-              className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs"
+              className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs"
             >
               Charger TOUTES
             </button>
@@ -781,23 +781,23 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher une conversation..."
-            className="w-full p-2 pl-10 rounded-lg border border-[#e6e0d4] focus:outline-none focus:border-purple-300 transition-colors"
+            className="w-full p-2 pl-10 rounded-lg border border-slate-200 focus:outline-none focus:border-orange-200 transition-colors"
           />
-          <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+          <Search size={16} className="absolute left-3 top-3 text-slate-400" />
         </div>
         
-        <button className="p-2 rounded-lg border border-[#e6e0d4] hover:bg-[#f8f5ec] transition-colors">
-          <Filter size={16} className="text-gray-500" />
+        <button className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+          <Filter size={16} className="text-slate-500" />
         </button>
       </div>
       
       {error && (
-        <div className="p-4 bg-yellow-50 text-yellow-700 rounded-lg mb-4">
+        <div className="p-4 bg-amber-50 text-amber-700 rounded-lg mb-4">
           <p className="font-medium mb-1">Problème de chargement</p>
           <p className="text-sm">{error}</p>
           <button 
             onClick={() => refreshChatHistories(true)}
-            className="mt-2 inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition-colors text-xs"
+            className="mt-2 inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors text-xs"
           >
             <span>Réessayer</span>
           </button>
@@ -807,18 +807,18 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
       {/* Liste des conversations */}
       {filteredHistories.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 px-4">
-          <div className="h-16 w-16 rounded-full bg-[#f0ece3] flex items-center justify-center mb-4">
-            <MessageSquare className="text-gray-500" size={28} />
+          <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+            <MessageSquare className="text-slate-500" size={28} />
           </div>
-          <h4 className="text-lg font-medium text-gray-800 mb-2">Aucune conversation trouvée</h4>
-          <p className="text-gray-500 mb-6 text-center max-w-md">
+          <h4 className="text-lg font-medium text-slate-900 mb-2">Aucune conversation trouvée</h4>
+          <p className="text-slate-500 mb-6 text-center max-w-md">
             {searchTerm 
               ? "Aucune conversation ne correspond à votre recherche." 
               : "Vous n'avez pas encore enregistré de conversation. Commencez dès maintenant !"}
           </p>
           <Link 
             href="/dashboard/chat/new" 
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-brand-coral to-brand-sun text-white hover:brightness-110 transition-colors text-sm font-medium"
           >
             <PlusCircle size={16} />
             <span>Démarrer une nouvelle conversation</span>
@@ -826,36 +826,36 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
         </div>
       ) : (
         <>
-          <div className="divide-y divide-[#e6e0d4]">
+          <div className="divide-y divide-[#e2e8f0]">
             {filteredHistories.map((history) => (
               <div 
                 key={history.id} 
-                className="py-4 px-3 -mx-3 hover:bg-[#f8f5ec] transition-colors rounded-lg group relative"
+                className="py-4 px-3 -mx-3 hover:bg-slate-50 transition-colors rounded-lg group relative"
               >
                 <Link 
                   href={`/dashboard/chat/${history.id}`}
                   className="block"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                    <div className="h-10 w-10 bg-gradient-to-br from-brand-coral to-brand-sun rounded-lg flex items-center justify-center text-white flex-shrink-0">
                       <MessageSquare size={20} />
                     </div>
                     
                     <div className="flex-grow">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-gray-800 group-hover:text-purple-600 transition-colors">
+                        <h3 className="font-medium text-slate-900 group-hover:text-orange-600 transition-colors">
                           {history.title || "Sans titre"}
                         </h3>
                         {history.isFavorite && (
-                          <Bookmark size={14} className="text-purple-500" />
+                          <Bookmark size={14} className="text-orange-500" />
                         )}
                       </div>
                       
-                      <p className="text-gray-500 text-sm mt-1 mb-2">
+                      <p className="text-slate-500 text-sm mt-1 mb-2">
                         {getConversationSummary(history)}
                       </p>
                       
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
                         <div className="flex items-center gap-1">
                           <Clock size={12} />
                           <span>{formatDate(history.updatedAt)}</span>
@@ -882,9 +882,9 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
                     className="p-1.5 rounded-full hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
                   >
                     {history.isFavorite ? (
-                      <BookmarkX size={14} className="text-gray-500" />
+                      <BookmarkX size={14} className="text-slate-500" />
                     ) : (
-                      <Bookmark size={14} className="text-gray-500" />
+                      <Bookmark size={14} className="text-slate-500" />
                     )}
                   </button>
                 </div>
@@ -902,7 +902,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
                     }}
                     className="p-1.5 rounded-full hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
                   >
-                    <Trash2 size={14} className="text-gray-500" />
+                    <Trash2 size={14} className="text-slate-500" />
                   </button>
                 </div>
               </div>
@@ -911,7 +911,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
           
           {/* Pagination */}
           <div className="mt-6 flex justify-between items-center">
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-slate-500">
               Affichage de {filteredHistories.length > 0 ? 1 : 0}-{filteredHistories.length} sur {totalItems} conversations
             </div>
             
@@ -923,15 +923,15 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
                     setLastVisible(null);
                     refreshChatHistories(true);
                   }}
-                  className="p-2 rounded-lg border border-[#e6e0d4] hover:bg-[#f8f5ec] transition-colors"
+                  className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
                   disabled={loading}
                 >
-                  <ChevronLeft size={16} className="text-gray-500" />
+                  <ChevronLeft size={16} className="text-slate-500" />
                 </button>
               )}
               
               {/* État de la pagination */}
-              <div className="text-xs text-gray-500 mr-2">
+              <div className="text-xs text-slate-500 mr-2">
                 {`Page ${currentPage} | ${loadedIds.size < totalItems ? `${totalItems - loadedIds.size} restants` : 'Tout affiché'}`}
               </div>
               
@@ -939,11 +939,11 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
               {(loadedIds.size < totalItems) && (
                 <button
                   onClick={loadMoreConversations}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors text-sm font-medium"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors text-sm font-medium"
                   disabled={loading}
                 >
                   {loading ? (
-                    <div className="animate-spin h-4 w-4 border-t-2 border-purple-500 rounded-full mr-1"></div>
+                    <div className="animate-spin h-4 w-4 border-t-2 border-brand-coral rounded-full mr-1"></div>
                   ) : (
                     <ChevronRight size={16} />
                   )}
@@ -958,8 +958,8 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
       {/* Afficher un indicateur de chargement pendant la pagination */}
       {loading && chatHistories.length > 0 && (
         <div className="my-4 flex justify-center items-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500 mr-2"></div>
-          <span className="text-sm text-gray-500">Chargement de plus de conversations...</span>
+          <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-brand-coral mr-2"></div>
+          <span className="text-sm text-slate-500">Chargement de plus de conversations...</span>
         </div>
       )}
     </div>

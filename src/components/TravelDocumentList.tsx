@@ -139,29 +139,29 @@ export const TravelDocumentList: React.FC<TravelDocumentListProps> = ({ tripId }
   if (loading) {
     return (
       <div className="p-8 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-brand-teal"></div>
       </div>
     );
   }
   
   if (error) {
     return (
-      <div className="p-4 bg-red-50 text-red-700 rounded-lg">
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
         {error}
       </div>
     );
   }
   
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-6">
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-medium text-gray-800">
+        <h2 className="font-display text-xl font-bold text-slate-900">
           {tripId ? 'Documents du voyage' : 'Tous mes documents'}
         </h2>
         
         <Link 
           href={tripId ? `/dashboard/document/new?tripId=${tripId}` : '/dashboard/document/new'} 
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-sm font-medium"
+          className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
         >
           <PlusCircle size={14} />
           <span>Nouveau document</span>
@@ -176,38 +176,38 @@ export const TravelDocumentList: React.FC<TravelDocumentListProps> = ({ tripId }
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher un document..."
-            className="w-full p-2 pl-10 rounded-lg border border-[#e6e0d4] focus:outline-none focus:border-blue-300 transition-colors"
+            className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10"
           />
-          <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>
         
-        <button className="p-2 rounded-lg border border-[#e6e0d4] hover:bg-[#f8f5ec] transition-colors">
-          <Filter size={16} className="text-gray-500" />
+        <button aria-label="Filtrer" className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900">
+          <Filter size={16} />
         </button>
       </div>
       
       {/* Liste des documents */}
       {filteredDocuments.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 px-4">
-          <div className="h-16 w-16 rounded-full bg-[#f0ece3] flex items-center justify-center mb-4">
-            <FileText className="text-gray-500" size={28} />
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-teal to-brand-lagoon text-white">
+            <FileText size={28} />
           </div>
-          <h4 className="text-lg font-medium text-gray-800 mb-2">Aucun document trouvé</h4>
-          <p className="text-gray-500 mb-6 text-center max-w-md">
+          <h4 className="font-display text-lg font-bold text-slate-900">Aucun document trouvé</h4>
+          <p className="mb-6 mt-2 max-w-md text-center text-sm text-slate-500">
             {searchTerm 
               ? "Aucun document ne correspond à votre recherche." 
               : "Vous n'avez pas encore créé de document. Commencez dès maintenant !"}
           </p>
           <Link 
             href={tripId ? `/dashboard/document/new?tripId=${tripId}` : '/dashboard/document/new'} 
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110"
           >
             <PlusCircle size={16} />
             <span>Créer mon premier document</span>
           </Link>
         </div>
       ) : (
-        <div className="divide-y divide-[#e6e0d4]">
+        <div className="divide-y divide-slate-100">
           {filteredDocuments.map((doc) => (
             <Link 
               key={doc.id} 
@@ -215,13 +215,13 @@ export const TravelDocumentList: React.FC<TravelDocumentListProps> = ({ tripId }
                 ? `/dashboard/document/${doc.id}` 
                 : `/travel/${doc.id}?editNotes=true`
               }
-              className="block py-4 px-3 -mx-3 hover:bg-[#f8f5ec] transition-colors rounded-lg group"
+              className="group -mx-3 block rounded-2xl px-3 py-4 transition-colors hover:bg-slate-50"
             >
               <div className="flex items-start gap-4">
-                <div className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  doc.source === 'travel-note' 
-                    ? 'bg-green-50 text-green-500' 
-                    : 'bg-blue-50 text-blue-500'
+                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
+                  doc.source === 'travel-note'
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-teal-50 text-brand-teal'
                 }`}>
                   {doc.source === 'travel-note' ? (
                     <FileEdit size={20} />
@@ -233,11 +233,11 @@ export const TravelDocumentList: React.FC<TravelDocumentListProps> = ({ tripId }
                 </div>
                 
                 <div className="flex-grow">
-                  <h3 className="font-medium text-gray-800 mb-1 group-hover:text-blue-600 transition-colors">
+                  <h3 className="mb-1 font-semibold text-slate-900 transition-colors group-hover:text-brand-teal">
                     {doc.title}
                   </h3>
                   
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
                     <div className="flex items-center gap-1">
                       <Clock size={14} />
                       <span>Modifié {formatDate(doc.updatedAt)}</span>
@@ -259,7 +259,7 @@ export const TravelDocumentList: React.FC<TravelDocumentListProps> = ({ tripId }
                   </div>
                 </div>
                 
-                <div className="text-sm text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex-shrink-0 text-sm font-semibold text-brand-teal opacity-0 transition-opacity group-hover:opacity-100">
                   {doc.source === 'travel-note' ? 'Éditer →' : 'Voir →'}
                 </div>
               </div>

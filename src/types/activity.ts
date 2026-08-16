@@ -50,11 +50,11 @@ export const CATEGORY_LABELS: Record<ActivityCategory, string> = {
 };
 
 export const CATEGORY_COLORS: Record<ActivityCategory, string> = {
-  flight: 'bg-blue-100 text-blue-700',
-  hotel: 'bg-purple-100 text-purple-700',
-  restaurant: 'bg-orange-100 text-orange-700',
-  visit: 'bg-green-100 text-green-700',
-  transport: 'bg-yellow-100 text-yellow-700',
-  activity: 'bg-pink-100 text-pink-700',
-  other: 'bg-gray-100 text-gray-600',
+  flight: 'bg-cyan-50 text-cyan-700',
+  hotel: 'bg-teal-50 text-teal-700',
+  restaurant: 'bg-orange-50 text-orange-700',
+  visit: 'bg-emerald-50 text-emerald-700',
+  transport: 'bg-amber-50 text-amber-700',
+  activity: 'bg-rose-50 text-rose-700',
+  other: 'bg-slate-100 text-slate-600',
 };

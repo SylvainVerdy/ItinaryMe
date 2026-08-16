@@ -58,52 +58,52 @@ export default function FlightResultCard({ offer, tripId }: Props) {
   const isAdded = alreadyInCart || added;
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-lift">
       {/* Airline */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-            <Plane size={14} className="text-blue-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50">
+            <Plane size={15} className="text-brand-teal" />
           </div>
-          <span className="text-sm font-medium text-gray-800">{offer.airline}</span>
+          <span className="text-sm font-semibold text-slate-900">{offer.airline}</span>
           {offer.stops === 0 && (
-            <span className="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded-full">Direct</span>
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Direct</span>
           )}
           {offer.stops > 0 && (
-            <span className="text-xs px-2 py-0.5 bg-orange-50 text-orange-700 rounded-full">
+            <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700">
               {offer.stops} escale{offer.stops > 1 ? 's' : ''}
             </span>
           )}
         </div>
         <div className="text-right">
-          <div className="text-lg font-bold text-gray-900">
+          <div className="font-display text-lg font-bold text-slate-900">
             {offer.price.toLocaleString('fr-FR')} {offer.currency}
           </div>
         </div>
       </div>
 
       {/* Route */}
-      <div className="flex items-center gap-3 mb-3">
+      <div className="mb-4 flex items-center gap-3">
         <div className="text-center">
-          <div className="text-lg font-bold text-gray-900">{offer.origin}</div>
-          <div className="text-xs text-gray-500">{dep.time}</div>
-          <div className="text-xs text-gray-400">{dep.date}</div>
+          <div className="font-display text-lg font-bold text-slate-900">{offer.origin}</div>
+          <div className="text-xs font-medium text-slate-600">{dep.time}</div>
+          <div className="text-xs text-slate-400">{dep.date}</div>
         </div>
         <div className="flex-1 flex flex-col items-center gap-1">
-          <div className="flex items-center gap-1 text-xs text-gray-400">
+          <div className="flex items-center gap-1 text-xs text-slate-400">
             <Clock size={11} />
             {formatDuration(offer.duration)}
           </div>
           <div className="w-full flex items-center gap-1">
-            <div className="flex-1 h-px bg-gray-200" />
-            <ArrowRight size={12} className="text-gray-400" />
-            <div className="flex-1 h-px bg-gray-200" />
+            <div className="h-px flex-1 bg-slate-200" />
+            <ArrowRight size={12} className="text-brand-teal" />
+            <div className="h-px flex-1 bg-slate-200" />
           </div>
         </div>
         <div className="text-center">
-          <div className="text-lg font-bold text-gray-900">{offer.destination}</div>
-          <div className="text-xs text-gray-500">{arr.time}</div>
-          <div className="text-xs text-gray-400">{arr.date}</div>
+          <div className="font-display text-lg font-bold text-slate-900">{offer.destination}</div>
+          <div className="text-xs font-medium text-slate-600">{arr.time}</div>
+          <div className="text-xs text-slate-400">{arr.date}</div>
         </div>
       </div>
 
@@ -111,10 +111,10 @@ export default function FlightResultCard({ offer, tripId }: Props) {
       <button
         onClick={handleAdd}
         disabled={isAdded}
-        className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
+        className={`flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold transition ${
           isAdded
-            ? 'bg-green-50 text-green-700 cursor-default'
-            : 'bg-blue-600 text-white hover:bg-blue-700'
+            ? 'cursor-default bg-emerald-50 text-emerald-700'
+            : 'bg-gradient-to-r from-brand-coral to-brand-sun text-white hover:brightness-110'
         }`}
       >
         {isAdded ? (

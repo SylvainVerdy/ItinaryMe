@@ -34,29 +34,29 @@ export function CartItemRow({ item }: { item: CartItem }) {
   })();
 
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-[#e6e0d4] last:border-0">
+    <div className="flex items-start gap-3 border-b border-slate-100 py-3.5 last:border-0">
       {/* Icon */}
-      <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[#f0ebe1] flex items-center justify-center">
-        <Icon className="w-4 h-4 text-[#8b7355]" />
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-teal-50">
+        <Icon className="h-4 w-4 text-brand-teal" />
       </div>
 
       {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{item.name}</p>
-        <p className="text-xs text-gray-500 mt-0.5 truncate">{subtitle}</p>
-        <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#e6e0d4] text-[#8b7355] font-medium">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
+        <p className="mt-0.5 truncate text-xs text-slate-500">{subtitle}</p>
+        <span className="mt-1.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
           {TYPE_LABEL[item.type]}
         </span>
       </div>
 
       {/* Price + remove */}
-      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <span className="text-sm font-semibold text-gray-800">
+      <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
+        <span className="font-display text-sm font-bold text-slate-900">
           {item.price.toLocaleString('fr-FR', { style: 'currency', currency: item.currency })}
         </span>
         <button
           onClick={() => removeItem(item.id)}
-          className="text-gray-400 hover:text-red-500 transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
           aria-label="Retirer du panier"
         >
           <X className="w-3.5 h-3.5" />

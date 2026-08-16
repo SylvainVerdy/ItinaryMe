@@ -18,7 +18,7 @@ function StarRating({ rating }: { rating?: number }) {
         <Star
           key={i}
           size={11}
-          className={i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-200'}
+          className={i < rating ? 'fill-amber-400 text-amber-400' : 'fill-slate-200 text-slate-200'}
         />
       ))}
     </div>
@@ -54,29 +54,29 @@ export default function HotelResultCard({ offer, tripId }: Props) {
   const pricePerNight = offer.nights > 0 ? Math.round(offer.price / offer.nights) : offer.price;
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-slate-300 hover:shadow-lift">
       {/* Photo */}
       {offer.photoUrl ? (
-        <img src={offer.photoUrl} alt={offer.hotelName} className="w-full h-28 object-cover" />
+        <img src={offer.photoUrl} alt={offer.hotelName} className="h-28 w-full object-cover" />
       ) : (
-        <div className="w-full h-28 bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
-          <Hotel size={28} className="text-purple-300" />
+        <div className="flex h-28 w-full items-center justify-center bg-gradient-to-br from-brand-teal to-brand-lagoon">
+          <Hotel size={28} className="text-white/70" />
         </div>
       )}
 
-      <div className="p-3">
+      <div className="p-4">
         {/* Name + stars */}
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <div className="font-medium text-sm text-gray-900 leading-tight line-clamp-2">{offer.hotelName}</div>
+        <div className="mb-1.5 flex items-start justify-between gap-2">
+          <div className="line-clamp-2 text-sm font-semibold leading-tight text-slate-900">{offer.hotelName}</div>
         </div>
         <StarRating rating={offer.starRating} />
 
         {/* Room + board */}
-        <div className="mt-1 text-xs text-gray-500 line-clamp-1">{offer.roomName}</div>
-        <div className="text-xs text-gray-400">
+        <div className="mt-1.5 line-clamp-1 text-xs text-slate-500">{offer.roomName}</div>
+        <div className="text-xs text-slate-400">
           {offer.boardType} · {offer.nights} nuit{offer.nights > 1 ? 's' : ''}
           {offer.refundable && (
-            <span className="ml-1 text-green-600 flex items-center gap-0.5 inline-flex">
+            <span className="ml-1 inline-flex items-center gap-0.5 text-emerald-600">
               <RefreshCcw size={10} /> Remboursable
             </span>
           )}
@@ -85,12 +85,12 @@ export default function HotelResultCard({ offer, tripId }: Props) {
         {/* Price */}
         <div className="mt-2 flex items-end justify-between">
           <div>
-            <div className="text-base font-bold text-gray-900">
+            <div className="font-display text-base font-bold text-slate-900">
               {pricePerNight.toLocaleString('fr-FR')} {offer.currency}
-              <span className="text-xs font-normal text-gray-400">/nuit</span>
+              <span className="text-xs font-normal text-slate-400">/nuit</span>
             </div>
-            <div className="text-xs text-gray-400">
-              Total: {offer.price.toLocaleString('fr-FR')} {offer.currency}
+            <div className="text-xs text-slate-400">
+              Total : {offer.price.toLocaleString('fr-FR')} {offer.currency}
             </div>
           </div>
         </div>
@@ -99,10 +99,10 @@ export default function HotelResultCard({ offer, tripId }: Props) {
         <button
           onClick={handleAdd}
           disabled={isAdded}
-          className={`mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-colors ${
+          className={`mt-3.5 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-xs font-semibold transition ${
             isAdded
-              ? 'bg-green-50 text-green-700 cursor-default'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              ? 'cursor-default bg-emerald-50 text-emerald-700'
+              : 'bg-gradient-to-r from-brand-coral to-brand-sun text-white hover:brightness-110'
           }`}
         >
           {isAdded ? (

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Bot, User, Plane, Hotel, Zap, CheckCircle, ExternalLink } from 'lucide-react';
+import { Send, Loader2, Sparkles, User, Plane, Hotel, Zap, CheckCircle, ExternalLink } from 'lucide-react';
 import { TripChatMessage, TripContext } from '@/types/chat-message';
 import FlightResultCard from './FlightResultCard';
 import HotelResultCard from './HotelResultCard';
+import { cn } from '@/lib/utils';
 
 interface Props {
   tripContext: TripContext;
@@ -34,32 +35,66 @@ function renderText(text: string) {
   });
 }
 
+/** Pastille avatar, partagée par les bulles et l'indicateur d'activité. */
+function Avatar({ isUser }: { isUser?: boolean }) {
+  return (
+    <span
+      className={cn(
+        'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-white',
+        isUser
+          ? 'bg-gradient-to-br from-brand-coral to-brand-sun'
+          : 'bg-gradient-to-br from-brand-teal to-brand-lagoon',
+      )}
+    >
+      {isUser ? <User size={15} /> : <Sparkles size={15} />}
+    </span>
+  );
+}
+
 function MessageBubble({ msg, tripId }: { msg: TripChatMessage; tripId: string }) {
   const isUser = msg.role === 'user';
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isUser ? 'bg-blue-600' : 'bg-gray-100'}`}>
-        {isUser ? <User size={15} className="text-white" /> : <Bot size={15} className="text-gray-600" />}
-      </div>
-      <div className={`flex flex-col gap-3 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
+    <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
+      <Avatar isUser={isUser} />
+
+      <div className={cn('flex max-w-[85%] flex-col gap-3', isUser ? 'items-end' : 'items-start')}>
         {!isUser && msg.steps && msg.steps.length > 0 && (
-          <div className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-xs text-gray-500 flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500">
             {msg.steps.map((step, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <CheckCircle size={11} className="text-green-500 flex-shrink-0" />
+              <div key={i} className="flex items-center gap-2">
+                <CheckCircle size={12} className="flex-shrink-0 text-emerald-500" />
                 <span>{step}</span>
               </div>
             ))}
           </div>
         )}
-        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isUser ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm shadow-sm'}`}>
+
+        <div
+          className={cn(
+            'rounded-2xl px-4 py-3 text-[15px] leading-relaxed',
+            isUser
+              ? 'rounded-tr-sm bg-brand-ink text-white'
+              : 'rounded-tl-sm border border-slate-200 bg-white text-slate-800',
+          )}
+        >
           {renderText(msg.text)}
         </div>
+
         {msg.cards?.map((card, ci) => (
           <div key={ci} className="w-full max-w-[600px]">
-            <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              {card.type === 'flights' && <><Plane size={13} /> {card.results.length} vol{card.results.length > 1 ? 's' : ''} trouvé{card.results.length > 1 ? 's' : ''}</>}
-              {card.type === 'hotels' && <><Hotel size={13} /> {card.results.length} hôtel{card.results.length > 1 ? 's' : ''} trouvé{card.results.length > 1 ? 's' : ''}</>}
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              {card.type === 'flights' && (
+                <>
+                  <Plane size={13} /> {card.results.length} vol
+                  {card.results.length > 1 ? 's' : ''} trouvé{card.results.length > 1 ? 's' : ''}
+                </>
+              )}
+              {card.type === 'hotels' && (
+                <>
+                  <Hotel size={13} /> {card.results.length} hôtel
+                  {card.results.length > 1 ? 's' : ''} trouvé{card.results.length > 1 ? 's' : ''}
+                </>
+              )}
             </div>
             {card.type === 'flights' && (
               <div className="flex flex-col gap-3">
@@ -67,15 +102,18 @@ function MessageBubble({ msg, tripId }: { msg: TripChatMessage; tripId: string }
               </div>
             )}
             {card.type === 'hotels' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {card.results.map((o) => <HotelResultCard key={o.rateId} offer={o} tripId={tripId} />)}
               </div>
             )}
           </div>
         ))}
+
         {!isUser && msg.sources && msg.sources.length > 0 && (
           <div className="w-full max-w-[600px]">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Sources</p>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Sources
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {msg.sources.map((src, i) => {
                 const isBooking = src.title.startsWith('Réserver ·');
@@ -89,11 +127,12 @@ function MessageBubble({ msg, tripId }: { msg: TripChatMessage; tripId: string }
                     target="_blank"
                     rel="noopener noreferrer"
                     title={src.title}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border transition-colors max-w-[240px] truncate ${
+                    className={cn(
+                      'inline-flex max-w-[240px] items-center gap-1 truncate rounded-full border px-2.5 py-1 text-[11px] transition-colors',
                       isBooking
-                        ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 font-medium'
-                        : 'bg-gray-50 border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300'
-                    }`}
+                        ? 'border-transparent bg-gradient-to-r from-brand-coral to-brand-sun font-semibold text-white hover:brightness-110'
+                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-brand-teal hover:text-brand-teal',
+                    )}
                   >
                     <ExternalLink size={9} className="flex-shrink-0" />
                     <span className="truncate">{label}</span>
@@ -111,18 +150,22 @@ function MessageBubble({ msg, tripId }: { msg: TripChatMessage; tripId: string }
 function AgentSteps({ steps }: { steps: string[] }) {
   return (
     <div className="flex gap-3">
-      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-        <Bot size={15} className="text-gray-600" />
-      </div>
-      <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm max-w-[85%]">
+      <Avatar />
+      <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3">
         <div className="flex flex-col gap-1.5">
           {steps.map((step, i) => {
             const isCurrent = i === steps.length - 1;
             return (
-              <div key={i} className={`flex items-center gap-2 text-sm transition-all ${isCurrent ? 'text-gray-700' : 'text-gray-400'}`}>
+              <div
+                key={i}
+                className={cn(
+                  'flex items-center gap-2 text-sm transition-all',
+                  isCurrent ? 'text-slate-700' : 'text-slate-400',
+                )}
+              >
                 {isCurrent
-                  ? <Loader2 size={12} className="animate-spin text-blue-500 flex-shrink-0" />
-                  : <span className="text-green-500 flex-shrink-0 text-xs">✓</span>
+                  ? <Loader2 size={13} className="flex-shrink-0 animate-spin text-brand-teal" />
+                  : <CheckCircle size={12} className="flex-shrink-0 text-emerald-500" />
                 }
                 <span>{step}</span>
               </div>
@@ -210,17 +253,20 @@ export default function TripPlannerChat({ tripContext }: Props) {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: '560px' }}>
-      {/* Agent badge */}
-      <div className="flex items-center gap-2 mb-3 px-1">
-        <div className="flex items-center gap-1.5 text-xs text-purple-600 bg-purple-50 border border-purple-100 rounded-full px-2.5 py-1">
+    <div className="flex h-[560px] flex-col">
+      {/* Bandeau agent */}
+      <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700">
           <Zap size={11} />
-          Agent IA · Qwen3.5 · Web + Vols + Hôtels + Réservations
-        </div>
+          Agent IA · Qwen3.5
+        </span>
+        <span className="hidden text-xs text-slate-400 sm:inline">
+          Web · Vols · Hôtels · Réservations
+        </span>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4 pr-1" style={{ minHeight: 0 }}>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
         {messages.map((msg) => (
           <MessageBubble key={msg.id} msg={msg} tripId={tripContext.tripId} />
         ))}
@@ -230,32 +276,46 @@ export default function TripPlannerChat({ tripContext }: Props) {
 
       {/* Suggestions */}
       {messages.length === 1 && !loading && (
-        <div className="flex flex-wrap gap-2 py-3 border-t border-gray-100">
+        <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
           {SUGGESTIONS.map((s) => (
-            <button key={s} onClick={() => sendMessage(s)}
-              className="px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-full text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
+            <button
+              key={s}
+              onClick={() => sendMessage(s)}
+              className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs text-slate-600 transition-colors hover:border-brand-teal hover:text-brand-teal"
+            >
               {s}
             </button>
           ))}
         </div>
       )}
 
-      {/* Input */}
-      <div className="flex gap-2 pt-3 border-t border-gray-100">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-          placeholder="Ex: Réserver une table au Noma pour 2 personnes le 20 avril..."
-          disabled={loading}
-          className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-        />
-        <button onClick={() => sendMessage(input)} disabled={loading || !input.trim()}
-          className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50">
-          {loading ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
-        </button>
+      {/* Saisie */}
+      <div className="border-t border-slate-100 px-5 py-4">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition focus-within:border-brand-teal/60 focus-within:bg-white">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
+            placeholder="Ex : réserver une table au Noma pour 2 le 20 avril…"
+            disabled={loading}
+            className="w-full bg-transparent py-3.5 pl-4 pr-14 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:opacity-60"
+          />
+          <button
+            onClick={() => sendMessage(input)}
+            disabled={loading || !input.trim()}
+            aria-label="Envoyer"
+            className={cn(
+              'absolute right-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full transition',
+              loading || !input.trim()
+                ? 'cursor-not-allowed bg-slate-200 text-slate-400'
+                : 'bg-gradient-to-r from-brand-coral to-brand-sun text-white hover:brightness-110',
+            )}
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+          </button>
+        </div>
       </div>
     </div>
   );

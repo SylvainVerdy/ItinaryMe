@@ -131,25 +131,25 @@ export const TravelDocumentEditor: React.FC<TravelDocumentEditorProps> = ({
   if (loading) {
     return (
       <div className="p-8 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-teal"></div>
       </div>
     );
   }
   
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6 mb-6">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
       <div className="mb-6">
         <input
           type="text"
           value={document.title}
           onChange={(e) => setDocument(prev => ({ ...prev, title: e.target.value }))}
-          className="text-3xl font-bold w-full outline-none border-b border-transparent focus:border-gray-200 pb-2 transition-colors"
+          className="text-3xl font-bold w-full outline-none border-b border-transparent focus:border-slate-200 pb-2 transition-colors"
           placeholder="Titre du document"
         />
       </div>
       
       {/* Barre d'outils */}
-      <div className="flex items-center flex-wrap gap-2 mb-6 p-2 border border-[#e6e0d4] rounded-lg bg-[#f8f5ec]">
+      <div className="flex items-center flex-wrap gap-2 mb-6 p-2 border border-slate-200 rounded-lg bg-slate-50">
         <button 
           onClick={() => addBlock('paragraph', document.content.length - 1)}
           className="p-2 rounded hover:bg-white transition-colors"
@@ -211,7 +211,7 @@ export const TravelDocumentEditor: React.FC<TravelDocumentEditorProps> = ({
           className="p-2 rounded hover:bg-white transition-colors"
           title="Séparateur"
         >
-          <div className="w-6 h-0.5 bg-gray-500"></div>
+          <div className="w-6 h-0.5 bg-slate-500"></div>
         </button>
         <button 
           onClick={() => addBlock('image', document.content.length - 1)}
@@ -233,10 +233,10 @@ export const TravelDocumentEditor: React.FC<TravelDocumentEditorProps> = ({
       <div className="space-y-4">
         {document.content.length === 0 ? (
           <div 
-            className="p-4 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:bg-gray-50"
+            className="p-4 border border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:bg-slate-50"
             onClick={() => addBlock('paragraph', -1)}
           >
-            <p className="text-gray-500">Cliquez pour ajouter du contenu</p>
+            <p className="text-slate-500">Cliquez pour ajouter du contenu</p>
           </div>
         ) : (
           document.content.map((block, index) => (
@@ -255,14 +255,14 @@ export const TravelDocumentEditor: React.FC<TravelDocumentEditorProps> = ({
       <div className="mt-8 flex justify-end gap-4">
         <button
           onClick={() => window.history.back()}
-          className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+          className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
         >
           Annuler
         </button>
         <button
           onClick={saveDocument}
           disabled={saving}
-          className={`px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-lg bg-brand-teal text-white hover:brightness-110 transition-colors flex items-center gap-2 ${
             saving ? 'opacity-70 cursor-not-allowed' : ''
           }`}
         >
@@ -307,7 +307,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
           <textarea
             value={block.content}
             onChange={(e) => onChange({ content: e.target.value })}
-            className="w-full p-2 min-h-[60px] outline-none border border-transparent focus:border-gray-200 rounded transition-colors resize-none"
+            className="w-full p-2 min-h-[60px] outline-none border border-transparent focus:border-slate-200 rounded transition-colors resize-none"
             placeholder="Écrivez quelque chose..."
           />
         );
@@ -318,7 +318,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
             type="text"
             value={block.content}
             onChange={(e) => onChange({ content: e.target.value })}
-            className="w-full text-2xl font-bold p-2 outline-none border border-transparent focus:border-gray-200 rounded transition-colors"
+            className="w-full text-2xl font-bold p-2 outline-none border border-transparent focus:border-slate-200 rounded transition-colors"
             placeholder="Titre 1"
           />
         );
@@ -329,7 +329,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
             type="text"
             value={block.content}
             onChange={(e) => onChange({ content: e.target.value })}
-            className="w-full text-xl font-semibold p-2 outline-none border border-transparent focus:border-gray-200 rounded transition-colors"
+            className="w-full text-xl font-semibold p-2 outline-none border border-transparent focus:border-slate-200 rounded transition-colors"
             placeholder="Titre 2"
           />
         );
@@ -340,7 +340,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
             type="text"
             value={block.content}
             onChange={(e) => onChange({ content: e.target.value })}
-            className="w-full text-lg font-medium p-2 outline-none border border-transparent focus:border-gray-200 rounded transition-colors"
+            className="w-full text-lg font-medium p-2 outline-none border border-transparent focus:border-slate-200 rounded transition-colors"
             placeholder="Titre 3"
           />
         );
@@ -348,11 +348,11 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
       case 'bulletList':
         return (
           <div className="flex items-start gap-2">
-            <div className="mt-3 w-2 h-2 rounded-full bg-gray-500 flex-shrink-0"></div>
+            <div className="mt-3 w-2 h-2 rounded-full bg-slate-500 flex-shrink-0"></div>
             <textarea
               value={block.content}
               onChange={(e) => onChange({ content: e.target.value })}
-              className="w-full p-2 outline-none border border-transparent focus:border-gray-200 rounded transition-colors resize-none"
+              className="w-full p-2 outline-none border border-transparent focus:border-slate-200 rounded transition-colors resize-none"
               placeholder="Élément de liste"
             />
           </div>
@@ -361,11 +361,11 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
       case 'numberedList':
         return (
           <div className="flex items-start gap-2">
-            <div className="p-2 font-medium text-gray-500">1.</div>
+            <div className="p-2 font-medium text-slate-500">1.</div>
             <textarea
               value={block.content}
               onChange={(e) => onChange({ content: e.target.value })}
-              className="w-full p-2 outline-none border border-transparent focus:border-gray-200 rounded transition-colors resize-none"
+              className="w-full p-2 outline-none border border-transparent focus:border-slate-200 rounded transition-colors resize-none"
               placeholder="Élément de liste numérotée"
             />
           </div>
@@ -383,7 +383,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
             <textarea
               value={block.content}
               onChange={(e) => onChange({ content: e.target.value })}
-              className="w-full p-2 outline-none border border-transparent focus:border-gray-200 rounded transition-colors resize-none"
+              className="w-full p-2 outline-none border border-transparent focus:border-slate-200 rounded transition-colors resize-none"
               placeholder="Tâche à faire"
             />
           </div>
@@ -391,22 +391,22 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
         
       case 'quote':
         return (
-          <div className="border-l-4 border-gray-300 pl-4">
+          <div className="border-l-4 border-slate-300 pl-4">
             <textarea
               value={block.content}
               onChange={(e) => onChange({ content: e.target.value })}
-              className="w-full p-2 bg-gray-50 outline-none rounded transition-colors resize-none italic"
+              className="w-full p-2 bg-slate-50 outline-none rounded transition-colors resize-none italic"
               placeholder="Citation"
             />
           </div>
         );
         
       case 'divider':
-        return <hr className="my-4 border-gray-200" />;
+        return <hr className="my-4 border-slate-200" />;
         
       case 'image':
         return (
-          <div className="border border-gray-200 rounded-lg p-4">
+          <div className="border border-slate-200 rounded-lg p-4">
             {block.url ? (
               <div className="space-y-2">
                 <img 
@@ -418,21 +418,21 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
                   type="text"
                   value={block.content}
                   onChange={(e) => onChange({ content: e.target.value })}
-                  className="w-full p-2 text-sm outline-none border border-transparent focus:border-gray-200 rounded transition-colors"
+                  className="w-full p-2 text-sm outline-none border border-transparent focus:border-slate-200 rounded transition-colors"
                   placeholder="Description de l'image"
                 />
               </div>
             ) : (
-              <div className="text-center p-6 bg-gray-50 rounded-lg">
+              <div className="text-center p-6 bg-slate-50 rounded-lg">
                 <input
                   type="text"
                   value={block.url || ''}
                   onChange={(e) => onChange({ url: e.target.value })}
-                  className="w-full p-2 mb-2 outline-none border border-gray-200 rounded transition-colors"
+                  className="w-full p-2 mb-2 outline-none border border-slate-200 rounded transition-colors"
                   placeholder="URL de l'image"
                 />
-                <p className="text-gray-500 text-sm">ou</p>
-                <button className="mt-2 px-4 py-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors flex items-center gap-2 mx-auto">
+                <p className="text-slate-500 text-sm">ou</p>
+                <button className="mt-2 px-4 py-2 bg-slate-100 rounded-lg text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-2 mx-auto">
                   <Upload size={16} />
                   <span>Télécharger une image</span>
                 </button>
@@ -443,32 +443,32 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
         
       case 'table':
         return (
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50">
-                  <th className="p-2 text-left border-b border-r border-gray-200">Colonne 1</th>
-                  <th className="p-2 text-left border-b border-r border-gray-200">Colonne 2</th>
-                  <th className="p-2 text-left border-b border-gray-200">Colonne 3</th>
+                <tr className="bg-slate-50">
+                  <th className="p-2 text-left border-b border-r border-slate-200">Colonne 1</th>
+                  <th className="p-2 text-left border-b border-r border-slate-200">Colonne 2</th>
+                  <th className="p-2 text-left border-b border-slate-200">Colonne 3</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td className="p-2 border-b border-r border-gray-200">
+                  <td className="p-2 border-b border-r border-slate-200">
                     <input 
                       type="text" 
                       className="w-full outline-none"
                       placeholder="Cellule"
                     />
                   </td>
-                  <td className="p-2 border-b border-r border-gray-200">
+                  <td className="p-2 border-b border-r border-slate-200">
                     <input 
                       type="text" 
                       className="w-full outline-none"
                       placeholder="Cellule"
                     />
                   </td>
-                  <td className="p-2 border-b border-gray-200">
+                  <td className="p-2 border-b border-slate-200">
                     <input 
                       type="text" 
                       className="w-full outline-none"
@@ -477,14 +477,14 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-2 border-r border-gray-200">
+                  <td className="p-2 border-r border-slate-200">
                     <input 
                       type="text" 
                       className="w-full outline-none"
                       placeholder="Cellule"
                     />
                   </td>
-                  <td className="p-2 border-r border-gray-200">
+                  <td className="p-2 border-r border-slate-200">
                     <input 
                       type="text" 
                       className="w-full outline-none"
@@ -506,8 +506,8 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
         
       default:
         return (
-          <div className="p-2 border border-dashed border-gray-300 rounded">
-            <p className="text-gray-500">Type de bloc non pris en charge: {block.type}</p>
+          <div className="p-2 border border-dashed border-slate-300 rounded">
+            <p className="text-slate-500">Type de bloc non pris en charge: {block.type}</p>
           </div>
         );
     }
@@ -518,14 +518,14 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({
       <div className="hidden group-hover:flex absolute -left-10 top-2 gap-1">
         <button
           onClick={onDelete}
-          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+          className="p-1 text-slate-400 hover:text-red-500 transition-colors"
           title="Supprimer"
         >
           <Trash2 size={14} />
         </button>
         <button
           onClick={() => onAddAfter('paragraph')}
-          className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+          className="p-1 text-slate-400 hover:text-brand-teal transition-colors"
           title="Ajouter un bloc"
         >
           <PlusCircle size={14} />

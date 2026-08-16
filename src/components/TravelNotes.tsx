@@ -215,7 +215,7 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
       <div className="mb-4">
         <h2 className="text-xl font-bold mb-2">Notes de voyage</h2>
         <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Rechercher dans les notes..."
             className="pl-8"
@@ -231,7 +231,7 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
         </div>
       )}
 
-      <div className="bg-gray-50 p-4 rounded-md mb-4">
+      <div className="bg-slate-50 p-4 rounded-md mb-4">
         <h3 className="font-medium mb-2">Génération de note par IA</h3>
         <div className="space-y-2">
           <Input
@@ -279,13 +279,13 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500"></div>
           </div>
         ) : filteredNotes.length === 0 ? (
-          <div className="text-center text-gray-500 p-4">
+          <div className="text-center text-slate-500 p-4">
             Aucune note trouvée.
           </div>
         ) : (
           <div className="space-y-4">
             {filteredNotes.map((note) => (
-              <Card key={note.id} className={`${note.isImportant ? 'border-yellow-400' : ''}`}>
+              <Card key={note.id} className={`${note.isImportant ? 'border-amber-400' : ''}`}>
                 {editingNoteId === note.id ? (
                   <CardContent className="p-4">
                     <Input
@@ -324,7 +324,7 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
                             variant="ghost" 
                             size="sm"
                             onClick={() => handleToggleImportant(note.id as string)}
-                            className={`h-8 w-8 p-0 ${note.isImportant ? 'text-yellow-500' : 'text-gray-400'}`}
+                            className={`h-8 w-8 p-0 ${note.isImportant ? 'text-amber-500' : 'text-slate-400'}`}
                           >
                             <Star className="h-4 w-4" />
                           </Button>
@@ -332,7 +332,7 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
                             variant="ghost" 
                             size="sm"
                             onClick={() => startEditing(note)}
-                            className="h-8 w-8 p-0 text-gray-400"
+                            className="h-8 w-8 p-0 text-slate-400"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -340,7 +340,7 @@ export default function TravelNotes({ tripId, onAddNote, onGenerateNote }: Trave
                             variant="ghost" 
                             size="sm"
                             onClick={() => handleDeleteNote(note.id as string)}
-                            className="h-8 w-8 p-0 text-gray-400"
+                            className="h-8 w-8 p-0 text-slate-400"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
