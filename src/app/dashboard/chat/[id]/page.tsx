@@ -9,6 +9,8 @@ import { ChatHistory, ChatMessage } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Send, ArrowLeft, Loader, Sparkles, User } from 'lucide-react';
 import Link from 'next/link';
+import { CartDrawer } from '@/components/cart/CartDrawer';
+import { ChatCapabilities, ALL_CAPABILITIES, CapabilityId } from '@/components/chat/ChatCapabilities';
 
 // Fonctions d'extraction pour la génération de titres
 const extractDestination = (text: string): string | null => {
@@ -109,6 +111,7 @@ export default function ChatPage() {
   const [chatHistory, setChatHistory] = useState<ChatHistory | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [capabilities, setCapabilities] = useState<CapabilityId[]>(ALL_CAPABILITIES);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -236,6 +239,7 @@ export default function ChatPage() {
           userMessage: currentInput,
           tripContext: null,
           history: historySnapshot,
+          capabilities,
         }),
       });
 
@@ -521,13 +525,20 @@ export default function ChatPage() {
           )}
         </div>
         
-        {/* Indicateur visuel de génération de titre */}
-        {isSendingMessage && chatId === 'new' && (
-          <div className="text-xs text-slate-500 flex items-center gap-1">
-            <div className="animate-spin h-3 w-3 border-t-2 border-brand-teal rounded-full"></div>
-            <span>Génération du titre...</span>
+        <div className="flex flex-shrink-0 items-center gap-3">
+          {/* Indicateur visuel de génération de titre */}
+          {isSendingMessage && chatId === 'new' && (
+            <div className="hidden items-center gap-1 text-xs text-slate-500 sm:flex">
+              <div className="animate-spin h-3 w-3 border-t-2 border-brand-teal rounded-full"></div>
+              <span>Génération du titre...</span>
+            </div>
+          )}
+
+          {/* Panier consultable sans quitter la conversation */}
+          <div className="text-slate-600">
+            <CartDrawer />
           </div>
-        )}
+        </div>
       </header>
       
       {/* Chat Messages */}
@@ -579,6 +590,7 @@ export default function ChatPage() {
       {/* Chat Input */}
       <div className="border-t border-slate-200 p-4 bg-white">
         <div className="max-w-3xl mx-auto">
+          <ChatCapabilities active={capabilities} onChange={setCapabilities} className="mb-3" />
           <div className="relative bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <textarea
               ref={chatInputRef}

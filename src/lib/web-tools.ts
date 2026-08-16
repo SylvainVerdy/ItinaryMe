@@ -4,6 +4,8 @@
  * Fallback : Jina AI (free, no key required)
  */
 
+import { ActivityOffer } from '@/types/activity-offer';
+
 export interface WebSource { title: string; url: string }
 export interface WebResult  { text: string; sources: WebSource[] }
 
@@ -575,4 +577,122 @@ export async function fetchPageText(url: string): Promise<string> {
   } catch { /* ignore */ }
 
   return `Impossible de lire la page: ${url}`;
+}
+
+// ─── Activités / excursions ──────────────────────────────────────────────────
+
+const ACTIVITY_MARKETPLACES = [
+  'getyourguide.com',
+  'viator.com',
+  'tiqets.com',
+  'civitatis.com',
+  'musement.com',
+];
+
+/** Extrait un prix d'un texte libre ("À partir de 25,50 €", "$32.00"). */
+function parsePrice(text: string): { price: number; currency: string } | null {
+  const m = text.match(/(?:€|EUR)\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*(?:€|EUR)/i);
+  if (m) {
+    const raw = (m[1] ?? m[2]).replace(',', '.');
+    const price = Number.parseFloat(raw);
+    if (Number.isFinite(price) && price > 0) return { price, currency: 'EUR' };
+  }
+  const usd = text.match(/\$\s*(\d+(?:[.,]\d{1,2})?)/);
+  if (usd) {
+    const price = Number.parseFloat(usd[1].replace(',', '.'));
+    if (Number.isFinite(price) && price > 0) return { price, currency: 'USD' };
+  }
+  return null;
+}
+
+/** Identifiant stable dérivé de l'URL (pas de hasard : le panier déduplique dessus). */
+function stableId(url: string): string {
+  let hash = 0;
+  for (let i = 0; i < url.length; i += 1) {
+    hash = (hash * 31 + url.charCodeAt(i)) | 0;
+  }
+  return `act_${Math.abs(hash).toString(36)}`;
+}
+
+/**
+ * Recherche d'activités et d'excursions sur les marketplaces (GetYourGuide,
+ * Viator…) via SerpAPI, renvoyées sous forme structurée pour être affichées
+ * en cartes réservables.
+ */
+export async function searchActivities(
+  city: string,
+  query: string,
+  maxResults = 6,
+): Promise<WebResult & { offers: ActivityOffer[] }> {
+  const siteFilter = ACTIVITY_MARKETPLACES.map((d) => `site:${d}`).join(' OR ');
+  const fullQuery = `${query || 'activités à faire'} ${city} (${siteFilter})`;
+
+  if (process.env.SERPAPI_KEY) {
+    try {
+      console.log(`[ACTIVITIES] SerpAPI → "${query} ${city}"`);
+      const res = await fetchWithTimeout(
+        serpapiUrl({ engine: 'google', q: fullQuery, hl: 'fr', gl: 'fr', num: String(maxResults * 2) }),
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const organic = (data.organic_results ?? []) as Array<{
+          title: string; link: string; snippet?: string; thumbnail?: string;
+          rich_snippet?: { top?: { detected_extensions?: { rating?: number; reviews?: number } } };
+        }>;
+
+        const offers: ActivityOffer[] = [];
+        for (const r of organic) {
+          if (!r.link || offers.length >= maxResults) continue;
+          let host: string;
+          try { host = new URL(r.link).hostname.replace('www.', ''); } catch { continue; }
+          if (!ACTIVITY_MARKETPLACES.some((d) => host.endsWith(d))) continue;
+          if (offers.some((o) => o.bookingUrl === r.link)) continue;
+
+          const priceInfo = parsePrice(`${r.title} ${r.snippet ?? ''}`);
+          const ext = r.rich_snippet?.top?.detected_extensions;
+
+          offers.push({
+            activityId: stableId(r.link),
+            name: r.title.replace(/\s*[|\-–]\s*(GetYourGuide|Viator|Tiqets|Civitatis|Musement).*$/i, '').trim(),
+            provider: host,
+            bookingUrl: r.link,
+            price: priceInfo?.price,
+            currency: priceInfo?.currency,
+            rating: ext?.rating,
+            reviews: ext?.reviews,
+            thumbnail: r.thumbnail,
+            snippet: r.snippet,
+            city,
+          });
+        }
+
+        if (offers.length) {
+          console.log(`[ACTIVITIES] ${offers.length} activités trouvées`);
+          const text = offers
+            .map((o, i) =>
+              `${i + 1}. **${o.name}** (${o.provider})` +
+              (o.price ? ` — à partir de ${o.price} ${o.currency}` : ' — prix sur le site') +
+              (o.rating ? ` — ⭐ ${o.rating}/5` : ''),
+            )
+            .join('\n');
+          const sources: WebSource[] = offers.map((o) => ({
+            title: `Réserver · ${o.name}`,
+            url: o.bookingUrl,
+          }));
+          return {
+            text: `${offers.length} activité(s) trouvée(s) à ${city} :\n${text}\n\nElles sont affichées en cartes réservables. Résume-les sans inventer de prix.`,
+            sources,
+            offers,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn(`[ACTIVITIES] SerpAPI error: ${(e as Error).message}`);
+    }
+  }
+
+  // Repli texte : au moins une piste de recherche pour l'utilisateur.
+  const fallback = await webSearch(`activités à faire à ${city} ${query}`);
+  return { ...fallback, offers: [] };
 }

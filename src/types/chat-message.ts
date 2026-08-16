@@ -1,7 +1,8 @@
 import { FlightOffer } from '@/services/duffel-flights';
 import { StayOffer } from '@/services/duffel-stays';
+import { ActivityOffer } from '@/types/activity-offer';
 
-export type ChatCardType = 'flights' | 'hotels';
+export type ChatCardType = 'flights' | 'hotels' | 'activities';
 
 export interface FlightsCard {
   type: 'flights';
@@ -13,7 +14,12 @@ export interface HotelsCard {
   results: StayOffer[];
 }
 
-export type ChatCard = FlightsCard | HotelsCard;
+export interface ActivitiesCard {
+  type: 'activities';
+  results: ActivityOffer[];
+}
+
+export type ChatCard = FlightsCard | HotelsCard | ActivitiesCard;
 
 export interface WebSource {
   title: string;

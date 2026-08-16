@@ -5,6 +5,8 @@ import { Send, Loader2, Sparkles, User, Plane, Hotel, Zap, CheckCircle, External
 import { TripChatMessage, TripContext } from '@/types/chat-message';
 import FlightResultCard from './FlightResultCard';
 import HotelResultCard from './HotelResultCard';
+import { CartDrawer } from '../cart/CartDrawer';
+import { ChatCapabilities, ALL_CAPABILITIES, CapabilityId } from './ChatCapabilities';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -187,6 +189,7 @@ export default function TripPlannerChat({ tripContext }: Props) {
 
   const [messages, setMessages]     = useState<TripChatMessage[]>([welcome]);
   const [input, setInput]           = useState('');
+  const [capabilities, setCapabilities] = useState<CapabilityId[]>(ALL_CAPABILITIES);
   const [loading, setLoading]       = useState(false);
   const [statusSteps, setSteps]     = useState<string[]>([]);
   const loadingRef                  = useRef(false);
@@ -218,7 +221,7 @@ export default function TripPlannerChat({ tripContext }: Props) {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userMessage: trimmed, tripContext, history }),
+        body: JSON.stringify({ userMessage: trimmed, tripContext, history, capabilities }),
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -263,6 +266,11 @@ export default function TripPlannerChat({ tripContext }: Props) {
         <span className="hidden text-xs text-slate-400 sm:inline">
           Web · Vols · Hôtels · Réservations
         </span>
+
+        {/* Panier consultable sans quitter la conversation */}
+        <div className="ml-auto text-slate-600">
+          <CartDrawer />
+        </div>
       </div>
 
       {/* Messages */}
@@ -291,6 +299,7 @@ export default function TripPlannerChat({ tripContext }: Props) {
 
       {/* Saisie */}
       <div className="border-t border-slate-100 px-5 py-4">
+        <ChatCapabilities active={capabilities} onChange={setCapabilities} className="mb-3" />
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition focus-within:border-brand-teal/60 focus-within:bg-white">
           <input
             ref={inputRef}

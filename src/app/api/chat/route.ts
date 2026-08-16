@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCityInfo } from '@/lib/city-data';
-import { webSearch, fetchPageText, searchRestaurants, searchFlightsSerpApi, searchHotelsSerpApi, getFlightBookingOptions, findBookingUrl, WebSource } from '@/lib/web-tools';
+import { resolvePlace } from '@/services/duffel-places';
+import { webSearch, fetchPageText, searchRestaurants, searchFlightsSerpApi, searchHotelsSerpApi, getFlightBookingOptions, findBookingUrl, searchActivities, WebSource } from '@/lib/web-tools';
+import { searchFlights } from '@/services/duffel-flights';
+import { searchStays } from '@/services/duffel-stays';
 import { ChatCard, TripContext } from '@/types/chat-message';
 
 export const maxDuration = 180;
@@ -77,7 +79,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'search_flights',
-      description: 'Search available flights between two cities using the Duffel API.',
+      description: 'Search available flights between two cities using the Duffel API. City names must be given in English or as an IATA code (e.g. "London" or "LON", not "Londres").',
       parameters: {
         type: 'object',
         properties: {
@@ -114,8 +116,24 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'search_activities',
+      description: 'Search bookable tours, excursions and activities in a city (GetYourGuide, Viator, Tiqets…). Use for "que faire", "visiter", "excursion", "billet pour un musée".',
+      parameters: {
+        type: 'object',
+        properties: {
+          city:        { type: 'string', description: 'City name' },
+          query:       { type: 'string', description: 'Type of activity, e.g. "visite guidée Colisée", "excursion bateau"' },
+          max_results: { type: 'number', description: 'Max results (default 6)' },
+        },
+        required: ['city'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'search_hotels',
-      description: 'Search available hotels in a city using the Duffel API.',
+      description: 'Search available hotels in a city using the Duffel API. City name must be given in English or as an IATA code (e.g. "London" or "LON", not "Londres").',
       parameters: {
         type: 'object',
         properties: {
@@ -130,6 +148,29 @@ const TOOLS = [
     },
   },
 ];
+
+/**
+ * Capacités proposées à l'utilisateur dans l'interface de chat.
+ * Une capacité regroupe un ou plusieurs outils : l'UI raisonne en « chercher
+ * sur internet », pas en `web_search` + `fetch_page`.
+ */
+export const CAPABILITIES: Record<string, string[]> = {
+  web:         ['web_search', 'fetch_page'],
+  flights:     ['search_flights', 'get_booking_options'],
+  hotels:      ['search_hotels'],
+  restaurants: ['search_restaurants'],
+  activities:  ['search_activities'],
+  booking:     ['find_booking_url'],
+};
+
+/** Noms d'outils autorisés pour un ensemble de capacités actives. */
+function toolNamesFor(capabilities: string[]): Set<string> {
+  const names = new Set<string>();
+  for (const cap of capabilities) {
+    for (const tool of CAPABILITIES[cap] ?? []) names.add(tool);
+  }
+  return names;
+}
 
 // ─── Tool execution ──────────────────────────────────────────────────────────
 
@@ -185,29 +226,129 @@ async function executeTool(name: string, args: Record<string, unknown>, ctx: Tri
     }
 
     case 'search_flights': {
-      const o = getCityInfo(String(args.origin_city ?? 'paris'));
-      const d = getCityInfo(String(args.destination_city ?? ctx.destination));
-      if (!o || !d) {
-        result = { text: `Ville non reconnue (${args.origin_city} → ${args.destination_city}).`, card: undefined };
+      const originQuery      = args.origin_city ? String(args.origin_city) : '';
+      const destinationQuery = String(args.destination_city ?? ctx.destination ?? '');
+
+      // Pas de ville de départ inventée : sans origine, on le dit plutôt que
+      // de chercher depuis une ville arbitraire.
+      if (!originQuery) {
+        result = {
+          text: "Ville de départ manquante. Demande à l'utilisateur d'où il part avant de rechercher des vols.",
+          card: undefined,
+        };
         break;
       }
+
+      const [o, d] = await Promise.all([
+        resolvePlace(originQuery),
+        resolvePlace(destinationQuery),
+      ]);
+      if (!o || !d) {
+        const unknown = [!o && originQuery, !d && destinationQuery].filter(Boolean).join(', ');
+        result = { text: `Ville non reconnue : ${unknown}. Demande une précision à l'utilisateur.`, card: undefined };
+        break;
+      }
+
+      const departureDate = String(args.departure_date ?? ctx.startDate);
+      const returnDate    = args.return_date ? String(args.return_date) : undefined;
+      const adults        = Number(args.adults ?? ctx.travelers ?? 1);
+
+      // 1) Duffel en premier : ce sont les seules offres réservables (elles
+      //    portent un offerId, indispensable au panier puis à /api/automate-bookings).
+      try {
+        const offers = await searchFlights({
+          origin: o.iata,
+          destination: d.iata,
+          departureDate,
+          returnDate,
+          adults,
+        });
+
+        if (offers.length > 0) {
+          const top = offers.slice(0, 5);
+          const lines = top.map((f) =>
+            `- ${f.airline} ${f.origin}→${f.destination}, départ ${f.departureAt}, ${f.stops === 0 ? 'direct' : `${f.stops} escale(s)`}, ${f.price} ${f.currency}`,
+          );
+          result = {
+            text: `${top.length} vol(s) réservable(s) trouvé(s) via Duffel :\n${lines.join('\n')}\n\nIls sont affichés à l'utilisateur sous forme de cartes avec un bouton « Ajouter au panier ». Résume-les brièvement sans réinventer les prix.`,
+            card: { type: 'flights', results: top },
+          };
+          break;
+        }
+        console.log('[TOOL] search_flights: Duffel sans résultat, repli SerpAPI');
+      } catch (err) {
+        console.error('[TOOL] search_flights: Duffel a échoué, repli SerpAPI:', err);
+      }
+
+      // 2) Repli SerpAPI : informatif uniquement (liens, non réservable).
       const { text, sources } = await searchFlightsSerpApi(
         o.iata, d.iata,
-        String(args.departure_date ?? ctx.startDate),
-        args.return_date ? String(args.return_date) : undefined,
-        Number(args.adults ?? ctx.travelers),
+        departureDate,
+        returnDate,
+        adults,
       );
       result = { text, card: undefined, sources };
       break;
     }
 
+    case 'search_activities': {
+      const city  = String(args.city ?? ctx.destination ?? '');
+      const query = String(args.query ?? 'activités à faire');
+      const max   = Number(args.max_results ?? 6);
+      const { text, sources, offers } = await searchActivities(city, query, max);
+      result = {
+        text,
+        card: offers.length ? { type: 'activities', results: offers } : undefined,
+        sources,
+      };
+      break;
+    }
+
     case 'search_hotels': {
-      const city = String(args.city ?? ctx.destination);
+      const city    = String(args.city ?? ctx.destination ?? '');
+      const info    = city ? await resolvePlace(city) : null;
+      const checkIn = String(args.check_in ?? ctx.startDate);
+      const checkOut = String(args.check_out ?? ctx.endDate);
+      const guests  = Number(args.guests ?? ctx.travelers ?? 1);
+
+      // 1) Duffel Stays : offres réservables (rateId → panier → réservation).
+      if (info) {
+        try {
+          const offers = await searchStays({
+            latitude: info.lat,
+            longitude: info.lng,
+            checkInDate: checkIn,
+            checkOutDate: checkOut,
+            guests,
+            // Les coordonnées renvoyées par Places correspondent à l'aéroport
+            // (Rome → Fiumicino, ~30 km du centre). Le rayon par défaut de 5 km
+            // ne ramènerait que des hôtels d'aéroport.
+            radiusKm: 25,
+          });
+
+          if (offers.length > 0) {
+            const top = offers.slice(0, 6);
+            const lines = top.map((h) =>
+              `- ${h.hotelName}${h.starRating ? ` ${h.starRating}★` : ''}, ${h.roomName}, ${h.nights} nuit(s), ${h.price} ${h.currency}`,
+            );
+            result = {
+              text: `${top.length} hôtel(s) réservable(s) trouvé(s) via Duffel à ${city} :\n${lines.join('\n')}\n\nIls sont affichés à l'utilisateur sous forme de cartes avec un bouton « Ajouter au panier ». Résume-les brièvement sans réinventer les prix.`,
+              card: { type: 'hotels', results: top },
+            };
+            break;
+          }
+          console.log('[TOOL] search_hotels: Duffel sans résultat, repli SerpAPI');
+        } catch (err) {
+          console.error('[TOOL] search_hotels: Duffel a échoué, repli SerpAPI:', err);
+        }
+      }
+
+      // 2) Repli SerpAPI : informatif uniquement (liens, non réservable).
       const { text, sources } = await searchHotelsSerpApi(
         city,
-        String(args.check_in ?? ctx.startDate),
-        String(args.check_out ?? ctx.endDate),
-        Number(args.guests ?? ctx.travelers),
+        checkIn,
+        checkOut,
+        guests,
       );
       result = { text, card: undefined, sources };
       break;
@@ -229,7 +370,7 @@ interface OMsg {
   tool_calls?: Array<{ function: { name: string; arguments: Record<string, unknown> | string } }>;
 }
 
-async function ollamaChat(messages: OMsg[], withTools: boolean, timeoutMs: number): Promise<OMsg> {
+async function ollamaChat(messages: OMsg[], withTools: boolean, timeoutMs: number, tools = TOOLS): Promise<OMsg> {
   const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   console.log(`[OLLAMA] → ${OLLAMA_MODEL} | tools=${withTools} | msgs=${messages.length}`);
@@ -241,7 +382,7 @@ async function ollamaChat(messages: OMsg[], withTools: boolean, timeoutMs: numbe
       body: JSON.stringify({
         model: OLLAMA_MODEL,
         messages,
-        ...(withTools ? { tools: TOOLS } : {}),
+        ...(withTools && tools.length ? { tools } : {}),
         stream: false,
         options: { temperature: 0.6, num_predict: withTools ? 512 : 1024 },
       }),
@@ -306,6 +447,16 @@ function detectForcedToolCall(userText: string, ctx: TripContext): ForcedCall {
     };
   }
 
+  const isActivity = /que faire|visiter|activit|excursion|mus[ée]e|billet pour|tour guid|visite/i.test(userText);
+  if (isActivity && !isRestaurant) {
+    const hint = userText.replace(/que faire|[àa]|le|la|les|de|du|des|pour|quoi/gi, '').trim().slice(0, 60);
+    return {
+      name: 'search_activities',
+      args: { city: dest || hint, query: hint || 'activités à faire', max_results: 6 },
+      label: `activités "${hint || dest}"`,
+    };
+  }
+
   if (isRestaurant) {
     const queryHint = userText.replace(/meilleur[s]?|restaurant[s]?|à|le|la|les|de|du|des|pour|avec/gi, '').trim().slice(0, 60);
     return {
@@ -315,10 +466,31 @@ function detectForcedToolCall(userText: string, ctx: TripContext): ForcedCall {
     };
   }
   if (isFlight) {
+    // L'origine était codée en dur sur Paris : « un billet pour Rome au départ
+    // de Nice » cherchait donc Paris → Rome. On la lit dans la phrase, et on ne
+    // retombe sur Paris que si aucune ville de départ n'est reconnue.
+    const originMatch = userText.match(
+      /(?:au d[ée]part de|d[ée]part de|depuis|en partant de|from)\s+([\p{L}\s\-']{2,30}?)(?:\s+(?:pour|vers|[àa]|le|demain|aujourd|$)|[,.?!]|$)/iu,
+    );
+    // On transmet la ville telle qu'elle est dite : c'est resolvePlace, côté
+    // outil, qui décide si elle est valide. Aucune ville par défaut.
+    const originCity = originMatch?.[1]?.trim() ?? '';
+
+    // La destination peut aussi être citée alors qu'aucun voyage n'est ouvert.
+    const destMatch = userText.match(
+      /(?:pour|vers|[àa] destination de)\s+([\p{L}\s\-']{2,30}?)(?:\s+(?:au d[ée]part|depuis|le|demain|aujourd|pour|$)|[,.?!]|$)/iu,
+    );
+    const destinationCity = destMatch?.[1]?.trim() || dest || '';
+
     return {
       name: 'search_flights',
-      args: { origin_city: 'paris', destination_city: dest || 'paris', departure_date: resolvedDate, adults: ctx.travelers || 1 },
-      label: `vols vers ${dest} (${resolvedDate})`,
+      args: {
+        origin_city: originCity,
+        destination_city: destinationCity,
+        departure_date: resolvedDate,
+        adults: ctx.travelers || 1,
+      },
+      label: `vols ${originCity || '?'} → ${destinationCity || '?'} (${resolvedDate})`,
     };
   }
   if (isHotel) {
@@ -338,7 +510,8 @@ function detectForcedToolCall(userText: string, ctx: TripContext): ForcedCall {
 
 // ─── Agentic loop ─────────────────────────────────────────────────────────────
 
-async function runAgent(messages: OMsg[], ctx: TripContext) {
+async function runAgent(messages: OMsg[], ctx: TripContext, allowed: Set<string>) {
+  const activeTools = TOOLS.filter((t) => allowed.has(t.function.name));
   const cards: ChatCard[]   = [];
   const steps: string[]     = [];
   const sources: WebSource[] = [];
@@ -354,7 +527,7 @@ async function runAgent(messages: OMsg[], ctx: TripContext) {
 
     let msg: OMsg;
     try {
-      msg = await ollamaChat(messages, true, 180_000);
+      msg = await ollamaChat(messages, true, 180_000, activeTools);
     } catch (err) {
       const isAbort = err instanceof Error && err.name === 'AbortError';
       console.error(`[AGENT] Error: ${(err as Error).message}`);
@@ -370,6 +543,14 @@ async function runAgent(messages: OMsg[], ctx: TripContext) {
     if (!msg.tool_calls?.length && i === 0) {
       const userText = messages[messages.length - 1]?.content?.toLowerCase() ?? '';
       const forcedCall = detectForcedToolCall(userText, ctx);
+
+      // L'utilisateur a pu désactiver cette capacité : on ne force pas un outil
+      // qu'il a explicitement coupé.
+      if (!allowed.has(forcedCall.name)) {
+        console.log(`[AGENT] Repli ${forcedCall.name} ignoré (capacité désactivée)`);
+        break;
+      }
+
       console.log(`[AGENT] No tool called on iter 1 → forcing: ${forcedCall.name}(${JSON.stringify(forcedCall.args)})`);
       steps.push(`⚡ Recherche automatique : ${forcedCall.label}`);
 
@@ -395,6 +576,10 @@ async function runAgent(messages: OMsg[], ctx: TripContext) {
     messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });
 
     for (const tc of msg.tool_calls) {
+      if (!allowed.has(tc.function.name)) {
+        console.log(`[AGENT] tool_call ${tc.function.name} refusé (capacité désactivée)`);
+        continue;
+      }
       const name = tc.function.name;
       const args = typeof tc.function.arguments === 'string'
         ? JSON.parse(tc.function.arguments)
@@ -439,11 +624,17 @@ async function runAgent(messages: OMsg[], ctx: TripContext) {
 
 export async function POST(req: NextRequest) {
   console.log('\n[CHAT API] ▶ POST /api/chat received');
-  const { userMessage, tripContext, history = [] }: {
+  const { userMessage, tripContext, history = [], capabilities }: {
     userMessage: string;
     tripContext: TripContext;
     history: Array<{ role: string; text: string }>;
+    /** Capacités cochées côté UI. Absent = tout activé (rétrocompatible). */
+    capabilities?: string[];
   } = await req.json();
+
+  const activeCapabilities = capabilities ?? Object.keys(CAPABILITIES);
+  const allowedTools = toolNamesFor(activeCapabilities);
+  console.log(`[CHAT API] capacités actives: ${activeCapabilities.join(', ') || 'aucune'}`);
 
   console.log(`[CHAT API] userMessage="${userMessage}" | destination=${tripContext?.destination}`);
 
@@ -503,7 +694,7 @@ Réponds en français, de manière concise et utile. Cite les résultats obtenus
   ];
 
   try {
-    const { text, cards, steps, sources } = await runAgent(messages, ctx);
+    const { text, cards, steps, sources } = await runAgent(messages, ctx, allowedTools);
     // Strip internal booking tokens from displayed text — they stay in agent memory but not shown to user
     const cleanText = text.replace(/\n?\s*\[booking_token:[^\]]+\]/g, '').trim();
     return NextResponse.json({ text: cleanText, cards, steps, sources });

@@ -33,6 +33,8 @@ import {
 import { TravelDocumentList } from './TravelDocumentList';
 import { ChatHistoryList } from './ChatHistoryList';
 import FlightResultCard from './chat/FlightResultCard';
+import { CartDrawer } from './cart/CartDrawer';
+import { ChatCapabilities, ALL_CAPABILITIES, CapabilityId } from './chat/ChatCapabilities';
 import HotelResultCard from './chat/HotelResultCard';
 import { ChatCard, WebSource } from '@/types/chat-message';
 import { cn } from '@/lib/utils';
@@ -108,6 +110,7 @@ export function Dashboard() {
       timestamp: new Date()
     }
   ]);
+  const [capabilities, setCapabilities] = useState<CapabilityId[]>(ALL_CAPABILITIES);
   const [inputValue, setInputValue] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -239,6 +242,7 @@ export function Dashboard() {
           history: chatMessages
             .filter(msg => msg.role !== 'system')
             .map(msg => ({ role: msg.role, text: msg.content })),
+          capabilities,
         }),
       });
 
@@ -641,6 +645,11 @@ export function Dashboard() {
             >
               Explorer
             </Link>
+
+            {/* Panier accessible depuis toutes les vues, avec son paiement */}
+            <div className="ml-1 text-slate-600">
+              <CartDrawer />
+            </div>
           </div>
         </header>
 
@@ -1048,6 +1057,11 @@ export function Dashboard() {
 
             <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
               <div className="mx-auto max-w-3xl">
+                <ChatCapabilities
+                  active={capabilities}
+                  onChange={setCapabilities}
+                  className="mb-3"
+                />
                 <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition focus-within:border-brand-teal/60 focus-within:bg-white">
                   <textarea
                     ref={chatInputRef}

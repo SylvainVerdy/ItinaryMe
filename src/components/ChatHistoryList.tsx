@@ -832,9 +832,9 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
                 key={history.id} 
                 className="py-4 px-3 -mx-3 hover:bg-slate-50 transition-colors rounded-lg group relative"
               >
-                <Link 
+                <Link
                   href={`/dashboard/chat/${history.id}`}
-                  className="block"
+                  className="block pr-20"
                 >
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 bg-gradient-to-br from-brand-coral to-brand-sun rounded-lg flex items-center justify-center text-white flex-shrink-0">
@@ -872,25 +872,27 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
                   </div>
                 </Link>
                 
-                {/* Menu d'actions */}
-                <div className="absolute right-3 top-4 flex items-center">
-                  <button 
+                {/* Actions : un seul conteneur, sinon les deux boutons se
+                    superposaient au même `right-3 top-4` et seul le dernier
+                    rendu était cliquable. Toujours visibles : en `opacity-0`
+                    ils étaient inaccessibles au tactile (pas de survol). */}
+                <div className="absolute right-3 top-3 flex items-center gap-1">
+                  <button
                     onClick={(e) => {
-                      e.stopPropagation(); 
+                      e.stopPropagation();
                       toggleFavorite(history.id!, history.isFavorite || false);
                     }}
-                    className="p-1.5 rounded-full hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
+                    title={history.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                    aria-label={history.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white hover:text-brand-teal"
                   >
                     {history.isFavorite ? (
-                      <BookmarkX size={14} className="text-slate-500" />
+                      <BookmarkX size={15} className="text-brand-teal" />
                     ) : (
-                      <Bookmark size={14} className="text-slate-500" />
+                      <Bookmark size={15} />
                     )}
                   </button>
-                </div>
-                
-                {/* Bouton de suppression */}
-                <div className="absolute right-3 top-4 flex items-center">
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -900,9 +902,11 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ tripId }) => {
                         deleteConversation(history.id!);
                       }
                     }}
-                    className="p-1.5 rounded-full hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
+                    title="Supprimer la conversation"
+                    aria-label="Supprimer la conversation"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
                   >
-                    <Trash2 size={14} className="text-slate-500" />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               </div>
