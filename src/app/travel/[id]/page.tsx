@@ -6,17 +6,20 @@ import { useAuth } from '@/hooks/useAuth';
 import { travelService, TravelPlan } from '@/services/travelService';
 import Link from 'next/link';
 import {
-  Star, Image, Calendar, Users, LinkIcon, FileText,
-  CheckCircle, Loader2, MapPin, ListChecks, MessageSquare
+  Star, ImageIcon, Calendar, Users, LinkIcon, FileText,
+  CheckCircle, Loader2, MapPin, ListChecks, MessageSquare,
+  ChevronRight, Pencil, Trash2, AlertCircle, ExternalLink, CalendarClock,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { PageLoader, PrimaryButton } from '@/components/layout/PageShell';
 import EditTravelImage from './edit-image';
 import ItineraryView from '@/components/itinerary/ItineraryView';
 import TripPlannerChat from '@/components/chat/TripPlannerChat';
+import { cn } from '@/lib/utils';
 
 type Tab = 'info' | 'itinerary' | 'notes' | 'assistant';
 
@@ -132,174 +135,210 @@ export default function TravelDetailPage() {
   };
 
   if (loading || loadingTravel) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
-      </div>
-    );
+    return <PageLoader label="Chargement du voyage…" />;
   }
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>
-        <Link href="/dashboard" className="text-blue-600 hover:underline">Retour au tableau de bord</Link>
+      <div className="flex min-h-screen flex-col bg-white">
+        <Navbar />
+        <main className="flex flex-1 items-center justify-center px-4 pt-16">
+          <div className="w-full max-w-md rounded-3xl border border-red-200 bg-red-50 p-8 text-center">
+            <AlertCircle className="mx-auto mb-4 h-10 w-10 text-red-500" />
+            <h1 className="font-display text-xl font-bold text-slate-900">{error}</h1>
+            <PrimaryButton href="/dashboard" className="mt-6">
+              Retour au tableau de bord
+            </PrimaryButton>
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
 
   if (!travel) return null;
 
-  const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'info', label: 'Infos', icon: <MapPin size={15} /> },
-    { key: 'itinerary', label: 'Itinéraire', icon: <ListChecks size={15} /> },
-    { key: 'notes', label: 'Notes', icon: <FileText size={15} /> },
-    { key: 'assistant', label: 'Assistant', icon: <MessageSquare size={15} /> },
+  const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
+    { key: 'info', label: 'Infos', icon: MapPin },
+    { key: 'itinerary', label: 'Itinéraire', icon: ListChecks },
+    { key: 'notes', label: 'Notes', icon: FileText },
+    { key: 'assistant', label: 'Assistant', icon: MessageSquare },
   ];
 
+  const start = new Date(travel.dateDepart);
+  const end = new Date(travel.dateRetour);
+  const nights =
+    Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())
+      ? null
+      : Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
+
   return (
-    <div className="min-h-screen bg-[#f8f5ec]">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       <Navbar />
 
-      <main className="pt-24 px-4 pb-16">
-        <div className="max-w-5xl mx-auto">
-          {/* Breadcrumb */}
-          <div className="flex items-center mb-6">
-            <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">Dashboard</Link>
-            <span className="mx-2 text-gray-400">/</span>
-            <span className="text-sm text-gray-700">{travel.destination}</span>
+      <main className="flex-1">
+        {/* En-tête immersif */}
+        <section className="relative isolate overflow-hidden bg-brand-ink pt-16">
+          <div className="absolute inset-0 -z-10">
+            {imageData ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={imageData} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-br from-brand-teal via-brand-deep to-brand-coral" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-brand-ink via-brand-ink/70 to-brand-ink/40" />
           </div>
 
-          {/* Hero card */}
-          <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] overflow-hidden mb-6">
-            <div className="h-48 md:h-64 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-              {imageData ? (
-                <img src={imageData} alt={travel.destination} className="w-full h-full object-cover" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-white">
-                  <MapPin size={48} />
+          <div className="mx-auto max-w-6xl px-4 pb-10 pt-10 sm:px-6 lg:px-8">
+            <nav className="mb-6 flex flex-wrap items-center gap-1 text-sm text-slate-400">
+              <Link href="/dashboard" className="transition-colors hover:text-white">
+                Tableau de bord
+              </Link>
+              <ChevronRight size={14} className="text-slate-600" />
+              <span className="text-slate-200">{travel.destination}</span>
+            </nav>
+
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="font-display text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
+                  {travel.destination}
+                </h1>
+
+                <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3">
+                  <Meta icon={Calendar} label="Dates">
+                    {start.toLocaleDateString('fr-FR')} — {end.toLocaleDateString('fr-FR')}
+                  </Meta>
+                  {nights !== null && (
+                    <Meta icon={CalendarClock} label="Durée">
+                      {nights} nuit{nights > 1 ? 's' : ''}
+                    </Meta>
+                  )}
+                  <Meta icon={Users} label="Voyageurs">
+                    {travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}
+                  </Meta>
                 </div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                <div className="flex items-center justify-between">
-                  <h1 className="text-2xl md:text-3xl font-medium text-white">{travel.destination}</h1>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowEditImage(!showEditImage)}
-                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                      title="Modifier l'image et les liens"
-                    >
-                      <Image size={20} className="text-white" />
-                    </button>
-                    <button
-                      onClick={toggleFavorite}
-                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                      title={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-                    >
-                      <Star size={20} className={isFavorite ? 'text-yellow-400 fill-yellow-400' : 'text-white'} />
-                    </button>
-                  </div>
-                </div>
+              </div>
+
+              <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+                <IconAction
+                  onClick={toggleFavorite}
+                  title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                >
+                  <Star
+                    size={18}
+                    className={isFavorite ? 'fill-amber-400 text-amber-400' : 'text-white'}
+                  />
+                </IconAction>
+                <IconAction
+                  onClick={() => setShowEditImage((open) => !open)}
+                  title="Modifier l'image et les liens"
+                >
+                  <ImageIcon size={18} className="text-white" />
+                </IconAction>
+                <Link
+                  href={`/travel/${travelId}/edit`}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
+                >
+                  <Pencil size={15} />
+                  Modifier
+                </Link>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Méta voyage */}
-            <div className="px-6 py-4 flex flex-wrap gap-6 border-b border-[#e6e0d4]">
-              <div className="flex items-center gap-2">
-                <Calendar className="text-blue-500" size={18} />
-                <div>
-                  <div className="text-xs text-gray-500">Dates</div>
-                  <div className="text-sm font-medium">
-                    {new Date(travel.dateDepart).toLocaleDateString('fr-FR')} — {new Date(travel.dateRetour).toLocaleDateString('fr-FR')}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="text-blue-500" size={18} />
-                <div>
-                  <div className="text-xs text-gray-500">Voyageurs</div>
-                  <div className="text-sm font-medium">{travel.nombreVoyageurs} {travel.nombreVoyageurs > 1 ? 'personnes' : 'personne'}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Onglets */}
-            <div className="flex border-b border-[#e6e0d4] px-2">
+        <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 lg:px-8">
+          {/* Onglets */}
+          <div className="sticky top-16 z-30 -mt-px overflow-x-auto border-b border-slate-200 bg-slate-50/95 backdrop-blur">
+            <div className="flex gap-1">
               {TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={cn(
+                    'flex flex-shrink-0 items-center gap-2 border-b-2 px-4 py-4 text-sm font-semibold transition-colors',
                     activeTab === tab.key
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
+                      ? 'border-brand-teal text-brand-teal'
+                      : 'border-transparent text-slate-500 hover:text-slate-900',
+                  )}
                 >
-                  {tab.icon}
+                  <tab.icon size={16} />
                   {tab.label}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Contenu onglets */}
-            <div className="p-6">
-              {/* ONGLET INFO */}
-              {activeTab === 'info' && (
-                <div className="space-y-6">
-                  {travel.links && travel.links.length > 0 && (
-                    <div>
-                      <h3 className="text-base font-medium mb-3 flex items-center gap-2">
-                        <LinkIcon size={16} className="text-blue-500" />
-                        Liens utiles
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {travel.links.map((link) => (
-                          <a
-                            key={link.id}
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 p-3 border border-[#e6e0d4] rounded-lg hover:bg-[#f8f5ec] transition-colors"
-                          >
-                            <LinkIcon size={15} className="text-blue-500 flex-shrink-0" />
-                            <div className="overflow-hidden">
-                              <div className="font-medium text-sm">{link.title}</div>
-                              <div className="text-xs text-gray-500 truncate">{link.url}</div>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
+          <div className="pt-8">
+            {/* ONGLET INFO */}
+            {activeTab === 'info' && (
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+                  <h2 className="flex items-center gap-2 font-display text-lg font-bold text-slate-900">
+                    <LinkIcon size={17} className="text-brand-teal" />
+                    Liens utiles
+                  </h2>
+
+                  {travel.links && travel.links.length > 0 ? (
+                    <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      {travel.links.map((link) => (
+                        <a
+                          key={link.id}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-center gap-3 rounded-2xl border border-slate-200 p-4 transition hover:border-brand-teal hover:bg-slate-50"
+                        >
+                          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-teal-50 text-brand-teal">
+                            <LinkIcon size={15} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-slate-900">
+                              {link.title}
+                            </span>
+                            <span className="block truncate text-xs text-slate-400">{link.url}</span>
+                          </span>
+                          <ExternalLink
+                            size={15}
+                            className="flex-shrink-0 text-slate-300 transition-colors group-hover:text-brand-teal"
+                          />
+                        </a>
+                      ))}
                     </div>
+                  ) : (
+                    <p className="mt-4 text-sm text-slate-500">
+                      Aucun lien pour l'instant. Utilisez le bouton image en haut de page pour en
+                      ajouter.
+                    </p>
                   )}
-
-                  {/* Suppression */}
-                  <div className="flex justify-end pt-2">
-                    <button
-                      onClick={handleDelete}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                        <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
-                      </svg>
-                      Supprimer ce voyage
-                    </button>
-                  </div>
                 </div>
-              )}
 
-              {/* ONGLET ITINÉRAIRE */}
-              {activeTab === 'itinerary' && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleDelete}
+                    className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:border-red-500 hover:bg-red-500 hover:text-white"
+                  >
+                    <Trash2 size={15} />
+                    Supprimer ce voyage
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ONGLET ITINÉRAIRE */}
+            {activeTab === 'itinerary' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6">
                 <ItineraryView
                   tripId={travelId}
                   tripStart={travel.dateDepart}
                   tripEnd={travel.dateRetour}
                 />
-              )}
+              </div>
+            )}
 
-              {/* ONGLET ASSISTANT */}
-              {activeTab === 'assistant' && (
+            {/* ONGLET ASSISTANT */}
+            {activeTab === 'assistant' && (
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
                 <TripPlannerChat
                   tripContext={{
                     tripId: travelId,
@@ -309,50 +348,93 @@ export default function TravelDetailPage() {
                     travelers: travel.nombreVoyageurs,
                   }}
                 />
-              )}
+              </div>
+            )}
 
-              {/* ONGLET NOTES */}
-              {activeTab === 'notes' && (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base font-medium flex items-center gap-2">
-                      <FileText size={16} className="text-blue-500" />
-                      Notes de voyage
-                    </h3>
-                  </div>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full p-4 min-h-[280px] border border-[#e6e0d4] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y text-sm"
-                    placeholder="Écrivez vos notes ici..."
-                  />
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      onClick={saveNotes}
-                      disabled={isSavingNotes}
-                      className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-60"
-                    >
-                      {isSavingNotes ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                      Enregistrer
-                    </button>
-                  </div>
+            {/* ONGLET NOTES */}
+            {activeTab === 'notes' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+                <h2 className="flex items-center gap-2 font-display text-lg font-bold text-slate-900">
+                  <FileText size={17} className="text-brand-teal" />
+                  Notes de voyage
+                </h2>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="mt-5 min-h-[280px] w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[15px] text-slate-800 outline-none transition focus:border-brand-teal focus:bg-white focus:ring-4 focus:ring-brand-teal/10"
+                  placeholder="Adresses à tester, numéros utiles, idées de sorties…"
+                />
+                <div className="mt-4 flex justify-end">
+                  <PrimaryButton onClick={saveNotes} disabled={isSavingNotes}>
+                    {isSavingNotes ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <CheckCircle size={15} />
+                    )}
+                    Enregistrer
+                  </PrimaryButton>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {showEditImage && (
-            <EditTravelImage
-              travelId={travelId}
-              currentImageUrl={imageData || undefined}
-              currentLinks={travel.links || []}
-              onUpdate={refreshTravelData}
-            />
+            <div className="mt-6">
+              <EditTravelImage
+                travelId={travelId}
+                currentImageUrl={imageData || undefined}
+                currentLinks={travel.links || []}
+                onUpdate={refreshTravelData}
+              />
+            </div>
           )}
         </div>
       </main>
 
       <Footer />
     </div>
+  );
+}
+
+function Meta({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: React.ElementType;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-brand-lagoon backdrop-blur">
+        <Icon size={16} />
+      </span>
+      <span>
+        <span className="block text-[11px] uppercase tracking-wider text-slate-400">{label}</span>
+        <span className="block text-sm font-semibold text-white">{children}</span>
+      </span>
+    </div>
+  );
+}
+
+function IconAction({
+  onClick,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur transition hover:bg-white/20"
+    >
+      {children}
+    </button>
   );
 }

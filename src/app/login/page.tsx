@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { PageLoader } from '@/components/layout/PageShell';
 
 export default function LoginRedirect() {
   const router = useRouter();
@@ -11,9 +12,5 @@ export default function LoginRedirect() {
     router.replace('/auth');
   }, [router]);
 
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-    </div>
-  );
-} 
+  return <PageLoader label="Redirection…" />;
+}

@@ -22,7 +22,7 @@ interface AuthContextType {
 }
 
 // Créer le contexte avec une valeur par défaut
-export const AuthContext = createContext<AuthContextType>({
+const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signIn: async () => {},

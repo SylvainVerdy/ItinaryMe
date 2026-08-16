@@ -5,9 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
 import Link from 'next/link';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
-import { ArrowLeft, Calendar, MapPin, Users, Clock, Bookmark, Star } from 'lucide-react';
+import { ArrowRight, CalendarDays, Clock, MapPin, Star, Users } from 'lucide-react';
+import {
+  PageShell, PageHero, PageLoader, EmptyState, PrimaryButton,
+} from '@/components/layout/PageShell';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -113,120 +114,104 @@ export default function FavoritesPage() {
     return diffDays;
   };
   
+  if (loading) {
+    return <PageLoader label="Chargement de vos favoris…" />;
+  }
+
   return (
-    <div className="min-h-screen bg-[#f8f5ec]">
-      <Navbar />
-      
-      <main className="pt-24 pb-16 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <Link
-              href="/dashboard"
-              className="p-1.5 rounded-md hover:bg-[#f0ece3] transition-colors"
-            >
-              <ArrowLeft size={18} className="text-gray-600" />
-            </Link>
-            <h1 className="text-2xl font-medium text-gray-800">Mes voyages favoris</h1>
-          </div>
-          
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-          ) : error ? (
-            <div className="bg-red-50 p-4 rounded-lg text-red-700">
-              {error}
-            </div>
-          ) : (
-            <>
-              {favorites.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-8 text-center">
-                  <Star size={48} className="mx-auto text-gray-300 mb-4" />
-                  <h2 className="text-xl font-medium text-gray-800 mb-2">Aucun voyage favori</h2>
-                  <p className="text-gray-600 mb-6">
-                    Vous n'avez pas encore ajouté de voyage à vos favoris. Marquez vos voyages préférés comme favoris pour y accéder rapidement.
-                  </p>
-                  <Link
-                    href="/dashboard"
-                    className="inline-flex items-center px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-colors"
+    <PageShell
+      hero={
+        <PageHero
+          compact
+          breadcrumb={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Favoris' }]}
+          eyebrow="Favoris"
+          title="Vos voyages favoris"
+          subtitle="Les itinéraires que vous avez épinglés, prêts à être repris."
+        />
+      }
+    >
+      {error ? (
+        <div className="rounded-3xl border border-red-200 bg-red-50 px-6 py-5 text-sm text-red-700">
+          {error}
+        </div>
+      ) : favorites.length === 0 ? (
+        <EmptyState
+          icon={Star}
+          title="Aucun voyage favori"
+          description="Ouvrez un voyage et appuyez sur l'étoile pour le retrouver ici."
+          action={<PrimaryButton href="/dashboard">Voir mes voyages</PrimaryButton>}
+        />
+      ) : (
+        <>
+          <p className="mb-6 text-sm text-slate-500">
+            {favorites.length} voyage{favorites.length > 1 ? 's' : ''} en favori
+            {favorites.length > 1 ? 's' : ''}
+          </p>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {favorites.map((travel) => (
+              <article
+                key={travel.id}
+                className="group flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lift"
+              >
+                <div className="relative h-32 bg-gradient-to-br from-brand-teal to-brand-lagoon">
+                  {travel.imageUrl && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={travel.imageUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent" />
+
+                  <h2 className="absolute bottom-3 left-5 right-14 flex items-center gap-1.5 truncate font-display text-lg font-bold text-white">
+                    <MapPin size={15} className="flex-shrink-0" />
+                    <span className="truncate">{travel.destination}</span>
+                  </h2>
+
+                  <button
+                    onClick={() => toggleFavorite(travel.id)}
+                    className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur transition hover:bg-white/30"
+                    title="Retirer des favoris"
+                    aria-label="Retirer des favoris"
                   >
-                    <span>Voir tous mes voyages</span>
+                    <Star size={16} className="fill-amber-400 text-amber-400" />
+                  </button>
+                </div>
+
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="space-y-2 text-sm text-slate-500">
+                    <p className="flex items-center gap-2">
+                      <CalendarDays size={14} className="flex-shrink-0 text-slate-400" />
+                      <span className="truncate">
+                        {formatDateRange(travel.startDate, travel.endDate)}
+                      </span>
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <Clock size={14} className="flex-shrink-0 text-slate-400" />
+                      {calculateDuration(travel.startDate, travel.endDate)} jour
+                      {calculateDuration(travel.startDate, travel.endDate) > 1 ? 's' : ''}
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <Users size={14} className="flex-shrink-0 text-slate-400" />
+                      {travel.numTravelers} voyageur{travel.numTravelers > 1 ? 's' : ''}
+                    </p>
+                  </div>
+
+                  <Link
+                    href={`/travel/${travel.id}`}
+                    className="mt-5 flex items-center gap-1.5 border-t border-slate-100 pt-4 text-sm font-semibold text-brand-teal"
+                  >
+                    Voir l'itinéraire
+                    <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
                   </Link>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {favorites.map((favorite) => (
-                    <div 
-                      key={favorite.id} 
-                      className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] overflow-hidden group relative"
-                    >
-                      <div className="absolute top-3 right-3 z-10">
-                        <button
-                          onClick={() => toggleFavorite(favorite.id)}
-                          className="p-1.5 rounded-full bg-white/90 shadow-sm hover:bg-white transition-colors"
-                        >
-                          <Star size={16} className="text-yellow-500 fill-yellow-500" />
-                        </button>
-                      </div>
-                      
-                      <Link href={`/travel/${favorite.id}`}>
-                        <div className="h-40 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-                          {favorite.imageUrl ? (
-                            <img 
-                              src={favorite.imageUrl} 
-                              alt={favorite.destination} 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white">
-                              <MapPin size={32} />
-                            </div>
-                          )}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                            <h2 className="text-lg font-medium text-white">
-                              {favorite.destination}
-                            </h2>
-                          </div>
-                        </div>
-                        
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
-                            <Calendar size={14} className="text-blue-500" />
-                            <span>
-                              {formatDateRange(favorite.startDate, favorite.endDate)}
-                              {' '}
-                              ({calculateDuration(favorite.startDate, favorite.endDate)} jours)
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                            <Users size={14} className="text-blue-500" />
-                            <span>{favorite.numTravelers} voyageur{favorite.numTravelers > 1 ? 's' : ''}</span>
-                          </div>
-                          
-                          {favorite.notes && (
-                            <p className="text-sm text-gray-700 border-t border-[#e6e0d4] pt-3 line-clamp-2">
-                              {favorite.notes}
-                            </p>
-                          )}
-                          
-                          <div className="mt-4 text-right">
-                            <span className="text-sm text-blue-600 group-hover:text-blue-700 transition-colors">
-                              Voir les détails →
-                            </span>
-                          </div>
-                        </div>
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </main>
-      
-      <Footer />
-    </div>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </PageShell>
   );
-} 
+}

@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { LogoutButton } from '@/components/LogoutButton';
-import { useAuth } from '@/hooks/useAuth';
+import { Search, SlidersHorizontal, MapPinOff } from 'lucide-react';
 import { DestinationCard, DestinationCardProps } from '@/components/DestinationCard';
 import { destinationService } from '@/services/destinationService';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
+import { PageShell, PageHero, EmptyState, SecondaryButton } from '@/components/layout/PageShell';
 import { useLanguage } from '@/hooks/useLanguage';
 
 const SEASONS = [
@@ -18,84 +15,71 @@ const SEASONS = [
 ];
 
 export default function DestinationsPage() {
-  const { user } = useAuth();
   const [destinations, setDestinations] = useState<DestinationCardProps[]>([]);
   const [filteredDestinations, setFilteredDestinations] = useState<DestinationCardProps[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [seasonFilter, setSeasonFilter] = useState('');
   const { t } = useLanguage();
-  
+
   useEffect(() => {
     // Charger toutes les destinations
     const allDestinations = destinationService.getAllDestinations();
     setDestinations(allDestinations);
     setFilteredDestinations(allDestinations);
   }, []);
-  
+
   // Filtrer les destinations en fonction de la recherche et du filtre de saison
   useEffect(() => {
     let results = destinations;
-    
+
     if (searchQuery) {
       results = destinationService.searchDestinations(searchQuery);
     }
-    
+
     if (seasonFilter) {
-      results = results.filter(dest => 
+      results = results.filter(dest =>
         dest.bestTimeToVisit.toLowerCase().includes(seasonFilter.toLowerCase())
       );
     }
-    
+
     setFilteredDestinations(results);
   }, [searchQuery, seasonFilter, destinations]);
-  
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-  
-  const handleSeasonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSeasonFilter(e.target.value);
-  };
-  
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-grow pt-20 bg-[#f8f5ec]">
-        <div className="container mx-auto px-4 py-8">
-          {/* <h1 className="text-4xl font-bold mb-8 text-center">{t('popularDestinations')}</h1> */}
-          <div className="mb-10 text-center">
-            <p className="text-gray-600 max-w-3xl mx-auto">
-              {t('destinationsDescription')}
-            </p>
-          </div>
-          
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 space-y-4 md:space-y-0">
-            <div className="relative w-full md:w-1/3">
+    <PageShell
+      hero={
+        <PageHero
+          eyebrow={t('popularDestinations')}
+          title={t('destinations')}
+          subtitle={t('destinationsDescription')}
+        >
+          {/* Filtres, posés à cheval sur le bandeau */}
+          <div className="flex flex-col gap-3 rounded-3xl border border-white/15 bg-white/10 p-3 backdrop-blur-xl sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search
+                size={17}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
                 type="text"
                 placeholder={t('searchDestination')}
                 value={searchQuery}
-                onChange={handleSearch}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#f8f5ec]"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-white/10 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-brand-lagoon/60 focus:bg-white/15"
               />
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-5 w-5 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <label htmlFor="seasonFilter" className="text-gray-700">{t('filterBySeason')}</label>
+
+            <div className="relative sm:w-64">
+              <SlidersHorizontal
+                size={16}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <select
                 id="seasonFilter"
+                aria-label={t('filterBySeason')}
                 value={seasonFilter}
-                onChange={handleSeasonChange}
-                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#f8f5ec]"
+                onChange={(event) => setSeasonFilter(event.target.value)}
+                className="w-full appearance-none rounded-2xl border border-white/10 bg-white/10 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-brand-lagoon/60 focus:bg-white/15 [&>option]:text-slate-900"
               >
                 <option value="">{t('allSeasons')}</option>
                 {SEASONS.map((season) => (
@@ -106,44 +90,54 @@ export default function DestinationsPage() {
               </select>
             </div>
           </div>
-          
-          {filteredDestinations.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">
-                {t('noDestinationsFound')}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredDestinations.map((destination) => (
-                <DestinationCard
-                  key={destination.id}
-                  id={destination.id}
-                  name={destination.name}
-                  imageUrl={destination.imageUrl}
-                  description={destination.description}
-                  highlights={destination.highlights}
-                  bestTimeToVisit={destination.bestTimeToVisit}
-                />
-              ))}
-            </div>
-          )}
-          
-          <div className="mt-12 text-center">
-            <p className="text-gray-600 mb-6">
-              {t('cantFindDreamDestination')}
-            </p>
-            <Link 
-              href="/contact"
-              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+        </PageHero>
+      }
+    >
+      {filteredDestinations.length === 0 ? (
+        <EmptyState
+          icon={MapPinOff}
+          title={t('noDestinationsFound')}
+          action={
+            <SecondaryButton
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSeasonFilter('');
+              }}
             >
-              {t('contactUs')}
-            </Link>
+              Réinitialiser les filtres
+            </SecondaryButton>
+          }
+        />
+      ) : (
+        <>
+          <p className="mb-6 text-sm text-slate-500">
+            {filteredDestinations.length} destination{filteredDestinations.length > 1 ? 's' : ''}
+          </p>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredDestinations.map((destination) => (
+              <DestinationCard
+                key={destination.id}
+                id={destination.id}
+                name={destination.name}
+                imageUrl={destination.imageUrl}
+                description={destination.description}
+                highlights={destination.highlights}
+                bestTimeToVisit={destination.bestTimeToVisit}
+              />
+            ))}
           </div>
-        </div>
-      </main>
+        </>
+      )}
 
-      <Footer />
-    </div>
+      <div className="mt-16 rounded-3xl border border-slate-200 bg-slate-50 p-10 text-center">
+        <p className="mx-auto max-w-xl leading-relaxed text-slate-600">
+          {t('cantFindDreamDestination')}
+        </p>
+        <SecondaryButton href="/contact" className="mt-6">
+          {t('contactUs')}
+        </SecondaryButton>
+      </div>
+    </PageShell>
   );
-} 
+}

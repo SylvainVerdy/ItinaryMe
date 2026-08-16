@@ -1,170 +1,147 @@
 "use client";
 
+import { Banknote, CalendarClock, Map, MessagesSquare, Route, Sparkles, Ticket } from 'lucide-react';
+import { PageShell, PageHero, PrimaryButton } from '@/components/layout/PageShell';
+import { Reveal } from '@/components/landing/Reveal';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
-import Image from 'next/image';
-import Link from 'next/link';
 
 export default function HowItWorksPage() {
   const { t } = useLanguage();
 
-  return (
-    <div className="min-h-screen bg-[#f5f0e1]">
-      <Navbar />
-      
-      {/* Espace pour compenser la navbar fixe */}
-      <div className="h-20"></div>
+  const steps = [
+    {
+      icon: MessagesSquare,
+      title: t('sharePreferences'),
+      description: t('sharePreferencesDescription'),
+      accent: 'from-brand-lagoon to-cyan-400',
+    },
+    {
+      icon: Sparkles,
+      title: t('aiCreatesItinerary'),
+      description: t('aiCreatesItineraryDescription'),
+      accent: 'from-brand-teal to-brand-lagoon',
+    },
+    {
+      icon: Ticket,
+      title: t('customizeAndTravel'),
+      description: t('customizeAndTravelDescription'),
+      accent: 'from-brand-coral to-brand-sun',
+    },
+  ];
 
-      <main className="max-w-6xl mx-auto py-16 px-4">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
-            {t('howItWorks')}
-          </h1>
-          <p className="text-gray-600 max-w-3xl mx-auto text-lg">
-            {t('howItWorksDescription')}
-          </p>
+  const features = [
+    {
+      icon: Route,
+      accent: 'bg-teal-50 text-teal-700',
+      title: t('customizedItinerariesFeature'),
+      description: t('customizedItinerariesFeatureDescription'),
+    },
+    {
+      icon: CalendarClock,
+      accent: 'bg-cyan-50 text-cyan-700',
+      title: t('quickPlanning'),
+      description: t('quickPlanningDescription'),
+    },
+    {
+      icon: Banknote,
+      accent: 'bg-emerald-50 text-emerald-700',
+      title: t('budgetOptions'),
+      description: t('budgetOptionsDescription'),
+    },
+    {
+      icon: Map,
+      accent: 'bg-orange-50 text-orange-700',
+      title: t('mapsDirections'),
+      description: t('mapsDirectionsDescription'),
+    },
+  ];
+
+  return (
+    <PageShell
+      hero={
+        <PageHero
+          eyebrow={t('howItWorks')}
+          title={t('howItWorks')}
+          subtitle={t('howItWorksDescription')}
+        />
+      }
+    >
+      {/* Étapes */}
+      <section className="relative">
+        <div
+          aria-hidden
+          className="absolute left-0 right-0 top-8 hidden h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent md:block"
+        />
+        <ol className="relative grid gap-10 md:grid-cols-3">
+          {steps.map((step, index) => (
+            <Reveal as="li" key={step.title} delay={index * 110}>
+              <div className="flex flex-col items-center text-center md:items-start md:text-left">
+                <div className="relative">
+                  <span
+                    className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${step.accent} text-white shadow-glow`}
+                  >
+                    <step.icon size={26} strokeWidth={1.6} />
+                  </span>
+                  <span className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white font-display text-xs font-bold text-slate-900">
+                    {index + 1}
+                  </span>
+                </div>
+                <h3 className="mt-6 font-display text-xl font-bold text-slate-900">{step.title}</h3>
+                <p className="mt-3 leading-relaxed text-slate-500">{step.description}</p>
+              </div>
+            </Reveal>
+          ))}
+        </ol>
+      </section>
+
+      {/* Fonctionnalités */}
+      <section className="mt-24">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <span className="eyebrow bg-teal-50 text-teal-700">{t('features')}</span>
+          <h2 className="mt-5 font-display text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            {t('features')}
+          </h2>
+        </Reveal>
+
+        <div className="mt-12 grid gap-5 sm:grid-cols-2">
+          {features.map((feature, index) => (
+            <Reveal key={feature.title} delay={(index % 2) * 100}>
+              <article className="h-full rounded-3xl border border-slate-200 bg-white p-8 transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lift">
+                <span
+                  className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${feature.accent}`}
+                >
+                  <feature.icon size={22} strokeWidth={1.6} />
+                </span>
+                <h3 className="mt-6 font-display text-xl font-bold text-slate-900">
+                  {feature.title}
+                </h3>
+                <p className="mt-3 leading-relaxed text-slate-500">{feature.description}</p>
+              </article>
+            </Reveal>
+          ))}
         </div>
-        
-        {/* Étapes du processus */}
-        <div className="grid md:grid-cols-3 gap-8 mb-20">
-          <div className="bg-[#f8f5ec] rounded-lg shadow-md p-8 text-center">
-            <div className="bg-blue-100 text-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">1</div>
-            <h3 className="text-xl font-semibold mb-4">{t('sharePreferences')}</h3>
-            <p className="text-gray-600 mb-6">
-              {t('sharePreferencesDescription')}
-            </p>
-            <Image 
-              src="/images/illustrations/share-preferences.svg" 
-              width={200} 
-              height={200} 
-              alt="Partager vos préférences" 
-              className="mx-auto opacity-80"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
-            />
+      </section>
+
+      {/* CTA */}
+      <Reveal className="mt-24">
+        <div className="relative isolate overflow-hidden rounded-[2.5rem] bg-brand-ink px-6 py-16 text-center sm:px-16">
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+            <div className="absolute -left-24 -top-24 h-80 w-80 rounded-full bg-brand-teal/40 blur-[100px]" />
+            <div className="absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-brand-sun/30 blur-[100px]" />
           </div>
-          
-          <div className="bg-[#f8f5ec] rounded-lg shadow-md p-8 text-center">
-            <div className="bg-blue-100 text-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">2</div>
-            <h3 className="text-xl font-semibold mb-4">{t('aiCreatesItinerary')}</h3>
-            <p className="text-gray-600 mb-6">
-              {t('aiCreatesItineraryDescription')}
-            </p>
-            <Image 
-              src="/images/illustrations/ai-planning.svg" 
-              width={200} 
-              height={200} 
-              alt="Planification IA" 
-              className="mx-auto opacity-80"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
-            />
-          </div>
-          
-          <div className="bg-[#f8f5ec] rounded-lg shadow-md p-8 text-center">
-            <div className="bg-blue-100 text-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">3</div>
-            <h3 className="text-xl font-semibold mb-4">{t('customizeAndTravel')}</h3>
-            <p className="text-gray-600 mb-6">
-              {t('customizeAndTravelDescription')}
-            </p>
-            <Image 
-              src="/images/illustrations/enjoy-travel.svg" 
-              width={200} 
-              height={200} 
-              alt="Profitez de votre voyage" 
-              className="mx-auto opacity-80"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
-            />
-          </div>
-        </div>
-        
-        {/* Fonctionnalités détaillées */}
-        <div className="bg-[#f8f5ec] rounded-lg shadow-md p-8 mb-16">
-          <h2 className="text-2xl font-semibold mb-6 text-center">{t('features')}</h2>
-          
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="flex items-start">
-              <div className="bg-blue-100 p-3 rounded-full mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-medium text-lg mb-2">{t('customizedItinerariesFeature')}</h3>
-                <p className="text-gray-600">
-                  {t('customizedItinerariesFeatureDescription')}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-start">
-              <div className="bg-blue-100 p-3 rounded-full mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-medium text-lg mb-2">{t('quickPlanning')}</h3>
-                <p className="text-gray-600">
-                  {t('quickPlanningDescription')}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-start">
-              <div className="bg-blue-100 p-3 rounded-full mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-medium text-lg mb-2">{t('budgetOptions')}</h3>
-                <p className="text-gray-600">
-                  {t('budgetOptionsDescription')}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-start">
-              <div className="bg-blue-100 p-3 rounded-full mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-medium text-lg mb-2">{t('mapsDirections')}</h3>
-                <p className="text-gray-600">
-                  {t('mapsDirectionsDescription')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Appel à l'action */}
-        <div className="bg-blue-600 text-white rounded-lg shadow-md p-10 text-center">
-          <h2 className="text-3xl font-semibold mb-4">{t('readyToPlan')}</h2>
-          <p className="mb-8 max-w-2xl mx-auto text-lg">
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-grid opacity-50" />
+
+          <h2 className="mx-auto max-w-2xl font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+            {t('readyToPlan')}
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl leading-relaxed text-slate-300">
             {t('startTodayDescription')}
           </p>
-          <Link 
-            href="/"
-            className="inline-block px-8 py-4 bg-white text-blue-600 rounded-md hover:bg-gray-100 transition-colors font-medium text-lg shadow-lg"
-          >
+          <PrimaryButton href="/travel/new" className="mt-8">
             {t('planMyTrip')}
-          </Link>
+          </PrimaryButton>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </Reveal>
+    </PageShell>
   );
-} 
+}

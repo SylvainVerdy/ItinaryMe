@@ -1,96 +1,124 @@
 "use client";
 
-import Link from 'next/link';
-import { LogoutButton } from '@/components/LogoutButton';
-import { useAuth } from '@/hooks/useAuth';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
+import { Compass, Rocket, Sparkles, Target } from 'lucide-react';
+import { PageShell, PageHero, PrimaryButton } from '@/components/layout/PageShell';
+import { Reveal } from '@/components/landing/Reveal';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export default function AboutPage() {
-  const { user } = useAuth();
   const { t } = useLanguage();
 
+  const steps = [
+    {
+      icon: Compass,
+      title: t('shareYourPreferences'),
+      description: t('shareYourPreferencesDescription'),
+      accent: 'from-brand-lagoon to-cyan-400',
+    },
+    {
+      icon: Sparkles,
+      title: t('personalizedAIAssistant'),
+      description: t('personalizedAIAssistantDescription'),
+      accent: 'from-brand-teal to-brand-lagoon',
+    },
+    {
+      icon: Rocket,
+      title: t('enjoyYourTrip'),
+      description: t('enjoyYourTripDescription'),
+      accent: 'from-brand-coral to-brand-sun',
+    },
+  ];
+
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-      <main className="flex-grow bg-gray-50 pt-24">
-        <div className="container mx-auto px-4 py-8">
-          {/* <h1 className="text-4xl font-bold mb-8 text-center">{t('aboutUs')}</h1> */}
-          <div className="mb-10 text-center">
-            <p className="text-gray-600 max-w-3xl mx-auto">
-              {t('aboutDescription')}
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
-            <div className="bg-[#f8f5ec] rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4 text-blue-600">{t('ourMission')}</h2>
-              <p className="text-gray-700 mb-4">
-                {t('ourMissionDescription1')}
-              </p>
-              <p className="text-gray-700">
-                {t('ourMissionDescription2')}
-              </p>
-            </div>
+    <PageShell
+      hero={
+        <PageHero
+          eyebrow={t('aboutUs')}
+          title={t('ourMission')}
+          subtitle={t('aboutDescription')}
+        />
+      }
+    >
+      {/* Mission & histoire */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Reveal>
+          <article className="h-full rounded-3xl border border-slate-200 bg-white p-8">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-brand-teal">
+              <Target size={22} strokeWidth={1.7} />
+            </span>
+            <h2 className="mt-6 font-display text-2xl font-bold text-slate-900">
+              {t('ourMission')}
+            </h2>
+            <p className="mt-4 leading-relaxed text-slate-500">{t('ourMissionDescription1')}</p>
+            <p className="mt-3 leading-relaxed text-slate-500">{t('ourMissionDescription2')}</p>
+          </article>
+        </Reveal>
 
-            <div className="bg-[#f8f5ec] rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4 text-blue-600">{t('ourHistory')}</h2>
-              <p className="text-gray-700 mb-4">
-                {t('ourHistoryDescription1')}
-              </p>
-              <p className="text-gray-700">
-                {t('ourHistoryDescription2')}
-              </p>
-            </div>
-          </div>
+        <Reveal delay={100}>
+          <article className="h-full rounded-3xl border border-slate-200 bg-white p-8">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+              <Compass size={22} strokeWidth={1.7} />
+            </span>
+            <h2 className="mt-6 font-display text-2xl font-bold text-slate-900">
+              {t('ourHistory')}
+            </h2>
+            <p className="mt-4 leading-relaxed text-slate-500">{t('ourHistoryDescription1')}</p>
+            <p className="mt-3 leading-relaxed text-slate-500">{t('ourHistoryDescription2')}</p>
+          </article>
+        </Reveal>
+      </div>
 
-          <div className="bg-[#f8f5ec] rounded-lg shadow-md p-8 mb-12">
-            <h2 className="text-2xl font-semibold mb-6 text-center">{t('howItFunctions')}</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="text-center">
-                <div className="bg-blue-100 text-blue-600 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">1</div>
-                <h3 className="font-medium mb-2">{t('shareYourPreferences')}</h3>
-                <p className="text-gray-600">
-                  {t('shareYourPreferencesDescription')}
-                </p>
+      {/* Fonctionnement */}
+      <section className="mt-20">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <span className="eyebrow bg-teal-50 text-teal-700">{t('howItFunctions')}</span>
+          <h2 className="mt-5 font-display text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            {t('howItWorks')}
+          </h2>
+        </Reveal>
+
+        <ol className="mt-12 grid gap-8 md:grid-cols-3">
+          {steps.map((step, index) => (
+            <Reveal as="li" key={step.title} delay={index * 110}>
+              <div className="flex flex-col items-center text-center md:items-start md:text-left">
+                <div className="relative">
+                  <span
+                    className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${step.accent} text-white`}
+                  >
+                    <step.icon size={26} strokeWidth={1.6} />
+                  </span>
+                  <span className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white font-display text-xs font-bold text-slate-900">
+                    {index + 1}
+                  </span>
+                </div>
+                <h3 className="mt-5 font-display text-lg font-bold text-slate-900">{step.title}</h3>
+                <p className="mt-2 leading-relaxed text-slate-500">{step.description}</p>
               </div>
+            </Reveal>
+          ))}
+        </ol>
+      </section>
 
-              <div className="text-center">
-                <div className="bg-blue-100 text-blue-600 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">2</div>
-                <h3 className="font-medium mb-2">{t('personalizedAIAssistant')}</h3>
-                <p className="text-gray-600">
-                  {t('personalizedAIAssistantDescription')}
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="bg-blue-100 text-blue-600 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">3</div>
-                <h3 className="font-medium mb-2">{t('enjoyYourTrip')}</h3>
-                <p className="text-gray-600">
-                  {t('enjoyYourTripDescription')}
-                </p>
-              </div>
-            </div>
+      {/* CTA */}
+      <Reveal className="mt-20">
+        <div className="relative isolate overflow-hidden rounded-[2.5rem] bg-brand-ink px-6 py-16 text-center sm:px-16">
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+            <div className="absolute -left-24 -top-24 h-80 w-80 rounded-full bg-brand-teal/40 blur-[100px]" />
+            <div className="absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-brand-sun/30 blur-[100px]" />
           </div>
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-grid opacity-50" />
 
-          <div className="bg-blue-600 text-white rounded-lg shadow-md p-8 text-center">
-            <h2 className="text-2xl font-semibold mb-4">{t('readyToPlanYourNextTrip')}</h2>
-            <p className="mb-6 max-w-2xl mx-auto">
-              {t('joinThousandsOfTravelers')}
-            </p>
-            <Link 
-              href="/travel/new"
-              className="inline-block px-6 py-3 bg-white text-blue-600 rounded-md hover:bg-gray-100 transition-colors font-medium"
-            >
-              {t('startYourItinerary')}
-            </Link>
-          </div>
+          <h2 className="mx-auto max-w-2xl font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+            {t('readyToPlanYourNextTrip')}
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl leading-relaxed text-slate-300">
+            {t('joinThousandsOfTravelers')}
+          </p>
+          <PrimaryButton href="/travel/new" className="mt-8">
+            {t('startYourItinerary')}
+          </PrimaryButton>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </Reveal>
+    </PageShell>
   );
-} 
+}

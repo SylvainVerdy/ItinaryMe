@@ -7,7 +7,6 @@ import { collection, getDocs, query, where, addDoc, getDoc, doc } from 'firebase
 import { LogoutButton } from './LogoutButton';
 import { Logo } from './Logo';
 import Link from 'next/link';
-import { useLanguage } from '@/hooks/useLanguage';
 import {
   PlusCircle,
   MessageSquare,
@@ -81,7 +80,6 @@ function gradientFor(id: string) {
 
 export function Dashboard() {
   const { user, signOut } = useAuth();
-  const { t } = useLanguage();
   const [travelPlans, setTravelPlans] = useState<TravelPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebar, setSidebar] = useState(true);

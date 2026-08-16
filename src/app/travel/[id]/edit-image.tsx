@@ -5,7 +5,8 @@ import { doc, updateDoc, addDoc, collection, deleteDoc, query, where, getDocs, g
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { Image, Link as LinkIcon, Upload, X, CheckCircle, Loader2, FileText } from 'lucide-react';
+import { ImageIcon, Link as LinkIcon, Upload, X, CheckCircle, Loader2, FileText, Plus } from 'lucide-react';
+import { PrimaryButton, SecondaryButton } from '@/components/layout/PageShell';
 
 interface TravelLink {
   id: string;
@@ -283,208 +284,194 @@ export default function EditTravelImage({ travelId, currentImageUrl, currentLink
     }
   };
 
+  const inputClass =
+    'w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10';
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-[#e6e0d4] p-6">
-      <h3 className="text-xl font-medium text-gray-800 mb-6">Personnalisation</h3>
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+      <h3 className="font-display text-xl font-bold text-slate-900">Personnalisation</h3>
 
-      {/* Section Image */}
-      <div className="mb-8">
-        <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-          <Image size={18} className="text-blue-500" />
-          <span>Image du voyage</span>
+      {/* Image */}
+      <section className="mt-7">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <ImageIcon size={16} className="text-brand-teal" />
+          Image du voyage
         </h4>
 
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="w-full md:w-1/3 flex justify-center">
-            <div className="h-40 w-full max-w-md bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center relative">
-              {imageUrl ? (
-                <>
-                  <img 
-                    src={imageUrl} 
-                    alt="Image du voyage" 
-                    className="w-full h-full object-cover" 
-                  />
-                  <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-2 right-2 p-2 bg-white/80 hover:bg-white rounded-full shadow-sm transition-colors"
-                  >
-                    <Upload size={16} className="text-blue-500" />
-                  </button>
-                </>
-              ) : (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center text-gray-500 hover:text-blue-500 transition-colors"
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 size={24} className="animate-spin mb-2" />
-                      <span className="text-sm">Envoi en cours...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload size={24} className="mb-2" />
-                      <span className="text-sm">Télécharger une image</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex-1">
-            <p className="text-sm text-gray-600 mb-3">
-              Ajoutez une image représentative pour votre voyage. Cela peut être une photo de votre destination, un monument emblématique ou tout autre visuel lié à votre voyage.
-            </p>
-            <p className="text-xs text-gray-500 mb-3">
-              Formats acceptés : JPG, PNG, GIF • Taille max : 1 MB
-            </p>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*" 
-              onChange={handleFileChange} 
-              disabled={isUploading}
-            />
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <span className="flex items-center gap-1">
-                  <Loader2 size={14} className="animate-spin" />
-                  Envoi en cours...
-                </span>
-              ) : imageUrl ? "Changer l'image" : "Sélectionner une image"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Section Notes */}
-      <div className="mb-8">
-        <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-          <FileText size={18} className="text-blue-500" />
-          <span>Notes de voyage</span>
-        </h4>
-        
-        <p className="text-sm text-gray-600 mb-4">
-          Ajoutez vos notes, idées et réflexions sur ce voyage. Ces notes seront également disponibles dans la section Documents.
-        </p>
-        
-        <div className="border border-[#e6e0d4] rounded-lg overflow-hidden">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full p-4 min-h-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-            placeholder="Écrivez vos notes ici..."
-          />
-        </div>
-        
-        <div className="mt-4 flex justify-end">
-          <button 
-            onClick={saveNotes}
-            disabled={isSavingNotes}
-            className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium flex items-center gap-2"
-          >
-            {isSavingNotes ? (
+        <div className="mt-4 flex flex-col gap-5 md:flex-row">
+          <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 md:w-64">
+            {imageUrl ? (
               <>
-                <Loader2 size={14} className="animate-spin" />
-                <span>Enregistrement...</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imageUrl} alt="Image du voyage" className="h-full w-full object-cover" />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-teal shadow-sm transition hover:bg-white"
+                  aria-label="Changer l'image"
+                >
+                  <Upload size={15} />
+                </button>
               </>
             ) : (
-              <>
-                <CheckCircle size={14} />
-                <span>Enregistrer les notes</span>
-              </>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-500 transition-colors hover:text-brand-teal"
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 size={22} className="animate-spin" />
+                    <span className="text-sm">Envoi en cours…</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={22} />
+                    <span className="text-sm">Télécharger une image</span>
+                  </>
+                )}
+              </button>
             )}
-          </button>
+          </div>
+
+          <div className="flex-1">
+            <p className="text-sm leading-relaxed text-slate-500">
+              Ajoutez un visuel représentatif : une photo de la destination, un monument
+              emblématique, ou tout autre repère lié à ce voyage.
+            </p>
+            <p className="mt-2 text-xs text-slate-400">
+              Formats acceptés : JPG, PNG, GIF · taille max 1 Mo
+            </p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+              disabled={isUploading}
+            />
+            <SecondaryButton
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="mt-4"
+            >
+              {isUploading && <Loader2 size={15} className="animate-spin" />}
+              {isUploading
+                ? 'Envoi en cours…'
+                : imageUrl
+                  ? "Changer l'image"
+                  : 'Sélectionner une image'}
+            </SecondaryButton>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Section Liens */}
-      <div>
-        <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-          <LinkIcon size={18} className="text-blue-500" />
-          <span>Liens utiles</span>
+      {/* Notes */}
+      <section className="mt-9 border-t border-slate-100 pt-7">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <FileText size={16} className="text-brand-teal" />
+          Notes de voyage
         </h4>
-
-        <p className="text-sm text-gray-600 mb-4">
-          Ajoutez des liens vers des ressources utiles pour votre voyage (réservations, sites touristiques, documents, etc.).
+        <p className="mt-2 text-sm leading-relaxed text-slate-500">
+          Vos notes, idées et réflexions sur ce voyage. Elles sont également disponibles dans la
+          section Documents.
         </p>
 
-        {/* Liste des liens existants */}
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="mt-4 min-h-[200px] w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[15px] text-slate-800 outline-none transition focus:border-brand-teal focus:bg-white focus:ring-4 focus:ring-brand-teal/10"
+          placeholder="Écrivez vos notes ici…"
+        />
+
+        <div className="mt-4 flex justify-end">
+          <PrimaryButton onClick={saveNotes} disabled={isSavingNotes}>
+            {isSavingNotes ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <CheckCircle size={15} />
+            )}
+            {isSavingNotes ? 'Enregistrement…' : 'Enregistrer les notes'}
+          </PrimaryButton>
+        </div>
+      </section>
+
+      {/* Liens */}
+      <section className="mt-9 border-t border-slate-100 pt-7">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <LinkIcon size={16} className="text-brand-teal" />
+          Liens utiles
+        </h4>
+        <p className="mt-2 text-sm leading-relaxed text-slate-500">
+          Réservations, sites touristiques, documents… gardez tout à portée de main.
+        </p>
+
         {links.length > 0 && (
-          <div className="mb-4 border rounded-lg overflow-hidden">
-            <ul className="divide-y divide-gray-100">
-              {links.map(link => (
-                <li key={link.id} className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <LinkIcon size={14} className="text-blue-500 flex-shrink-0" />
-                    <div>
-                      <h5 className="font-medium text-sm">{link.title}</h5>
-                      <a 
-                        href={link.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-xs text-blue-500 hover:underline truncate max-w-xs inline-block"
-                      >
-                        {link.url}
-                      </a>
-                    </div>
+          <ul className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
+            {links.map(link => (
+              <li key={link.id} className="flex items-center justify-between gap-3 p-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-teal-50 text-brand-teal">
+                    <LinkIcon size={15} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{link.title}</p>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block truncate text-xs text-slate-400 hover:text-brand-teal hover:underline"
+                    >
+                      {link.url}
+                    </a>
                   </div>
-                  <button 
-                    onClick={() => removeLink(link.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+                </div>
+                <button
+                  onClick={() => removeLink(link.id)}
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                  aria-label="Supprimer le lien"
+                >
+                  <X size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
 
-        {/* Formulaire pour ajouter un lien */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label htmlFor="link-title" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="link-title" className="mb-2 block text-sm font-semibold text-slate-800">
               Titre du lien
             </label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               id="link-title"
               value={newLinkTitle}
               onChange={(e) => setNewLinkTitle(e.target.value)}
-              placeholder="Ex: Réservation hôtel"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Ex : Réservation hôtel"
+              className={inputClass}
             />
           </div>
           <div>
-            <label htmlFor="link-url" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="link-url" className="mb-2 block text-sm font-semibold text-slate-800">
               URL
             </label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               id="link-url"
               value={newLinkUrl}
               onChange={(e) => setNewLinkUrl(e.target.value)}
-              placeholder="Ex: https://booking.com/reservation"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Ex : https://booking.com/reservation"
+              className={inputClass}
             />
           </div>
         </div>
 
-        <button 
-          onClick={addLink}
-          className="mt-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-        >
+        <SecondaryButton type="button" onClick={addLink} className="mt-4">
+          <Plus size={15} />
           Ajouter un lien
-        </button>
-      </div>
+        </SecondaryButton>
+      </section>
     </div>
   );
-} 
+}

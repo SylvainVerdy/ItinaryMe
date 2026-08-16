@@ -3,6 +3,7 @@
 import { FC } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ArrowUpRight, CalendarRange, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
 
 export interface DestinationCardProps {
@@ -23,52 +24,66 @@ export const DestinationCard: FC<DestinationCardProps> = ({
   bestTimeToVisit
 }) => {
   const { t } = useLanguage();
-  
+
   // Déterminer si on doit utiliser les traductions pour cette destination
   const destinationKey = `destination_${id.replace(/-/g, '_')}`;
   const hasTranslation = t(destinationKey) !== destinationKey;
-  
+
   const displayName = hasTranslation ? t(destinationKey) : name;
   const displayDescription = hasTranslation ? t(`${destinationKey}_desc`) : description;
 
   return (
-    <div className="bg-[#f8f5ec] rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105">
-      <div className="relative h-48">
+    <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lift">
+      <Link href={`/destinations/${id}`} className="relative block h-52 overflow-hidden">
         <Image
           src={imageUrl}
-          alt={`Image de ${name}`}
+          alt={displayName}
           fill
-          style={{objectFit: 'cover'}}
-          className="transition-opacity group-hover:opacity-90"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
         />
-      </div>
-      
-      <div className="p-5">
-        <h3 className="text-xl font-semibold mb-2 text-gray-800">{displayName}</h3>
-        <p className="text-gray-600 mb-4 line-clamp-2">{displayDescription}</p>
-        
-        <div className="mb-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-1">{t('highlights')}:</h4>
-          <ul className="list-disc list-inside text-sm text-gray-600">
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent" />
+
+        <h3 className="absolute bottom-4 left-5 right-12 truncate font-display text-xl font-bold text-white">
+          {displayName}
+        </h3>
+        <span className="absolute bottom-4 right-4 flex h-8 w-8 translate-y-1 items-center justify-center rounded-full bg-white/20 text-white opacity-0 backdrop-blur transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+          <ArrowUpRight size={15} />
+        </span>
+      </Link>
+
+      <div className="flex flex-1 flex-col p-5">
+        <p className="line-clamp-2 text-sm leading-relaxed text-slate-500">{displayDescription}</p>
+
+        {highlights.length > 0 && (
+          <ul className="mt-4 flex flex-wrap gap-1.5">
             {highlights.slice(0, 3).map((highlight, index) => (
-              <li key={index} className="truncate">{highlight}</li>
+              <li
+                key={index}
+                className="max-w-full truncate rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600"
+              >
+                {highlight}
+              </li>
             ))}
           </ul>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-blue-600">
-            <span className="font-medium">{t('best_time_to_visit')}:</span> {bestTimeToVisit}
+        )}
+
+        <p className="mt-4 flex items-start gap-1.5 text-xs text-slate-400">
+          <CalendarRange size={14} className="mt-px flex-shrink-0 text-brand-teal" />
+          <span>
+            <span className="font-medium text-slate-600">{t('best_time_to_visit')} : </span>
+            {bestTimeToVisit}
           </span>
-          
-          <Link
-            href={`/travel/new?destination=${id}`}
-            className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
-          >
-            {t('planMyTrip')}
-          </Link>
-        </div>
+        </p>
+
+        <Link
+          href={`/travel/new?destination=${encodeURIComponent(name)}`}
+          className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+        >
+          <Sparkles size={15} />
+          {t('planMyTrip')}
+        </Link>
       </div>
-    </div>
+    </article>
   );
-}; 
+};

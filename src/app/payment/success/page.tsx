@@ -6,8 +6,9 @@ import {
   CheckCircle, Loader2, ArrowRight,
   Hotel, Plane, UtensilsCrossed, Sparkles,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import Link from 'next/link';
+import { Logo } from '@/components/Logo';
+import { PrimaryButton } from '@/components/layout/PageShell';
 import { useCart } from '@/context/CartContext';
 import { TravelerInfo, BookingJob } from '@/types/booking';
 
@@ -25,8 +26,8 @@ export default function PaymentSuccessPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#f8f5ec] flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-[#e8a87c]" />
+        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+          <Loader2 className="h-7 w-7 animate-spin text-brand-teal" />
         </div>
       }
     >
@@ -87,111 +88,156 @@ function PaymentSuccessContent() {
   const formValid =
     traveler.firstName && traveler.lastName && traveler.email && traveler.phone;
 
-  return (
-    <div className="min-h-screen bg-[#f8f5ec] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full space-y-4">
+  const inputClass =
+    'w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-teal focus:ring-4 focus:ring-brand-teal/10';
 
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#e6e0d4] p-6 text-center">
-          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-          <h1 className="text-xl font-bold text-gray-800">Paiement confirmé !</h1>
-          <p className="text-sm text-gray-500 mt-1">
+  return (
+    <div className="flex min-h-screen flex-col items-center bg-slate-50 px-4 py-12">
+      <Link href="/" className="mb-10" aria-label="ItinaryMe">
+        <Logo />
+      </Link>
+
+      <div className="w-full max-w-lg space-y-5">
+        {/* En-tête */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+            <CheckCircle size={30} />
+          </span>
+          <h1 className="mt-6 font-display text-2xl font-bold text-slate-900">
+            Paiement confirmé
+          </h1>
+          <p className="mt-2.5 leading-relaxed text-slate-500">
             Renseignez vos coordonnées pour finaliser les réservations.
           </p>
         </div>
 
-        {/* Traveler form */}
+        {/* Formulaire voyageur */}
         {step === 'form' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-[#e6e0d4] p-6 space-y-4">
-            <p className="text-xs font-semibold text-[#8b7355] uppercase tracking-wide">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Voyageur principal
             </p>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="text-xs text-gray-500 mb-1 block">Prénom</label>
-                <Input placeholder="Jean" value={traveler.firstName}
-                  onChange={(e) => setTraveler((t) => ({ ...t, firstName: e.target.value }))} />
-              </div>
-              <div className="flex-1">
-                <label className="text-xs text-gray-500 mb-1 block">Nom</label>
-                <Input placeholder="Dupont" value={traveler.lastName}
-                  onChange={(e) => setTraveler((t) => ({ ...t, lastName: e.target.value }))} />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Email</label>
-              <Input type="email" placeholder="jean@email.com" value={traveler.email}
-                onChange={(e) => setTraveler((t) => ({ ...t, email: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Téléphone (E.164)</label>
-              <Input placeholder="+33612345678" value={traveler.phone}
-                onChange={(e) => setTraveler((t) => ({ ...t, phone: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Date de naissance</label>
-              <Input type="date" value={traveler.bornOn ?? ''}
-                onChange={(e) => setTraveler((t) => ({ ...t, bornOn: e.target.value }))} />
-            </div>
 
-            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="mt-6 space-y-5">
+              <div className="flex flex-col gap-5 sm:flex-row">
+                <div className="flex-1">
+                  <label className="mb-2 block text-sm font-semibold text-slate-800">Prénom</label>
+                  <input
+                    className={inputClass}
+                    placeholder="Jean"
+                    value={traveler.firstName}
+                    onChange={(e) => setTraveler((t) => ({ ...t, firstName: e.target.value }))}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="mb-2 block text-sm font-semibold text-slate-800">Nom</label>
+                  <input
+                    className={inputClass}
+                    placeholder="Dupont"
+                    value={traveler.lastName}
+                    onChange={(e) => setTraveler((t) => ({ ...t, lastName: e.target.value }))}
+                  />
+                </div>
+              </div>
 
-            <Button
-              className="w-full bg-[#e8a87c] hover:bg-[#d4956a] text-white font-semibold py-5 rounded-xl"
-              onClick={startBooking}
-              disabled={!formValid}
-            >
-              Finaliser les réservations
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-800">Email</label>
+                <input
+                  type="email"
+                  className={inputClass}
+                  placeholder="jean@email.com"
+                  value={traveler.email}
+                  onChange={(e) => setTraveler((t) => ({ ...t, email: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-800">
+                  Téléphone <span className="font-normal text-slate-400">(format E.164)</span>
+                </label>
+                <input
+                  className={inputClass}
+                  placeholder="+33612345678"
+                  value={traveler.phone}
+                  onChange={(e) => setTraveler((t) => ({ ...t, phone: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-800">
+                  Date de naissance
+                </label>
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={traveler.bornOn ?? ''}
+                  onChange={(e) => setTraveler((t) => ({ ...t, bornOn: e.target.value }))}
+                />
+              </div>
+
+              {error && (
+                <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </p>
+              )}
+
+              <PrimaryButton onClick={startBooking} disabled={!formValid} className="w-full">
+                Finaliser les réservations
+                <ArrowRight size={16} />
+              </PrimaryButton>
+            </div>
           </div>
         )}
 
-        {/* Automating */}
+        {/* Réservations en cours */}
         {step === 'automating' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-[#e6e0d4] p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <Loader2 className="w-5 h-5 animate-spin text-[#e8a87c]" />
-              <p className="text-sm font-medium text-gray-700">
-                Réservations en cours via Duffel…
-              </p>
+          <div className="rounded-3xl border border-slate-200 bg-white p-8">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-brand-teal" />
+              <p className="font-medium text-slate-800">Réservations en cours via Duffel…</p>
             </div>
-            <p className="text-xs text-gray-400">
-              Confirmations en direct auprès des compagnies aériennes et hôtels. Ne fermez pas cette page.
+            <p className="mt-3 text-sm leading-relaxed text-slate-500">
+              Confirmations en direct auprès des compagnies aériennes et des hôtels. Ne fermez pas
+              cette page.
             </p>
           </div>
         )}
 
-        {/* Results */}
+        {/* Résultats */}
         {step === 'done' && job && (
-          <div className="bg-white rounded-2xl shadow-sm border border-[#e6e0d4] p-6 space-y-3">
-            <p className="text-sm font-semibold text-gray-800 mb-1">Confirmations</p>
-            {job.results.map((r) => {
-              const Icon = TYPE_ICON[job.items.find((i) => i.id === r.itemId)?.type ?? 'activity'];
-              return (
-                <div key={r.itemId} className="flex items-start gap-3 py-2 border-b border-[#e6e0d4] last:border-0">
-                  <Icon className="w-4 h-4 text-[#8b7355] mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-800 truncate">{r.itemName}</p>
-                    {r.status === 'success' && (
-                      <p className="text-xs text-green-600 font-mono mt-0.5">✓ {r.confirmationNumber}</p>
-                    )}
-                    {r.status === 'failed' && (
-                      <p className="text-xs text-red-500 mt-0.5">✗ {r.error ?? 'Échec'}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            <Button
-              className="w-full bg-[#e8a87c] hover:bg-[#d4956a] text-white font-semibold py-5 rounded-xl mt-2"
-              onClick={() => (window.location.href = '/dashboard')}
-            >
-              Tableau de bord <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+            <h2 className="font-display text-lg font-bold text-slate-900">Confirmations</h2>
+
+            <ul className="mt-5 divide-y divide-slate-100">
+              {job.results.map((r) => {
+                const Icon = TYPE_ICON[job.items.find((i) => i.id === r.itemId)?.type ?? 'activity'];
+                return (
+                  <li key={r.itemId} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900">{r.itemName}</p>
+                      {r.status === 'success' && (
+                        <p className="mt-0.5 font-mono text-xs text-emerald-600">
+                          ✓ {r.confirmationNumber}
+                        </p>
+                      )}
+                      {r.status === 'failed' && (
+                        <p className="mt-0.5 text-xs text-red-500">✗ {r.error ?? 'Échec'}</p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <PrimaryButton href="/dashboard" className="mt-6 w-full">
+              Tableau de bord
+              <ArrowRight size={16} />
+            </PrimaryButton>
           </div>
         )}
-
       </div>
     </div>
   );
