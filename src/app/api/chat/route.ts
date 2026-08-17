@@ -3,6 +3,8 @@ import { resolvePlace } from '@/services/duffel-places';
 import { webSearch, fetchPageText, searchRestaurants, searchFlightsSerpApi, searchHotelsSerpApi, getFlightBookingOptions, findBookingUrl, searchActivities, WebSource } from '@/lib/web-tools';
 import { searchFlights } from '@/services/duffel-flights';
 import { searchStays } from '@/services/duffel-stays';
+import { searchBokunActivities } from '@/services/bokun-activities';
+import { searchViatorActivities } from '@/services/viator-activities';
 import { ChatCard, TripContext } from '@/types/chat-message';
 
 export const maxDuration = 180;
@@ -295,6 +297,55 @@ async function executeTool(name: string, args: Record<string, unknown>, ctx: Tri
       const city  = String(args.city ?? ctx.destination ?? '');
       const query = String(args.query ?? 'activités à faire');
       const max   = Number(args.max_results ?? 6);
+
+      // Cascade, de la source la plus qualitative à la plus dégradée :
+      //   1. Bókun  — réservable et encaissable par nous (payant, sous contrat)
+      //   2. Viator — catalogue officiel, réservation chez eux (clé gratuite)
+      //   3. SerpAPI — résultats Google des marketplaces (déjà en place)
+      // Chaque source renvoie [] si sa clé manque ou si elle échoue.
+      const bokunOffers = await searchBokunActivities(city, max);
+      {
+        if (bokunOffers.length > 0) {
+          const lines = bokunOffers.map((o) =>
+            `- ${o.name}${o.price ? ` — ${o.price} ${o.currency}` : ''}${o.rating ? ` — ⭐ ${o.rating}` : ''}`,
+          );
+          result = {
+            text:
+              `${bokunOffers.length} activité(s) réservable(s) à ${city} :\n` +
+              `${lines.join('\n')}\n\n` +
+              'Elles sont affichées en cartes avec un bouton « Ajouter au panier ». ' +
+              'Résume-les sans inventer de prix.',
+            card: { type: 'activities', results: bokunOffers },
+            // Les produits vendus ici n'ont pas de lien externe : rien à
+            // proposer en source pour ceux-là.
+            sources: bokunOffers
+              .filter((o): o is typeof o & { bookingUrl: string } => Boolean(o.bookingUrl))
+              .map((o) => ({ title: `Réserver · ${o.name}`, url: o.bookingUrl })),
+          };
+          break;
+        }
+      }
+
+      const viatorOffers = await searchViatorActivities(city, max);
+      if (viatorOffers.length > 0) {
+        const lines = viatorOffers.map((o) =>
+          `- ${o.name}${o.price ? ` — à partir de ${o.price} ${o.currency}` : ''}${o.rating ? ` — ⭐ ${o.rating}` : ''}`,
+        );
+        result = {
+          text:
+            `${viatorOffers.length} activité(s) trouvée(s) à ${city} (Viator) :\n` +
+            `${lines.join('\n')}\n\n` +
+            'Elles sont affichées en cartes avec un lien de réservation. ' +
+            'Résume-les sans inventer de prix.',
+          card: { type: 'activities', results: viatorOffers },
+          sources: viatorOffers
+            .filter((o): o is typeof o & { bookingUrl: string } => Boolean(o.bookingUrl))
+            .map((o) => ({ title: `Réserver · ${o.name}`, url: o.bookingUrl })),
+        };
+        break;
+      }
+
+      // 3) Dernier repli : marketplaces via SerpAPI.
       const { text, sources, offers } = await searchActivities(city, query, max);
       result = {
         text,

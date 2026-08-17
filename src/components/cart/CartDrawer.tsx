@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { ShoppingBag, Trash2, Loader2 } from 'lucide-react';
+import { ShoppingBag, Trash2, Loader2, ExternalLink } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { CartItemRow } from './CartItemRow';
 import { CartItemType } from '@/types/cart';
+import { isPayable, payableItems, payableTotal, selfBookedItems } from '@/lib/cart-rules';
 
 const GROUPS: { type: CartItemType; label: string }[] = [
   { type: 'flight', label: 'Vols' },
@@ -22,9 +23,15 @@ const GROUPS: { type: CartItemType; label: string }[] = [
 ];
 
 export function CartDrawer() {
-  const { items, total, itemCount, tripId, clearCart } = useCart();
+  const { items, itemCount, tripId, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Ce qui est réservé et encaissé ici, vs ce que l'utilisateur réserve
+  // lui-même chez le prestataire (activités, restaurants).
+  const selfBooked = selfBookedItems(items);
+  const toPay = payableTotal(items);
+  const canPay = payableItems(items).length > 0;
 
   async function handleCheckout() {
     setLoading(true);
@@ -96,33 +103,57 @@ export function CartDrawer() {
               </p>
             </div>
           ) : (
-            GROUPS.map(({ type, label }) => {
-              const groupItems = items.filter((i) => i.type === type);
-              if (groupItems.length === 0) return null;
+            <>
+              {GROUPS.filter((g) => isPayable({ type: g.type })).map(({ type, label }) => {
+                const groupItems = items.filter((i) => i.type === type);
+                if (groupItems.length === 0) return null;
 
-              const groupTotal = groupItems.reduce((s, i) => s + i.price, 0);
+                const groupTotal = groupItems.reduce((s, i) => s + i.price, 0);
 
-              return (
-                <div key={type}>
-                  <div className="mb-2 flex items-center justify-between">
+                return (
+                  <div key={type}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        {label}
+                      </span>
+                      <span className="text-xs font-medium text-slate-600">
+                        {groupTotal.toLocaleString('fr-FR', {
+                          style: 'currency',
+                          currency: groupItems[0].currency,
+                        })}
+                      </span>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3">
+                      {groupItems.map((item) => (
+                        <CartItemRow key={item.id} item={item} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Réglés chez le prestataire : hors du paiement Stripe, pour ne
+                  pas faire payer deux fois la même prestation. */}
+              {selfBooked.length > 0 && (
+                <div>
+                  <div className="mb-2 flex items-center gap-1.5">
+                    <ExternalLink className="h-3 w-3 text-slate-400" />
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      {label}
-                    </span>
-                    <span className="text-xs font-medium text-slate-600">
-                      {groupTotal.toLocaleString('fr-FR', {
-                        style: 'currency',
-                        currency: groupItems[0].currency,
-                      })}
+                      À réserver vous-même
                     </span>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white px-3">
-                    {groupItems.map((item) => (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-3">
+                    {selfBooked.map((item) => (
                       <CartItemRow key={item.id} item={item} />
                     ))}
                   </div>
+                  <p className="mt-2 px-1 text-[11px] leading-relaxed text-slate-400">
+                    Ces prestations se règlent directement sur le site du prestataire : elles ne
+                    sont pas incluses dans le paiement ci-dessous.
+                  </p>
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
 
@@ -130,21 +161,25 @@ export function CartDrawer() {
         {itemCount > 0 && (
           <div className="space-y-3 border-t border-slate-200 pt-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-600">Total</span>
+              <span className="text-sm font-medium text-slate-600">
+                Total à payer ici
+              </span>
               <span className="font-display text-xl font-bold text-slate-900">
-                {total.toLocaleString('fr-FR', { style: 'currency', currency: items[0].currency })}
+                {toPay.toLocaleString('fr-FR', { style: 'currency', currency: items[0].currency })}
               </span>
             </div>
             {error && (
               <p className="text-center text-xs text-red-500">{error}</p>
             )}
             <p className="text-center text-[11px] text-slate-400">
-              Un seul paiement · Réservations automatiques sur chaque site
+              {canPay
+                ? 'Un seul paiement · vols et hôtels réservés automatiquement'
+                : 'Rien à payer ici : utilisez les liens de réservation ci-dessus'}
             </p>
             <Button
-              className="w-full rounded-full bg-gradient-to-r from-brand-coral to-brand-sun py-6 font-semibold text-white transition hover:brightness-110"
+              className="w-full rounded-full bg-gradient-to-r from-brand-coral to-brand-sun py-6 font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
               onClick={handleCheckout}
-              disabled={loading}
+              disabled={loading || !canPay}
             >
               {loading ? (
                 <>

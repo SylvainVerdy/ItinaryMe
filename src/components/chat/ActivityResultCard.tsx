@@ -18,20 +18,22 @@ export default function ActivityResultCard({ offer, tripId }: Props) {
   const alreadyInCart = items.some((i) => i.id === offer.activityId);
   const isAdded = alreadyInCart || added;
 
-  // Sans prix connu, l'ajouter au panier fausserait le total : on renvoie
-  // alors uniquement vers la marketplace.
-  const canAddToCart = typeof offer.price === 'number' && offer.price > 0;
+  // Toutes les marketplaces n'affichent pas leur tarif dans les résultats.
+  // On autorise quand même l'ajout : l'activité est alors comptée à 0 dans le
+  // total et signalée « prix sur le site », plutôt que d'être impossible à
+  // mettre au panier.
+  const hasPrice = typeof offer.price === 'number' && offer.price > 0;
 
   const handleAdd = () => {
-    if (isAdded || !canAddToCart) return;
+    if (isAdded) return;
     addItem({
       id: offer.activityId,
       type: 'activity',
       name: offer.name,
-      price: offer.price!,
+      price: hasPrice ? offer.price! : 0,
       currency: offer.currency ?? 'EUR',
       location: offer.city,
-      sourceUrl: offer.bookingUrl,
+      ...(offer.bookingUrl ? { sourceUrl: offer.bookingUrl } : {}),
       tripId,
       image: offer.thumbnail,
     });
@@ -66,7 +68,7 @@ export default function ActivityResultCard({ offer, tripId }: Props) {
         )}
 
         <div className="mt-3">
-          {canAddToCart ? (
+          {hasPrice ? (
             <p className="font-display text-base font-bold text-slate-900">
               {offer.price!.toLocaleString('fr-FR')} {offer.currency}
               <span className="ml-1 text-xs font-normal text-slate-400">/ pers.</span>
@@ -77,25 +79,30 @@ export default function ActivityResultCard({ offer, tripId }: Props) {
         </div>
 
         <div className="mt-auto flex flex-col gap-2 pt-3.5">
-          <a
-            href={offer.bookingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun py-2.5 text-xs font-semibold text-white transition hover:brightness-110"
-          >
-            <ExternalLink size={13} />
-            Réserver
-          </a>
+          {/* Produit d'une marketplace tierce : on renvoie chez elle. Un produit
+              vendu ici n'a pas de lien externe, seul l'ajout au panier compte. */}
+          {!offer.bookableInApp && offer.bookingUrl && (
+            <a
+              href={offer.bookingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-brand-coral to-brand-sun py-2.5 text-xs font-semibold text-white transition hover:brightness-110"
+            >
+              <ExternalLink size={13} />
+              Réserver
+            </a>
+          )}
 
-          {canAddToCart && (
-            <button
+          <button
               onClick={handleAdd}
               disabled={isAdded}
               className={cn(
-                'flex w-full items-center justify-center gap-1.5 rounded-full border py-2.5 text-xs font-semibold transition',
+                'flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-semibold transition',
                 isAdded
-                  ? 'cursor-default border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border-slate-200 text-slate-700 hover:border-brand-teal hover:text-brand-teal',
+                  ? 'cursor-default border border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : offer.bookableInApp
+                    ? 'bg-gradient-to-r from-brand-coral to-brand-sun text-white hover:brightness-110'
+                    : 'border border-slate-200 text-slate-700 hover:border-brand-teal hover:text-brand-teal',
               )}
             >
               {isAdded ? (
@@ -103,7 +110,12 @@ export default function ActivityResultCard({ offer, tripId }: Props) {
               ) : (
                 <><ShoppingCart size={13} /> Ajouter au panier</>
               )}
-            </button>
+          </button>
+
+          {!hasPrice && (
+            <p className="text-center text-[10px] leading-tight text-slate-400">
+              Tarif réglé sur {offer.provider}
+            </p>
           )}
         </div>
       </div>

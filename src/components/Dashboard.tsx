@@ -333,7 +333,10 @@ export function Dashboard() {
               id: Math.random().toString(36).substring(2, 15),
               role: msg.role,
               content: msg.content,
-              timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp.toISOString()
+              timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : msg.timestamp.toISOString(),
+              // Les liens sont conservés pour être relus depuis l'historique.
+              // Champ omis s'il est vide : Firestore rejette `undefined`.
+              ...(msg.sources?.length ? { sources: msg.sources } : {}),
             })),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

@@ -11,6 +11,22 @@ import { Send, ArrowLeft, Loader, Sparkles, User } from 'lucide-react';
 import Link from 'next/link';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { ChatCapabilities, ALL_CAPABILITIES, CapabilityId } from '@/components/chat/ChatCapabilities';
+import { MessageSources } from '@/components/chat/MessageSources';
+
+/**
+ * Firestore refuse les champs `undefined` : un message sans liens ferait
+ * échouer toute la sauvegarde de la conversation. On n'écrit `sources` que
+ * lorsqu'il y en a réellement.
+ */
+function toStorableMessage(msg: ChatMessage) {
+  const base = {
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    timestamp: msg.timestamp,
+  };
+  return msg.sources?.length ? { ...base, sources: msg.sources } : base;
+}
 
 // Fonctions d'extraction pour la génération de titres
 const extractDestination = (text: string): string | null => {
@@ -251,6 +267,7 @@ export default function ChatPage() {
         id: uuidv4(),
         role: 'assistant',
         content: data.text || "Désolé, je n'ai pas pu répondre.",
+        sources: data.sources?.length ? data.sources : undefined,
         timestamp: new Date().toISOString()
       };
 
@@ -379,7 +396,7 @@ export default function ChatPage() {
         const conversionData = {
           userId: user.uid,
           title: updatedHistory.title,
-          messages: updatedMessages,
+          messages: updatedMessages.map(toStorableMessage),
           updatedAt: new Date().toISOString(),
           tags: updatedHistory.tags || []
         };
@@ -565,6 +582,11 @@ export default function ChatPage() {
                     }`}
                   >
                     <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+
+                    {msg.sources && msg.sources.length > 0 && (
+                      <MessageSources sources={msg.sources} className="mt-3" />
+                    )}
+
                     <div 
                       className={`text-xs mt-2 ${
                         msg.role === 'user' ? 'text-slate-400' : 'text-slate-500'

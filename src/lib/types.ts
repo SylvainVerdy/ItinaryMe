@@ -90,4 +90,14 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
+  /**
+   * Liens renvoyés par l'agent (sources, liens de réservation).
+   * Persistés avec le message : sans ça, ils disparaissaient dès qu'on
+   * rouvrait la conversation depuis l'historique.
+   *
+   * Les cartes vols/hôtels ne sont volontairement pas stockées : elles
+   * contiennent la réponse brute du fournisseur (trop volumineuse pour un
+   * document Firestore) et les offres expirent de toute façon.
+   */
+  sources?: { title: string; url: string }[];
 } 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { CartItem } from '@/types/cart';
+import { payableItems } from '@/lib/cart-rules';
 
 export async function POST(req: NextRequest) {
   const { items, tripId }: { items: CartItem[]; tripId: string | null } = await req.json();
@@ -11,7 +12,22 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:9000';
 
-  const lineItems = items.map((item) => ({
+  // On ne facture que ce que l'application réserve elle-même. Les activités et
+  // restaurants se règlent chez le prestataire : les inclure ici ferait payer
+  // deux fois le client.
+  const toCharge = payableItems(items);
+
+  if (toCharge.length === 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Votre panier ne contient que des éléments à réserver directement auprès du prestataire. Utilisez leurs liens de réservation.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const lineItems = toCharge.map((item) => ({
     price_data: {
       currency: item.currency.toLowerCase(),
       product_data: {

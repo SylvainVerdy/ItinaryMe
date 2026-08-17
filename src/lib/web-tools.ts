@@ -601,7 +601,9 @@ function parsePrice(text: string): { price: number; currency: string } | null {
   };
 
   // Euros, devise avant ou après le montant.
-  const eur = text.match(/(?:€|EUR)\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*(?:€|EUR)/i);
+  // \bEUR\b et non /EUR/i : sinon « meilleur » ou « Europe » déclenchent un faux
+  // positif et on affiche un prix inventé.
+  const eur = text.match(/(?:€|\bEUR\b)\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*(?:€|\bEUR\b)/i);
   if (eur) {
     const n = toNumber(eur[1] ?? eur[2]);
     if (n) return { price: n, currency: 'EUR' };
@@ -627,6 +629,19 @@ function stableId(url: string): string {
 }
 
 /**
+ * Fiches produit des marketplaces : GetYourGuide « …-t123456 », Viator
+ * « …-d123-a456 », Tiqets « /…-p123456 », Civitatis « /billets-… ».
+ */
+function isProductUrl(url: string): boolean {
+  return /-t\d{3,}|-a\d{3,}|-p\d{3,}|\/tickets?\/|\/billets?\/|\/tours?\//i.test(url);
+}
+
+/** Titres de pages de liste, à reléguer : ce ne sont pas des produits. */
+function isListingTitle(title: string): boolean {
+  return /meilleur|top\s*\d|choses à faire|que faire|guide|incontournable|activités.*\d{4}|\d+\s+(?:choses|activités|visites)/i.test(title);
+}
+
+/**
  * Recherche d'activités et d'excursions sur les marketplaces (GetYourGuide,
  * Viator…) via SerpAPI, renvoyées sous forme structurée pour être affichées
  * en cartes réservables.
@@ -637,7 +652,13 @@ export async function searchActivities(
   maxResults = 6,
 ): Promise<WebResult & { offers: ActivityOffer[] }> {
   const siteFilter = ACTIVITY_MARKETPLACES.map((d) => `site:${d}`).join(' OR ');
-  const fullQuery = `${query || 'activités à faire'} ${city} (${siteFilter})`;
+
+  // Une requête générique (« que faire à X ») ne remonte que des pages de
+  // listes, sans tarif. Mesuré sur Barcelone : 0 résultat avec prix contre 6
+  // en orientant la recherche vers les fiches réservables.
+  const isGeneric = !query.trim() || /^(activit|que faire|[àa] faire|visiter|choses [àa] faire)/i.test(query.trim());
+  const terms = isGeneric ? `réserver visite guidée billets ${city}` : `${query} ${city}`;
+  const fullQuery = `${terms} (${siteFilter})`;
 
   if (process.env.SERPAPI_KEY) {
     try {
@@ -654,12 +675,17 @@ export async function searchActivities(
         }>;
 
         const offers: ActivityOffer[] = [];
+        // Google renvoie beaucoup de pages de catégorie (« les 10 meilleures
+        // choses à faire à … ») qui ne sont pas réservables. On note chaque
+        // résultat et on garde les vraies fiches produit en tête.
+        const scored: Array<{ offer: ActivityOffer; score: number }> = [];
+
         for (const r of organic) {
-          if (!r.link || offers.length >= maxResults) continue;
+          if (!r.link) continue;
           let host: string;
           try { host = new URL(r.link).hostname.replace('www.', ''); } catch { continue; }
           if (!ACTIVITY_MARKETPLACES.some((d) => host.endsWith(d))) continue;
-          if (offers.some((o) => o.bookingUrl === r.link)) continue;
+          if (scored.some((x) => x.offer.bookingUrl === r.link)) continue;
 
           // Le prix vit le plus souvent dans les extensions du rich snippet
           // (« À partir de 49,00 € »), pas dans le titre ni le snippet.
@@ -667,20 +693,32 @@ export async function searchActivities(
           const priceInfo = parsePrice(`${extensions} ${r.title} ${r.snippet ?? ''}`);
           const ext = r.rich_snippet?.top?.detected_extensions;
 
-          offers.push({
-            activityId: stableId(r.link),
-            name: r.title.replace(/\s*[|\-–]\s*(GetYourGuide|Viator|Tiqets|Civitatis|Musement).*$/i, '').trim(),
-            provider: host,
-            bookingUrl: r.link,
-            price: priceInfo?.price,
-            currency: priceInfo?.currency,
-            rating: ext?.rating,
-            reviews: ext?.reviews,
-            thumbnail: r.thumbnail,
-            snippet: r.snippet,
-            city,
+          let score = 0;
+          if (priceInfo) score += 3;              // un tarif => fiche produit
+          if (ext?.rating) score += 2;            // note d'avis => produit
+          if (isProductUrl(r.link)) score += 3;
+          if (isListingTitle(r.title)) score -= 5;
+
+          scored.push({
+            score,
+            offer: {
+              activityId: stableId(r.link),
+              name: r.title.replace(/\s*[|\-–]\s*(GetYourGuide|Viator|Tiqets|Civitatis|Musement).*$/i, '').trim(),
+              provider: host,
+              bookingUrl: r.link,
+              price: priceInfo?.price,
+              currency: priceInfo?.currency,
+              rating: ext?.rating,
+              reviews: ext?.reviews,
+              thumbnail: r.thumbnail,
+              snippet: r.snippet,
+              city,
+            },
           });
         }
+
+        scored.sort((a, b) => b.score - a.score);
+        offers.push(...scored.slice(0, maxResults).map((x) => x.offer));
 
         if (offers.length) {
           console.log(`[ACTIVITIES] ${offers.length} activités trouvées`);
@@ -691,10 +729,9 @@ export async function searchActivities(
               (o.rating ? ` — ⭐ ${o.rating}/5` : ''),
             )
             .join('\n');
-          const sources: WebSource[] = offers.map((o) => ({
-            title: `Réserver · ${o.name}`,
-            url: o.bookingUrl,
-          }));
+          const sources: WebSource[] = offers
+            .filter((o): o is typeof o & { bookingUrl: string } => Boolean(o.bookingUrl))
+            .map((o) => ({ title: `Réserver · ${o.name}`, url: o.bookingUrl }));
           return {
             text: `${offers.length} activité(s) trouvée(s) à ${city} :\n${text}\n\nElles sont affichées en cartes réservables. Résume-les sans inventer de prix.`,
             sources,

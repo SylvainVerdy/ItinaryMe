@@ -10,7 +10,13 @@ export interface ActivityOffer {
   name: string;
   /** Domaine de la marketplace, ex. « getyourguide.com ». */
   provider: string;
-  bookingUrl: string;
+  /** Lien externe vers la marketplace. Absent pour les produits vendus ici. */
+  bookingUrl?: string;
+  /**
+   * Produit réservable directement dans l'application (inventaire Bókun sous
+   * contrat). Dans ce cas il n'y a pas de site tiers vers lequel renvoyer.
+   */
+  bookableInApp?: boolean;
   /** Absent quand la marketplace n'affiche pas le tarif dans les résultats. */
   price?: number;
   currency?: string;

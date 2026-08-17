@@ -51,9 +51,19 @@ export function CartItemRow({ item }: { item: CartItem }) {
 
       {/* Price + remove */}
       <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
-        <span className="font-display text-sm font-bold text-slate-900">
-          {item.price.toLocaleString('fr-FR', { style: 'currency', currency: item.currency })}
-        </span>
+        {/* Une activité sans tarif public est stockée à 0 : afficher « 0,00 € »
+            laisserait croire qu'elle est gratuite. */}
+        {item.price > 0 ? (
+          <span className="font-display text-sm font-bold text-slate-900">
+            {item.price.toLocaleString('fr-FR', { style: 'currency', currency: item.currency })}
+          </span>
+        ) : (
+          <span className="text-right text-[11px] font-medium leading-tight text-slate-400">
+            Prix sur
+            <br />
+            le site
+          </span>
+        )}
         <button
           onClick={() => removeItem(item.id)}
           className="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
