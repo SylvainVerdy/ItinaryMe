@@ -2,42 +2,66 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Travels + sous-collections (activities, etc.)
+    // Le document voyage désigné existe-t-il et appartient-il à l'appelant ?
+    function ownsTravel(travelId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/travels/$(travelId))
+        && get(/databases/$(database)/documents/travels/$(travelId)).data.userId == request.auth.uid;
+    }
+
+    function isOwner() {
+      return request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    function createsAsSelf() {
+      return request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Voyages + sous-collections
     match /travels/{travelId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null;
+      allow read, write: if isOwner();
+      // La création doit se faire à son propre nom, sinon on peut créer un
+      // voyage au nom d'un autre utilisateur.
+      allow create: if createsAsSelf();
 
       match /activities/{activityId} {
-        allow read, write, create, delete: if request.auth != null;
+        // Auparavant : tout utilisateur connecté pouvait lire et modifier les
+        // activités de n'importe quel voyage.
+        allow read, write, create, delete: if ownsTravel(travelId);
       }
     }
 
     // Notes
     match /notes/{noteId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null;
+      allow read, write: if isOwner();
+      allow create: if createsAsSelf();
     }
 
-    // Images
+    // Images (collection historique : plus écrite par l'application, qui
+    // stocke désormais l'image sur le document voyage). Lecture seule, et
+    // uniquement par le propriétaire du voyage référencé.
     match /images/{imageId} {
-      allow read, write: if request.auth != null;
+      allow read: if ownsTravel(resource.data.travelId);
+      allow write, create, delete: if false;
     }
 
-    // Chat histories (ancienne collection)
+    // Historiques de chat (ancienne collection, remplacée par `conversations`).
+    // Elle était ouverte à tout utilisateur connecté ; on la ferme.
     match /chat-histories/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, update, delete: if isOwner();
+      allow create: if createsAsSelf();
     }
 
-    // Conversations (dashboard chat)
+    // Conversations (chat du tableau de bord)
     match /conversations/{conversationId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read, update, delete: if isOwner();
+      allow create: if createsAsSelf();
     }
 
     // Documents de voyage
     match /travelDocuments/{docId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read, update, delete: if isOwner();
+      allow create: if createsAsSelf();
     }
 
     // Préférences utilisateur
@@ -45,9 +69,20 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == prefId;
     }
 
-    // Booking jobs (Stripe/Duffel)
+    // Jobs de réservation (Stripe → Duffel).
+    //
+    // ATTENTION — exception assumée : `src/lib/booking-jobs.ts` écrit dans
+    // cette collection depuis les routes API en utilisant le SDK *client*.
+    // Côté serveur, `request.auth` vaut donc toujours null : toute règle
+    // exigeant une authentification casserait la chaîne de réservation.
+    //
+    // Les données sont protégées au niveau des routes (`requireUser` +
+    // vérification de `job.userId`), mais un accès direct à Firestore reste
+    // possible. La correction de fond est de passer ces écritures au SDK
+    // firebase-admin, qui contourne les règles, puis de fermer cette
+    // collection avec `if false`.
     match /booking_jobs/{jobId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }

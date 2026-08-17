@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       }[] = JSON.parse(itemsData);
 
       await createBookingJob({
+        userId: session.metadata?.userId || undefined,
         stripeSessionId: session.id,
         tripId: tripId ?? '',
         items: rawItems.map((i) => ({

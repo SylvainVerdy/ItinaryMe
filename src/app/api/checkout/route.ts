@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { CartItem } from '@/types/cart';
 import { payableItems } from '@/lib/cart-rules';
+import { requireUser } from '@/lib/auth-server';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireUser(req);
+  if ('response' in auth) return auth.response;
+
   const { items, tripId }: { items: CartItem[]; tripId: string | null } = await req.json();
 
   if (!items || items.length === 0) {
@@ -50,6 +54,7 @@ export async function POST(req: NextRequest) {
     success_url: `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/payment/cancel`,
     metadata: {
+      userId: auth.user.uid,
       tripId: tripId ?? '',
       itemCount: String(items.length),
       // Store source URLs so the webhook can trigger Puppeteer checkout

@@ -9,6 +9,7 @@ import ActivityResultCard from './ActivityResultCard';
 import { CartDrawer } from '../cart/CartDrawer';
 import { ChatCapabilities, ALL_CAPABILITIES, CapabilityId } from './ChatCapabilities';
 import { cn } from '@/lib/utils';
+import { authedFetch } from '@/lib/api-client';
 
 interface Props {
   tripContext: TripContext;
@@ -230,7 +231,7 @@ export default function TripPlannerChat({ tripContext }: Props) {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await authedFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userMessage: trimmed, tripContext, history, capabilities }),

@@ -6,6 +6,7 @@ import { searchStays } from '@/services/duffel-stays';
 import { searchBokunActivities } from '@/services/bokun-activities';
 import { searchViatorActivities } from '@/services/viator-activities';
 import { ChatCard, TripContext } from '@/types/chat-message';
+import { requireUser } from '@/lib/auth-server';
 
 export const maxDuration = 180;
 
@@ -675,6 +676,12 @@ async function runAgent(messages: OMsg[], ctx: TripContext, allowed: Set<string>
 
 export async function POST(req: NextRequest) {
   console.log('\n[CHAT API] ▶ POST /api/chat received');
+
+  // Route coûteuse (quota SerpAPI, temps GPU) : réservée aux utilisateurs
+  // authentifiés, sinon n'importe qui peut consommer le budget du projet.
+  const auth = await requireUser(req);
+  if ('response' in auth) return auth.response;
+
   const { userMessage, tripContext, history = [], capabilities }: {
     userMessage: string;
     tripContext: TripContext;

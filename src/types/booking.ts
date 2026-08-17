@@ -25,6 +25,12 @@ export interface BookingResult {
 
 export interface BookingJob {
   id?: string;
+  /**
+   * Propriétaire du job, repris des métadonnées de la session Stripe.
+   * Sans lui, n'importe qui connaissant un identifiant de session pouvait
+   * déclencher ou consulter des réservations qui ne lui appartenaient pas.
+   */
+  userId?: string;
   stripeSessionId: string;
   tripId: string;
   items: BookingJobItem[];

@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { ChatCapabilities, ALL_CAPABILITIES, CapabilityId } from '@/components/chat/ChatCapabilities';
 import { MessageSources } from '@/components/chat/MessageSources';
+import { authedFetch } from '@/lib/api-client';
 
 /**
  * Firestore refuse les champs `undefined` : un message sans liens ferait
@@ -248,7 +249,7 @@ export default function ChatPage() {
     setIsSendingMessage(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await authedFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

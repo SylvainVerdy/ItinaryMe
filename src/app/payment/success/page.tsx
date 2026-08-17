@@ -11,6 +11,7 @@ import { Logo } from '@/components/Logo';
 import { PrimaryButton } from '@/components/layout/PageShell';
 import { useCart } from '@/context/CartContext';
 import { TravelerInfo, BookingJob } from '@/types/booking';
+import { authedFetch } from '@/lib/api-client';
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   hotel: Hotel, flight: Plane, restaurant: UtensilsCrossed, activity: Sparkles,
@@ -55,7 +56,7 @@ function PaymentSuccessContent() {
   useEffect(() => {
     if (step !== 'automating' || !jobId) return;
     const iv = setInterval(async () => {
-      const res = await fetch(`/api/booking-status?jobId=${jobId}`);
+      const res = await authedFetch(`/api/booking-status?jobId=${jobId}`);
       if (!res.ok) return;
       const data: BookingJob = await res.json();
       setJob(data);
@@ -71,7 +72,7 @@ function PaymentSuccessContent() {
     if (!sessionId) return;
     setError(null);
     try {
-      const res = await fetch('/api/automate-bookings', {
+      const res = await authedFetch('/api/automate-bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, traveler }),

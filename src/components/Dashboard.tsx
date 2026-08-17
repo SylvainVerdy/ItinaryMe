@@ -40,6 +40,7 @@ import HotelResultCard from './chat/HotelResultCard';
 import ActivityResultCard from './chat/ActivityResultCard';
 import { ChatCard, WebSource } from '@/types/chat-message';
 import { cn } from '@/lib/utils';
+import { authedFetch } from '@/lib/api-client';
 
 interface TravelPlan {
   id: string;
@@ -224,7 +225,7 @@ export function Dashboard() {
       // route expose à l'agent les outils search_flights / search_hotels /
       // search_restaurants / web_search / find_booking_url. Sans elle, le
       // modèle répondait de mémoire et ne pouvait rien chercher.
-      const response = await fetch('/api/chat', {
+      const response = await authedFetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

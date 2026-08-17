@@ -14,6 +14,7 @@ import { useCart } from '@/context/CartContext';
 import { CartItemRow } from './CartItemRow';
 import { CartItemType } from '@/types/cart';
 import { isPayable, payableItems, payableTotal, selfBookedItems } from '@/lib/cart-rules';
+import { authedFetch } from '@/lib/api-client';
 
 const GROUPS: { type: CartItemType; label: string }[] = [
   { type: 'flight', label: 'Vols' },
@@ -37,7 +38,7 @@ export function CartDrawer() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/checkout', {
+      const res = await authedFetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items, tripId }),
